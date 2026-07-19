@@ -167,6 +167,7 @@
     body.edit-mode .editable-card { border-color: rgba(40, 150, 114, .32); box-shadow: 0 0 0 2px rgba(40, 150, 114, .05); }
 
     .app-footer { position: sticky; bottom: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 18px; color: var(--muted-foreground); background: rgba(255, 255, 255, .97); border-top: 1px solid var(--border); box-shadow: 0 -3px 14px rgba(27, 53, 43, .04); backdrop-filter: blur(10px); font-size: 11px; }
+    .app-footer .status-chip { min-height: 27px; padding: 0 9px; }
     .footer-part { min-width: 0; display: flex; align-items: center; gap: 10px; }
     .footer-center { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .edit-toggle { display: inline-flex; align-items: center; gap: 9px; color: #405048; font-size: 12px; font-weight: 600; user-select: none; cursor: pointer; }
@@ -234,7 +235,6 @@
       </div>
       <div class="header-actions">
         <button class="btn btn-ghost edit-only" type="button" id="download-config" data-icon-button="download">Скачать config.json</button>
-        <div class="status-chip" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
       </div>
     </header>
 
@@ -252,6 +252,7 @@
       <div class="footer-part"><span id="version-label">Версия 0.3</span></div>
       <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
       <div class="footer-part">
+        <div class="status-chip edit-only" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
         <label class="edit-toggle" for="edit-mode">
           <span>Режим редактирования</span>
           <input id="edit-mode" type="checkbox" />
@@ -594,7 +595,7 @@
 
       function setConfigStatus(type, message) {
         var node = document.getElementById("config-status");
-        node.className = "status-chip " + (type || "");
+        node.className = "status-chip edit-only " + (type || "");
         node.innerHTML = '<span class="status-dot"></span><span>' + escapeHtml(message) + '</span>';
       }
 
