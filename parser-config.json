@@ -1,6 +1,6 @@
 {
   "application": "nzp-calculator",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "sources": {
     "aggregation": {
       "name": "Справочник укрупнения",
@@ -101,6 +101,10 @@
     "coefficientCorrections": {
       "byKq2Code": {},
       "byErCode": {}
+    },
+    "groupCorrections": {
+      "kq1": {},
+      "kq2": {}
     },
     "excludedStatuses": ["Аннулировано*"],
     "fallback": "keep-source"

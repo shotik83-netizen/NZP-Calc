@@ -770,11 +770,13 @@
         var priorityText = runtimeConfig && Array.isArray(runtimeConfig.sourcePriority) ? runtimeConfig.sourcePriority.slice().sort(function (a, b) { return b.priority - a.priority; }).map(function (entry) { return entry.source; }).join(" → ") : "kfo → contractPrice → aggregation";
         var hierarchy = new Map();
         entries.forEach(function (entry) {
-          var kq1Key = entry.kq1Code || "Без KQ-1";
-          if (!hierarchy.has(kq1Key)) hierarchy.set(kq1Key, { code: kq1Key, name: entry.kq1Name || "Без наименования", groups: new Map(), count: 0 });
+          var effectiveKq1 = runtimeConfig ? getEffectiveAggregationGroup("kq1", entry.kq1Code, entry.kq1Name, runtimeConfig) : { code: entry.kq1Code, name: entry.kq1Name, corrected: false };
+          var effectiveKq2 = runtimeConfig ? getEffectiveAggregationGroup("kq2", entry.kq2Code, entry.kq2Name, runtimeConfig) : { code: entry.kq2Code, name: entry.kq2Name, corrected: false };
+          var kq1Key = effectiveKq1.code || "Без KQ-1";
+          if (!hierarchy.has(kq1Key)) hierarchy.set(kq1Key, { code: kq1Key, name: effectiveKq1.name || "Без наименования", corrected: effectiveKq1.corrected, groups: new Map(), count: 0 });
           var kq1 = hierarchy.get(kq1Key);
-          var kq2Key = entry.kq2Code || "Без KQ-2";
-          if (!kq1.groups.has(kq2Key)) kq1.groups.set(kq2Key, { code: kq2Key, name: entry.kq2Name || "Без наименования", entries: [] });
+          var kq2Key = effectiveKq2.code || "Без KQ-2";
+          if (!kq1.groups.has(kq2Key)) kq1.groups.set(kq2Key, { code: kq2Key, name: effectiveKq2.name || "Без наименования", corrected: effectiveKq2.corrected, entries: [] });
           kq1.groups.get(kq2Key).entries.push(entry);
           kq1.count += 1;
         });
@@ -785,12 +787,12 @@
               var corrected = Number(effectiveCoefficient) !== Number(entry.kq2Coefficient);
               return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong></td><td>' + escapeHtml(entry.erName) + '</td><td>' + escapeHtml(entry.unit) + '</td><td class="num"><strong>' + escapeHtml(effectiveCoefficient) + '</strong>' + (corrected ? '<br><span class="badge warning">JSON</span>' : '') + '</td><td>' + escapeHtml(entry.status || "Действует") + '</td></tr>';
             }).join("");
-            return '<details class="card" style="margin:8px 0"><summary style="cursor:pointer;padding:12px 16px"><strong>' + escapeHtml(kq2.code) + '</strong> — ' + escapeHtml(kq2.name) + ' <span class="badge">ЕР: ' + kq2.entries.length + '</span></summary><div class="table-wrap"><table><thead><tr><th>Шифр ЕР</th><th>Наименование ЕР</th><th>Ед. изм.</th><th class="num">Коэф. KQ-2</th><th>Статус</th></tr></thead><tbody>' + erRows + '</tbody></table></div></details>';
+            return '<details class="card" style="margin:8px 0"><summary style="cursor:pointer;padding:12px 16px"><span class="badge">Уровень 2 · KQ-2</span> <strong>' + escapeHtml(kq2.code) + '</strong> — ' + escapeHtml(kq2.name) + (kq2.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' <span class="badge">ЕР: ' + kq2.entries.length + '</span></summary><div class="table-wrap"><table><thead><tr><th>Уровень 3 · Шифр ЕР</th><th>Наименование ЕР</th><th>Ед. изм.</th><th class="num">Коэф. KQ-2</th><th>Статус</th></tr></thead><tbody>' + erRows + '</tbody></table></div></details>';
           }).join("");
-          return '<details class="card" style="margin:12px 0"><summary style="cursor:pointer;padding:14px 16px"><strong>' + escapeHtml(kq1.code) + '</strong> — ' + escapeHtml(kq1.name) + ' <span class="badge">KQ-2: ' + kq1.groups.size + '</span> <span class="badge">ЕР: ' + kq1.count + '</span></summary><div style="padding:0 12px 12px">' + kq2Rows + '</div></details>';
+          return '<details class="card" style="margin:12px 0"><summary style="cursor:pointer;padding:14px 16px"><span class="badge green">Уровень 1 · KQ-1</span> <strong>' + escapeHtml(kq1.code) + '</strong> — ' + escapeHtml(kq1.name) + (kq1.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' <span class="badge">KQ-2: ' + kq1.groups.size + '</span> <span class="badge">ЕР: ' + kq1.count + '</span></summary><div style="padding:0 12px 12px">' + kq2Rows + '</div></details>';
         }).join("");
         var body = entries.length
-          ? '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Коэффициент существует только у строки ЕР для перехода к KQ-2; у KQ-1 и KQ-0 дополнительного коэффициента нет.</div></div>' + groupedRows
+          ? '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Код и наименование KQ-1 редактируются через aggregationLogic.groupCorrections.kq1 в JSON. Коэффициент существует только у строки ЕР для перехода к KQ-2; у KQ-1 дополнительного коэффициента нет.</div></div>' + groupedRows
           : emptyState("Справочник не загружен", state.aggregation.message, "book");
         return pageHead(item, button("Загрузить справочник", "upload", "", 'id="load-aggregation"')) +
           '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
@@ -1493,6 +1495,24 @@
         return Number.isFinite(coefficient) ? coefficient : 1;
       }
 
+      function getEffectiveAggregationGroup(level, sourceCode, sourceName, config) {
+        var logic = config.aggregationLogic || {};
+        var groups = (logic.groupCorrections || {})[level] || {};
+        var correction = groups[sourceCode];
+        if (correction === undefined) correction = groups[normalizeParserLabel(sourceCode)];
+        if (correction === undefined) {
+          return { code: sourceCode || "", name: sourceName || "", corrected: false };
+        }
+        if (typeof correction === "string") {
+          return { code: sourceCode || "", name: correction, corrected: true };
+        }
+        return {
+          code: correction.code || sourceCode || "",
+          name: correction.name || sourceName || "",
+          corrected: true
+        };
+      }
+
       function calculateByAggregationRule(quantity, rule, config) {
         var logic = config.aggregationLogic || {};
         var levelName = logic.activeLevel || "kq2";
@@ -1506,7 +1526,10 @@
         var result = operation === "multiply" ? Number(quantity) * coefficient : Number(quantity);
         var rounding = Number((logic.quantityCalculation || {}).rounding);
         if (Number.isInteger(rounding) && rounding >= 0 && rounding <= 12) result = Number(result.toFixed(rounding));
-        return { quantity: result, code: rule[level.codeField] || "", name: rule[level.nameField] || "", coefficient: coefficient, level: levelName };
+        var effectiveGroup = levelName === "kq1" || levelName === "kq2"
+          ? getEffectiveAggregationGroup(levelName, rule[level.codeField], rule[level.nameField], config)
+          : { code: rule[level.codeField] || "", name: rule[level.nameField] || "" };
+        return { quantity: result, code: effectiveGroup.code, name: effectiveGroup.name, coefficient: coefficient, level: levelName };
       }
 
       function resolveAggregation(erCode, quantity, candidates) {
