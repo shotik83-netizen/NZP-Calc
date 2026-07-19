@@ -121,7 +121,6 @@
     .source-name { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
     .source-meta { overflow: hidden; margin-top: 2px; color: var(--muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
     .source-grid { display: grid; gap: 12px; }
-<<<<<<< HEAD
     .source-card { overflow: hidden; background: #fbfcfb; border: 1px solid var(--border); border-radius: 8px; }
     .source-overview { min-height: 46px; display: grid; grid-template-columns: minmax(90px, 1fr) auto minmax(190px, auto) auto auto; align-items: center; gap: 14px; padding: 9px 12px; }
     .source-overview-name { min-width: 0; overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
@@ -136,35 +135,12 @@
     .source-open-link { color: var(--primary-strong); font-size: 10px; font-weight: 650; text-decoration: none; white-space: nowrap; }
     .source-open-link:hover { text-decoration: underline; }
     .source-settings { margin: 0 12px 12px; padding-top: 12px; border-top: 1px solid var(--border); }
-=======
-    .source-card { padding: 14px; background: #fbfcfb; border: 1px solid var(--border); border-radius: 8px; }
-    .source-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .source-card-title { margin: 0; font-size: 13px; font-weight: 650; }
-    .source-card-actions { display: flex; align-items: center; gap: 7px; }
-    .source-link { color: var(--primary-strong); text-decoration: none; word-break: break-all; }
-    .source-link:hover { text-decoration: underline; }
-    .source-settings { margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--border); }
->>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
     .settings-section-title { margin: 16px 0 4px; color: var(--foreground); font-size: 12px; font-weight: 650; }
     .settings-section-note { margin: 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
     .mapping-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .mapping-grid .input { text-transform: uppercase; }
     .result-note { margin: 10px 0 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
 
-<<<<<<< HEAD
-=======
-    .connection-summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 14px; background: #fafcfb; border: 1px solid var(--border); border-radius: 8px; }
-    .connection-main { min-width: 0; display: flex; align-items: center; gap: 11px; }
-    .connection-light { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; color: var(--danger); background: var(--danger-soft); border-radius: 50%; }
-    .connection-light.active { color: var(--primary-strong); background: var(--primary-soft); }
-    .connection-light svg { width: 17px; height: 17px; }
-    .connection-title { color: var(--foreground); font-size: 12px; font-weight: 650; }
-    .connection-note { margin-top: 3px; color: var(--muted-foreground); font-size: 10px; line-height: 1.4; }
-    .connection-facts { min-width: min(100%, 360px); display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 10px 16px; }
-    .connection-fact { min-width: 0; display: grid; gap: 2px; text-align: right; }
-    .connection-fact span { color: var(--muted-foreground); font-size: 9px; line-height: 1.3; }
-    .connection-fact strong { overflow: hidden; color: #44524c; font-size: 10px; font-weight: 650; line-height: 1.35; text-overflow: ellipsis; }
->>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
     .form-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
     .form-actions .field { min-width: min(100%, 210px); flex: 1; }
 
@@ -206,6 +182,7 @@
     .metric-inline strong { color: #44524c; font-weight: 700; font-variant-numeric: tabular-nums; }
     .contractor-body { padding: 0 14px 14px; border-top: 1px solid var(--border); }
     .contractor-body .table-wrap { margin-top: 12px; }
+    .work-code { min-width: 105px; white-space: nowrap; }
     .work-name { min-width: 220px; }
 
     .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
@@ -267,14 +244,8 @@
       .grid-2, .grid-3, .field-grid { grid-template-columns: 1fr; }
       .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .field-wide { grid-column: auto; }
-<<<<<<< HEAD
       .source-overview { grid-template-columns: minmax(60px, 1fr) auto auto auto auto; gap: 6px; padding-inline: 9px; }
       .source-overview-secondary, .source-date-origin { display: none; }
-=======
-      .connection-summary { align-items: flex-start; flex-direction: column; }
-      .connection-facts { width: 100%; grid-template-columns: 1fr; }
-      .connection-fact { text-align: left; }
->>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
       .metric-strip { grid-template-columns: 1fr; }
       .contractor-item > summary { grid-template-columns: minmax(0, 1fr) 18px; }
       .contractor-metrics { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
@@ -315,11 +286,7 @@
     </div>
 
     <footer class="app-footer">
-<<<<<<< HEAD
-      <div class="footer-part"><span id="version-label">Версия 0.8</span></div>
-=======
-      <div class="footer-part"><span id="version-label">Версия 0.7</span></div>
->>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
+      <div class="footer-part"><span id="version-label">Версия 0.9</span></div>
       <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
       <div class="footer-part">
         <div class="status-chip edit-only" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
@@ -394,11 +361,7 @@
 
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
-<<<<<<< HEAD
-        version: "0.8",
-=======
-        version: "0.7",
->>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
+        version: "0.9",
         title: "Отчёт по незавершённому строительству (НЗП)",
         configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
@@ -501,7 +464,6 @@
         var title = !source.enabled ? "Отключён" : (connection.status === "checking" || connection.status === "loading" ? "Проверка…" : (active ? "Активно" : "Нет подключения"));
         var checked = connection.checkedAt ? formatDateTime(connection.checkedAt) : "Проверка ещё не выполнялась";
         var updated = summary && summary.updatedAt ? formatDateShort(summary.updatedAt) : "Не определена";
-<<<<<<< HEAD
         var updatedOrigin = summary && summary.updatedAtOrigin ? summary.updatedAtOrigin.replace(/^ячейка\s+/i, "") : "";
         var statusDetails = (connection.message || "Источник данных недоступен") + " · Проверено: " + checked;
         var metric = summary ? '<strong>' + formatNumber(summary.totalRows, 0) + '</strong> строк <span class="source-overview-secondary">· ' + formatNumber(summary.includedRows, 0) + ' с объёмами</span>' : escapeHtml(connection.message || "Сведения ещё не загружены");
@@ -512,14 +474,6 @@
       }
 
       function renderKfoSourceCard(source, index) {
-=======
-        var updatedOrigin = summary && summary.updatedAtOrigin ? summary.updatedAtOrigin : "дата в книге не найдена";
-        return '<div class="connection-summary"><div class="connection-main"><div class="connection-light' + (active ? " active" : "") + '">' + (active ? ICONS.check : ICONS.database) + '</div><div><div class="connection-title">' + title + '</div><div class="connection-note">' + escapeHtml(connection.message || "Источник данных недоступен") + '</div></div></div><div class="connection-facts"><div class="connection-fact"><span>Дата обновления данных · ' + escapeHtml(updatedOrigin) + '</span><strong>' + updated + '</strong></div><div class="connection-fact"><span>Проверено приложением</span><strong>' + checked + '</strong></div></div></div>';
-      }
-
-      function renderKfoSourceCard(source, index) {
-        var summary = sourceSummary(source);
->>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
         var modeOptions = '<option value="inherit"' + (source.calculationMode === "inherit" ? " selected" : "") + '>Выбранный режим</option><option value="without-regulations"' + (source.calculationMode === "without-regulations" ? " selected" : "") + '>Без регламентов</option><option value="with-regulations"' + (source.calculationMode === "with-regulations" ? " selected" : "") + '>С регламентами</option>';
         var levelOptions = '<option value="inherit"' + (source.kqLevel === "inherit" ? " selected" : "") + '>Выбранный уровень</option><option value="kq1"' + (source.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (source.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option>';
         var mapping = KFO_COLUMN_FIELDS.map(function (field) {
@@ -527,13 +481,8 @@
         }).join("");
         var editor = state.editMode
           ? '<div class="source-settings"><div class="field-grid"><div class="field"><label>Наименование источника</label><input class="input" value="' + escapeHtml(source.name) + '" data-source-index="' + index + '" data-source-field="name" /></div><div class="field"><label>Использование</label><select class="input" data-source-index="' + index + '" data-source-field="enabled"><option value="true"' + (source.enabled ? " selected" : "") + '>Включён</option><option value="false"' + (!source.enabled ? " selected" : "") + '>Отключён</option></select></div><div class="field field-wide"><label>Ссылка SharePoint или путь к тестовому файлу</label><input class="input" type="text" placeholder="https://...sharepoint.com/.../БД-КФО.xlsb" value="' + escapeHtml(source.url) + '" data-source-index="' + index + '" data-source-field="url" /></div><div class="field"><label>Лист данных</label><input class="input" value="' + escapeHtml(source.sheetName) + '" data-source-index="' + index + '" data-source-field="sheetName" /></div><div class="field"><label>Лист регламентов</label><input class="input" value="' + escapeHtml(source.dkSheetName) + '" data-source-index="' + index + '" data-source-field="dkSheetName" /></div><div class="field"><label>Ячейка даты обновления</label><input class="input" value="' + escapeHtml(source.updatedAtCell) + '" data-source-index="' + index + '" data-source-field="updatedAtCell" /></div><div class="field"><label>Строк поиска заголовка</label><input class="input" type="number" min="1" max="500" value="' + source.headerSearchRows + '" data-source-index="' + index + '" data-source-field="headerSearchRows" /></div><div class="field"><label>Уровень KQ для файла</label><select class="input" data-source-index="' + index + '" data-source-field="kqLevel">' + levelOptions + '</select></div><div class="field"><label>Режим для файла</label><select class="input" data-source-index="' + index + '" data-source-field="calculationMode">' + modeOptions + '</select></div></div><h5 class="settings-section-title">Колонки для сбора информации</h5><p class="settings-section-note">Все поля доступны для настройки. Заголовки определяются автоматически, указанные буквы используются как резерв.</p><div class="mapping-grid">' + mapping + '</div></div>'
-<<<<<<< HEAD
           : "";
         return '<div class="source-card">' + connectionSummary(source, index) + editor + '</div>';
-=======
-          : '<div class="source-settings"><div class="source-meta">' + (source.url ? '<a class="source-link" href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(source.url) + '</a>' : "Ссылка SharePoint не указана") + '</div>' + (summary ? '<p class="result-note">Лист «' + escapeHtml(summary.sheetName) + '». Проанализировано ' + formatNumber(summary.totalRows, 0) + ' строк; ' + formatNumber(summary.includedRows, 0) + ' содержат ненулевые объёмы после применения условий среза.</p>' : "") + '</div>';
-        return '<div class="source-card"><div class="source-card-head"><div><h4 class="source-card-title">' + escapeHtml(source.name) + '</h4><div class="source-meta">' + (source.enabled ? "Используется в расчёте" : "Исключён из расчёта") + '</div></div><div class="source-card-actions">' + (state.editMode ? button("Удалить", "", "", 'data-remove-source="' + index + '"') : "") + '</div></div>' + editor + '<div style="margin-top:12px">' + connectionSummary(source) + '</div></div>';
->>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
       }
 
       function formatNumber(value, digits) {
@@ -553,11 +502,19 @@
         return keys.size;
       }
 
+      function hasDisplayedVolume(entry) {
+        return [entry.actualSmr, entry.acceptedSk, entry.acceptedId, entry.evaluatedVolume].some(function (value) {
+          if (value == null || value === "") return false;
+          var number = Number(value);
+          return Number.isFinite(number) && Math.round(number) !== 0;
+        });
+      }
+
       function renderKfoResults() {
-        var groups = state.kfo.groups || [];
-        var contractors = state.kfo.contractors || [];
+        var groups = (state.kfo.groups || []).filter(hasDisplayedVolume);
+        var contractors = buildContractorSummaries(groups);
         if (state.kfo.status === "loading") return emptyState("Читаем БД КФО", "Большой файл .xlsb обрабатывается в браузере. Не закрывайте страницу.", "database");
-        if (!groups.length) return emptyState("Сведения о выполнении не загружены", state.kfo.message || "Проверьте источники и обновите сведения.", "database");
+        if (!groups.length) return emptyState("Нет ненулевых физических объёмов", state.kfo.message || "Проверьте источники, дату среза и параметры расчёта.", "database");
         var byContractor = new Map();
         groups.forEach(function (entry) {
           var key = normalizeParserLabel(entry.contractor);
@@ -566,24 +523,26 @@
         });
         var contractorCards = contractors.map(function (contractor) {
           var workRows = (byContractor.get(normalizeParserLabel(contractor.name)) || []).map(function (entry) {
-            return '<tr><td class="work-name"><strong>' + escapeHtml(entry.kqCode) + '</strong><br><span class="muted">' + escapeHtml(entry.kqName || entry.erName || "Наименование не найдено") + '</span><br><span class="muted">Источник: ' + escapeHtml(entry.sourceName) + '</span></td><td>' + escapeHtml(entry.unit) + '</td><td class="num">' + formatNumber(entry.actualSmr, 0) + '</td><td class="num">' + formatNumber(entry.acceptedSk, 0) + '</td><td class="num">' + formatNumber(entry.acceptedId, 0) + '</td><td class="num">' + (entry.evaluatedVolume == null ? "—" : formatNumber(entry.evaluatedVolume, 0)) + '</td></tr>';
+            return '<tr><td class="work-code"><strong>' + escapeHtml(entry.kqCode) + '</strong></td><td class="work-name">' + escapeHtml(entry.kqName || entry.erName || "Наименование не найдено") + '</td><td>' + escapeHtml(entry.unit) + '</td><td class="num">' + formatNumber(entry.actualSmr, 0) + '</td><td class="num">' + formatNumber(entry.acceptedSk, 0) + '</td><td class="num">' + formatNumber(entry.acceptedId, 0) + '</td><td class="num">' + (entry.evaluatedVolume == null ? "—" : formatNumber(entry.evaluatedVolume, 0)) + '</td></tr>';
           }).join("");
           var coverage = contractor.regulationCoverage == null ? "Регламент не применяется" : "Покрытие ДК " + formatNumber(contractor.regulationCoverage, 0) + "%";
-          return '<details class="contractor-item"><summary><span class="contractor-name">' + escapeHtml(contractor.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(contractor.workTypes, 0) + '</strong> видов работ</span><span class="metric-inline"><strong>' + formatNumber(contractor.rows, 0) + '</strong> строк с объёмами</span><span class="metric-inline">' + coverage + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Вид работ</th><th>Ед.</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th class="num">Регламентная оценка</th></tr></thead><tbody>' + workRows + '</tbody></table></div></div></details>';
+          return '<details class="contractor-item"><summary><span class="contractor-name">' + escapeHtml(contractor.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(contractor.workTypes, 0) + '</strong> видов работ</span><span class="metric-inline"><strong>' + formatNumber(contractor.rows, 0) + '</strong> строк с объёмами</span><span class="metric-inline">' + coverage + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Шифр KQ</th><th>Наименование работ</th><th>Ед.</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th class="num">Регламентная оценка</th></tr></thead><tbody>' + workRows + '</tbody></table></div></div></details>';
         }).join("");
-        return '<section class="card"><div class="card-header"><h3 class="card-title">Физические объёмы по подрядчикам</h3><p class="card-desc">Выберите подрядчика, чтобы увидеть его виды работ. Показанные объёмы округлены до целых; в расчёте сохраняется исходная точность.</p></div><div class="card-body"><div class="contractor-list">' + contractorCards + '</div><p class="result-note">Объёмы приведены коэффициентом выбранного уровня KQ. При включённых регламентах каждый этап дополнительно умножается на свой коэффициент листа «ДК».</p></div></section>';
+        return '<section class="card"><div class="card-header"><h3 class="card-title">Физические объёмы по подрядчикам</h3><p class="card-desc">Выберите подрядчика, чтобы увидеть его виды работ. Нулевые строки скрыты; отображаемые объёмы округлены до целых, расчётная точность сохранена.</p></div><div class="card-body"><div class="contractor-list">' + contractorCards + '</div><p class="result-note">Объёмы приведены коэффициентом выбранного уровня KQ. При включённых регламентах каждый этап дополнительно умножается на свой коэффициент листа «ДК».</p></div></section>';
       }
 
       function renderDataUpload(item) {
         var sources = getKfoSources();
         var sourceCards = sources.length ? sources.map(renderKfoSourceCard).join("") : emptyState("Источники не настроены", "Включите режим редактирования и добавьте ссылку на БД КФО.", "database");
         var kfo = state.kfo;
-        var workTypes = countUniqueWorkTypes(kfo.groups || []);
+        var visibleGroups = (kfo.groups || []).filter(hasDisplayedVolume);
+        var visibleContractors = buildContractorSummaries(visibleGroups);
+        var workTypes = countUniqueWorkTypes(visibleGroups);
         return pageHead(item, button("Проверить подключения", "refresh", "", 'id="check-kfo"')) +
           '<div class="stack">' +
             '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники БД КФО</h3><span class="badge">Источников: ' + formatNumber(sources.length, 0) + '</span></div><p class="card-desc">Ссылка открывает файл-источник. Состояние подключения и происхождение дат показаны отдельно.</p></div><div class="card-body"><div class="source-grid">' + sourceCards + '</div></div><div class="card-footer edit-only block">' + button("Добавить источник", "plus", "", 'id="add-kfo-source"') + '</div></section>' +
             '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Срез и способ расчёта</h3><span class="badge">На ' + formatDateShort(state.asOfDate) + '</span></div><p class="card-desc">Дата ограничивает строки по дате записи; факт СМР с более поздней датой последнего факта исключается. Для СК и ИД отдельных дат в книге нет, поэтому точный исторический откат этих этапов требует отдельного файла-среза.</p></div><div class="card-body"><div class="form-actions"><div class="field"><label for="as-of-date">Дата сведений</label><input class="input" id="as-of-date" type="date" value="' + escapeHtml(state.asOfDate) + '" /></div><div class="field"><label for="kq-level">Уровень расчёта</label><select class="input" id="kq-level"><option value="kq1"' + (state.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (state.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option></select></div><div class="field"><label for="calculation-mode">Регламенты</label><select class="input" id="calculation-mode"><option value="without-regulations"' + (state.calculationMode === "without-regulations" ? " selected" : "") + '>Без применения регламентов</option><option value="with-regulations"' + (state.calculationMode === "with-regulations" ? " selected" : "") + '>С применением регламентов</option></select></div>' + button("Обновить сведения", "refresh", "btn-primary", 'id="refresh-kfo-data"') + '</div></div></section>' +
-            '<section class="card"><div class="card-header"><h3 class="card-title">Ключевые показатели</h3><p class="card-desc">Краткая оценка состава загруженных сведений без суммирования разных единиц измерения.</p></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber((kfo.contractors || []).length, 0) : "—") + '</div><div class="stat-note">по всем источникам</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(kfo.totalRows, 0) : "—") + '</div><div class="stat-note">' + (kfo.status === "active" ? formatNumber(kfo.includedRows, 0) + ' с ненулевыми объёмами' : 'ожидается загрузка') + '</div></div><div class="stat"><div class="stat-label">Видов работ</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(workTypes, 0) : "—") + '</div><div class="stat-note">уникальные коды выбранного KQ</div></div></div></div></section>' +
+            '<section class="card"><div class="card-header"><h3 class="card-title">Ключевые показатели</h3><p class="card-desc">Краткая оценка состава загруженных сведений без суммирования разных единиц измерения.</p></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(visibleContractors.length, 0) : "—") + '</div><div class="stat-note">с ненулевыми объёмами</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(kfo.totalRows, 0) : "—") + '</div><div class="stat-note">' + (kfo.status === "active" ? formatNumber(kfo.includedRows, 0) + ' с ненулевыми объёмами' : 'ожидается загрузка') + '</div></div><div class="stat"><div class="stat-label">Видов работ</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(workTypes, 0) : "—") + '</div><div class="stat-note">уникальные коды выбранного KQ</div></div></div></div></section>' +
             renderKfoResults() +
           '</div>';
       }
