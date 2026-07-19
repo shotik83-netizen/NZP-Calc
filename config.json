@@ -1,6 +1,6 @@
 {
   "application": "nzp-calculator",
-  "version": "0.9",
+  "version": "1.0",
   "title": "Отчёт по незавершённому строительству (НЗП)",
   "configUrl": "https://shotik83-netizen.github.io/NZP-Calc/config.json",
   "editMode": false,
@@ -38,6 +38,36 @@
   "calculation": {
     "defaultKqLevel": "kq2",
     "defaultMode": "without-regulations"
+  },
+  "contractorDirectory": {
+    "storage": "shared-config",
+    "entries": [
+      {
+        "sourceName": "ФИТ",
+        "canonicalName": "ФИТ",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ФИТ1",
+        "canonicalName": "ФИТ",
+        "status": "alias"
+      },
+      {
+        "sourceName": "ФИТ2",
+        "canonicalName": "ФИТ",
+        "status": "alias"
+      },
+      {
+        "sourceName": "Эста Коснтракшен",
+        "canonicalName": "Эста Коснтракшен",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Эста Коснтракшен (АКЗ)",
+        "canonicalName": "Эста Коснтракшен",
+        "status": "alias"
+      }
+    ]
   },
   "coefficientBindings": {},
   "pricingBindings": {},

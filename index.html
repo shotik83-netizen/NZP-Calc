@@ -100,6 +100,7 @@
     .banner svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--primary); margin-top: 1px; }
     .banner.warning { background: var(--warning-soft); border-color: rgba(154, 103, 0, .18); }
     .banner.warning svg { color: var(--warning); }
+    .banner-action { margin-left: auto; flex: 0 0 auto; }
 
     .badge { display: inline-flex; align-items: center; gap: 5px; min-height: 23px; padding: 3px 8px; color: #4c5a54; background: var(--muted); border: 1px solid var(--border); border-radius: 999px; font-size: 10px; font-weight: 650; white-space: nowrap; }
     .badge.green { color: var(--primary-strong); background: var(--primary-soft); border-color: rgba(40, 150, 114, .2); }
@@ -185,6 +186,15 @@
     .work-code { min-width: 105px; white-space: nowrap; }
     .work-name { min-width: 220px; }
 
+    .directory-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 220px; gap: 10px; margin-bottom: 12px; }
+    .directory-source { min-width: 210px; color: var(--foreground); font-weight: 600; }
+    .directory-canonical { min-width: 260px; }
+    .directory-editor { display: grid; grid-template-columns: minmax(170px, 1fr) auto; align-items: center; gap: 7px; }
+    .directory-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .directory-actions .btn { min-height: 30px; padding: 5px 9px; }
+    .directory-status { min-width: 120px; }
+    .directory-suggestion { display: block; margin-top: 4px; color: var(--muted-foreground); font-size: 10px; }
+
     .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
     .field { display: grid; gap: 6px; }
     .field-wide { grid-column: 1 / -1; }
@@ -229,6 +239,7 @@
       .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .metric-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .mapping-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .directory-toolbar { grid-template-columns: minmax(180px, 1fr) 200px; }
       .footer-center { display: none; }
     }
 
@@ -241,8 +252,11 @@
       .page-head { display: grid; }
       .page-actions { justify-content: flex-start; }
       .page-description { margin-left: 0; }
+      .banner { flex-wrap: wrap; }
+      .banner-action { margin-left: 27px; }
       .grid-2, .grid-3, .field-grid { grid-template-columns: 1fr; }
       .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .directory-toolbar { grid-template-columns: 1fr; }
       .field-wide { grid-column: auto; }
       .source-overview { grid-template-columns: minmax(60px, 1fr) auto auto auto auto; gap: 6px; padding-inline: 9px; }
       .source-overview-secondary, .source-date-origin { display: none; }
@@ -286,7 +300,7 @@
     </div>
 
     <footer class="app-footer">
-      <div class="footer-part"><span id="version-label">Версия 0.9</span></div>
+      <div class="footer-part"><span id="version-label">Версия 1.0</span></div>
       <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
       <div class="footer-part">
         <div class="status-chip edit-only" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
@@ -315,6 +329,7 @@
         settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.38.36.72.68 1 .3.25.69.39 1.1.4H21v4h-.1A1.7 1.7 0 0 0 19.4 15z"/></svg>',
         info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
         database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
+        users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
         file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>',
         download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
         plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
@@ -325,6 +340,7 @@
 
       var MENU = [
         { id: "data-upload", label: "БД КФО", icon: "database", description: "Подключение базы КФО на SharePoint и получение сведений на выбранную дату." },
+        { id: "contractor-directory", label: "08 Справочник подрядчиков", icon: "users", description: "Акцепт новых наименований и объединение вариантов одного подрядчика без изменения первичных расчётов." },
         { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
         { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
         { id: "aggregation", label: "Справочник укрупнения", icon: "book", description: "Объединение детальных видов работ в отчётные группы." },
@@ -361,12 +377,22 @@
 
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
-        version: "0.9",
+        version: "1.0",
         title: "Отчёт по незавершённому строительству (НЗП)",
         configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
         dataSources: [DEFAULT_KFO_SOURCE],
         calculation: { defaultKqLevel: "kq2", defaultMode: "without-regulations" },
+        contractorDirectory: {
+          storage: "shared-config",
+          entries: [
+            { sourceName: "ФИТ", canonicalName: "ФИТ", status: "canonical" },
+            { sourceName: "ФИТ1", canonicalName: "ФИТ", status: "alias" },
+            { sourceName: "ФИТ2", canonicalName: "ФИТ", status: "alias" },
+            { sourceName: "Эста Коснтракшен", canonicalName: "Эста Коснтракшен", status: "canonical" },
+            { sourceName: "Эста Коснтракшен (АКЗ)", canonicalName: "Эста Коснтракшен", status: "alias" }
+          ]
+        },
         coefficientBindings: {},
         pricingBindings: {},
         aggregationSource: { name: "Справочник укрупнения", url: "" },
@@ -386,8 +412,10 @@
         asOfDate: new Date().toISOString().slice(0, 10),
         kqLevel: "kq2",
         calculationMode: "without-regulations",
+        directorySearch: "",
+        directoryFilter: "all",
         dataUpdatedAt: null,
-        kfo: { status: "inactive", groups: [], contractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
+        kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
         aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: "Справочник не загружен" }
       };
 
@@ -447,6 +475,117 @@
 
       function getKfoSource() {
         return getKfoSources()[0] || normalizeKfoSource(DEFAULT_KFO_SOURCE, 0);
+      }
+
+      function normalizeContractorDirectory(directory) {
+        var incoming = directory && typeof directory === "object" ? directory : {};
+        var seen = new Map();
+        (Array.isArray(incoming.entries) ? incoming.entries : []).forEach(function (entry) {
+          var sourceName = String(entry && entry.sourceName || "").trim();
+          var canonicalName = String(entry && entry.canonicalName || "").trim();
+          if (!sourceName || !canonicalName) return;
+          var key = normalizeParserLabel(sourceName);
+          seen.set(key, { sourceName: sourceName, canonicalName: canonicalName, status: normalizeParserLabel(sourceName) === normalizeParserLabel(canonicalName) ? "canonical" : "alias" });
+        });
+        return { storage: "shared-config", entries: Array.from(seen.values()).sort(function (a, b) { return a.sourceName.localeCompare(b.sourceName, "ru"); }) };
+      }
+
+      function getContractorDirectory() {
+        state.config.contractorDirectory = normalizeContractorDirectory(state.config.contractorDirectory || DEFAULT_CONFIG.contractorDirectory);
+        return state.config.contractorDirectory;
+      }
+
+      function contractorDirectoryIndex() {
+        var index = new Map();
+        getContractorDirectory().entries.forEach(function (entry) { index.set(normalizeParserLabel(entry.sourceName), entry); });
+        return index;
+      }
+
+      function resolveCanonicalContractorName(sourceName, index) {
+        var directory = index || contractorDirectoryIndex();
+        var currentName = String(sourceName || "").trim();
+        var visited = new Set();
+        while (currentName) {
+          var key = normalizeParserLabel(currentName);
+          if (visited.has(key)) return String(sourceName || "").trim();
+          visited.add(key);
+          var entry = directory.get(key);
+          if (!entry || normalizeParserLabel(entry.canonicalName) === key) return entry ? entry.canonicalName : currentName;
+          currentName = entry.canonicalName;
+        }
+        return String(sourceName || "").trim();
+      }
+
+      function canonicalContractorName(sourceName) {
+        return resolveCanonicalContractorName(sourceName, contractorDirectoryIndex());
+      }
+
+      function aggregateCanonicalGroups(groups) {
+        var merged = new Map();
+        var directory = contractorDirectoryIndex();
+        (groups || []).forEach(function (entry) {
+          var canonicalName = resolveCanonicalContractorName(entry.contractor, directory);
+          var key = [normalizeParserLabel(canonicalName), normalizeParserLabel(entry.kqCode), normalizeParserLabel(entry.unit), entry.level || "", entry.mode || ""].join("||");
+          var target = merged.get(key);
+          if (!target) {
+            target = Object.assign({}, entry, { contractor: canonicalName, rows: 0, regulationRows: 0, actualSmr: 0, acceptedSk: 0, acceptedId: 0, evaluatedVolume: null, rawContractors: [] });
+            merged.set(key, target);
+          }
+          target.rows += Number(entry.rows) || 0;
+          target.regulationRows += Number(entry.regulationRows) || 0;
+          target.actualSmr += Number(entry.actualSmr) || 0;
+          target.acceptedSk += Number(entry.acceptedSk) || 0;
+          target.acceptedId += Number(entry.acceptedId) || 0;
+          if (entry.evaluatedVolume != null) target.evaluatedVolume = (target.evaluatedVolume || 0) + (Number(entry.evaluatedVolume) || 0);
+          if (target.rawContractors.indexOf(entry.contractor) < 0) target.rawContractors.push(entry.contractor);
+        });
+        return Array.from(merged.values()).sort(function (a, b) { return a.contractor.localeCompare(b.contractor, "ru") || a.kqCode.localeCompare(b.kqCode, "ru") || a.unit.localeCompare(b.unit, "ru"); });
+      }
+
+      function combineDetectedContractors(summaries) {
+        var combined = new Map();
+        (summaries || []).forEach(function (summary) {
+          (summary.contractors || []).forEach(function (entry) {
+            var key = normalizeParserLabel(entry.name);
+            var current = combined.get(key) || { name: entry.name, rows: 0 };
+            current.rows += Number(entry.rows) || 0;
+            combined.set(key, current);
+          });
+        });
+        return Array.from(combined.values()).sort(function (a, b) { return a.name.localeCompare(b.name, "ru"); });
+      }
+
+      function contractorDirectoryRows() {
+        var rows = new Map();
+        (state.kfo.rawContractors || []).forEach(function (entry) {
+          rows.set(normalizeParserLabel(entry.name), { sourceName: entry.name, rows: Number(entry.rows) || 0, detected: true });
+        });
+        getContractorDirectory().entries.forEach(function (entry) {
+          var key = normalizeParserLabel(entry.sourceName);
+          var row = rows.get(key) || { sourceName: entry.sourceName, rows: 0, detected: false };
+          row.entry = entry;
+          rows.set(key, row);
+        });
+        return Array.from(rows.values()).sort(function (a, b) {
+          if (Boolean(a.entry) !== Boolean(b.entry)) return a.entry ? 1 : -1;
+          return a.sourceName.localeCompare(b.sourceName, "ru");
+        });
+      }
+
+      function canonicalContractorNames() {
+        var names = new Map();
+        getContractorDirectory().entries.filter(function (entry) { return entry.status === "canonical"; }).forEach(function (entry) { names.set(normalizeParserLabel(entry.canonicalName), entry.canonicalName); });
+        return Array.from(names.values()).sort(function (a, b) { return a.localeCompare(b, "ru"); });
+      }
+
+      function contractorNameStem(value) {
+        return normalizeParserLabel(value).replace(/\s*\([^)]*\)\s*$/g, "").replace(/\s*\[[^\]]*\]\s*$/g, "").replace(/[\s._-]*\d+\s*$/g, "").replace(/[^a-zа-яё0-9]+/gi, "");
+      }
+
+      function suggestCanonicalContractor(sourceName) {
+        var sourceStem = contractorNameStem(sourceName);
+        if (!sourceStem) return "";
+        return canonicalContractorNames().find(function (name) { return normalizeParserLabel(name) !== normalizeParserLabel(sourceName) && contractorNameStem(name) === sourceStem; }) || "";
       }
 
       function sourceSummary(source) {
@@ -511,7 +650,7 @@
       }
 
       function renderKfoResults() {
-        var groups = (state.kfo.groups || []).filter(hasDisplayedVolume);
+        var groups = aggregateCanonicalGroups(state.kfo.groups || []).filter(hasDisplayedVolume);
         var contractors = buildContractorSummaries(groups);
         if (state.kfo.status === "loading") return emptyState("Читаем БД КФО", "Большой файл .xlsb обрабатывается в браузере. Не закрывайте страницу.", "database");
         if (!groups.length) return emptyState("Нет ненулевых физических объёмов", state.kfo.message || "Проверьте источники, дату среза и параметры расчёта.", "database");
@@ -535,16 +674,52 @@
         var sources = getKfoSources();
         var sourceCards = sources.length ? sources.map(renderKfoSourceCard).join("") : emptyState("Источники не настроены", "Включите режим редактирования и добавьте ссылку на БД КФО.", "database");
         var kfo = state.kfo;
-        var visibleGroups = (kfo.groups || []).filter(hasDisplayedVolume);
+        var visibleGroups = aggregateCanonicalGroups(kfo.groups || []).filter(hasDisplayedVolume);
         var visibleContractors = buildContractorSummaries(visibleGroups);
         var workTypes = countUniqueWorkTypes(visibleGroups);
+        var pendingContractorCount = contractorDirectoryRows().filter(function (row) { return row.detected && !row.entry; }).length;
+        var directoryAlert = kfo.status === "active" && pendingContractorCount
+          ? '<div class="banner warning">' + icon("info") + '<div><strong>' + formatNumber(pendingContractorCount, 0) + ' подрядчиков отсутствуют в справочнике.</strong> Объёмы не потеряны и временно показаны под исходными наименованиями. Выполните акцепт перед выпуском отчёта.</div>' + button("Открыть справочник", "users", "banner-action", 'id="open-contractor-directory"') + '</div>'
+          : "";
         return pageHead(item, button("Проверить подключения", "refresh", "", 'id="check-kfo"')) +
           '<div class="stack">' +
+            directoryAlert +
             '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники БД КФО</h3><span class="badge">Источников: ' + formatNumber(sources.length, 0) + '</span></div><p class="card-desc">Ссылка открывает файл-источник. Состояние подключения и происхождение дат показаны отдельно.</p></div><div class="card-body"><div class="source-grid">' + sourceCards + '</div></div><div class="card-footer edit-only block">' + button("Добавить источник", "plus", "", 'id="add-kfo-source"') + '</div></section>' +
             '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Срез и способ расчёта</h3><span class="badge">На ' + formatDateShort(state.asOfDate) + '</span></div><p class="card-desc">Дата ограничивает строки по дате записи; факт СМР с более поздней датой последнего факта исключается. Для СК и ИД отдельных дат в книге нет, поэтому точный исторический откат этих этапов требует отдельного файла-среза.</p></div><div class="card-body"><div class="form-actions"><div class="field"><label for="as-of-date">Дата сведений</label><input class="input" id="as-of-date" type="date" value="' + escapeHtml(state.asOfDate) + '" /></div><div class="field"><label for="kq-level">Уровень расчёта</label><select class="input" id="kq-level"><option value="kq1"' + (state.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (state.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option></select></div><div class="field"><label for="calculation-mode">Регламенты</label><select class="input" id="calculation-mode"><option value="without-regulations"' + (state.calculationMode === "without-regulations" ? " selected" : "") + '>Без применения регламентов</option><option value="with-regulations"' + (state.calculationMode === "with-regulations" ? " selected" : "") + '>С применением регламентов</option></select></div>' + button("Обновить сведения", "refresh", "btn-primary", 'id="refresh-kfo-data"') + '</div></div></section>' +
             '<section class="card"><div class="card-header"><h3 class="card-title">Ключевые показатели</h3><p class="card-desc">Краткая оценка состава загруженных сведений без суммирования разных единиц измерения.</p></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(visibleContractors.length, 0) : "—") + '</div><div class="stat-note">с ненулевыми объёмами</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(kfo.totalRows, 0) : "—") + '</div><div class="stat-note">' + (kfo.status === "active" ? formatNumber(kfo.includedRows, 0) + ' с ненулевыми объёмами' : 'ожидается загрузка') + '</div></div><div class="stat"><div class="stat-label">Видов работ</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(workTypes, 0) : "—") + '</div><div class="stat-note">уникальные коды выбранного KQ</div></div></div></div></section>' +
             renderKfoResults() +
           '</div>';
+      }
+
+      function renderContractorDirectory(item) {
+        var rows = contractorDirectoryRows();
+        var pending = rows.filter(function (row) { return row.detected && !row.entry; });
+        var canonicalNames = canonicalContractorNames();
+        var canonicalCount = canonicalContractorNames().length;
+        var detectedCount = (state.kfo.rawContractors || []).length;
+        var options = canonicalNames.map(function (name) { return '<option value="' + escapeHtml(name) + '"></option>'; }).join("");
+        var tableRows = rows.map(function (row) {
+          var entry = row.entry;
+          var status = !entry ? "pending" : entry.status;
+          var statusLabel = status === "pending" ? "Требует акцепта" : (status === "canonical" ? "Канонический" : "Объединён");
+          var statusClass = status === "pending" ? "warning" : "green";
+          var suggestion = !entry ? suggestCanonicalContractor(row.sourceName) : "";
+          var canonicalValue = entry ? entry.canonicalName : suggestion;
+          var canonicalCell = state.editMode
+            ? '<div class="directory-editor"><input class="input" list="contractor-canonical-options" value="' + escapeHtml(canonicalValue) + '" aria-label="Каноническое наименование для ' + escapeHtml(row.sourceName) + '" data-contractor-input="' + escapeHtml(row.sourceName) + '" /><div class="directory-actions">' + button("Сохранить", "check", status === "pending" ? "btn-primary" : "", 'data-save-contractor="' + escapeHtml(row.sourceName) + '"') + button("Канонический", "", "", 'data-canonical-contractor="' + escapeHtml(row.sourceName) + '"') + (entry ? button("Удалить", "", "btn-ghost", 'data-remove-contractor="' + escapeHtml(row.sourceName) + '"') : "") + '</div></div>' + (suggestion ? '<span class="directory-suggestion">Предложено по совпадению основы: ' + escapeHtml(suggestion) + '</span>' : "")
+            : (entry ? '<strong>' + escapeHtml(entry.canonicalName) + '</strong>' : '<span class="muted">Не определено</span>');
+          return '<tr data-directory-status="' + status + '" data-directory-search="' + escapeHtml(normalizeParserLabel(row.sourceName + " " + (entry ? entry.canonicalName : ""))) + '"><td class="directory-source">' + escapeHtml(row.sourceName) + (row.detected ? "" : '<span class="directory-suggestion">Нет в текущем срезе БД КФО</span>') + '</td><td class="num">' + (row.detected ? formatNumber(row.rows, 0) : "—") + '</td><td class="directory-status"><span class="badge ' + statusClass + '">' + statusLabel + '</span></td><td class="directory-canonical">' + canonicalCell + '</td></tr>';
+        }).join("");
+        var locked = state.editMode ? "" : '<div class="banner warning">' + icon("lock") + '<div>Для акцепта включите <strong>режим редактирования</strong>. Изменения сохраняются в общем config.json и не зависят от браузера конкретного пользователя.</div></div>';
+        var warning = pending.length
+          ? '<div class="banner warning">' + icon("info") + '<div><strong>Новых подрядчиков: ' + formatNumber(pending.length, 0) + '.</strong> Для каждого выберите существующее каноническое наименование либо отметьте исходное наименование как каноническое.</div></div>'
+          : '<div class="banner">' + icon("check") + '<div>Все подрядчики текущей БД КФО акцептованы. Расчёт выполняется по исходным строкам, а объединение применяется после расчёта.</div></div>';
+        var body = rows.length
+          ? '<div class="directory-toolbar"><div class="field"><label for="directory-search">Поиск подрядчика</label><input class="input" id="directory-search" type="search" placeholder="Исходное или каноническое наименование" value="' + escapeHtml(state.directorySearch) + '" /></div><div class="field"><label for="directory-filter">Статус</label><select class="input" id="directory-filter"><option value="all"' + (state.directoryFilter === "all" ? " selected" : "") + '>Все</option><option value="pending"' + (state.directoryFilter === "pending" ? " selected" : "") + '>Требуют акцепта</option><option value="canonical"' + (state.directoryFilter === "canonical" ? " selected" : "") + '>Канонические</option><option value="alias"' + (state.directoryFilter === "alias" ? " selected" : "") + '>Объединённые</option></select></div></div><datalist id="contractor-canonical-options">' + options + '</datalist><div class="table-wrap"><table><thead><tr><th>Наименование в БД КФО</th><th class="num">Строк</th><th>Статус</th><th>Канонический подрядчик</th></tr></thead><tbody id="contractor-directory-body">' + tableRows + '</tbody></table></div><p class="result-note">После акцепта скачайте обновлённый config.json и разместите его в общем источнике. Тогда соответствия будут одинаковыми для всех пользователей.</p>'
+          : emptyState("Подрядчики ещё не обнаружены", "Нажмите «Сверить с БД КФО», чтобы прочитать актуальный файл и сформировать список для акцепта.", "users");
+        return pageHead(item, button("Сверить с БД КФО", "refresh", "", 'id="sync-contractors"') + button("Скачать config.json", "download", "btn-primary edit-only", 'id="directory-download"')) +
+          '<div class="stack">' + locked + warning + '<div class="metric-strip"><div class="stat"><div class="stat-label">Наименований в БД КФО</div><div class="stat-value">' + (state.kfo.status === "active" ? formatNumber(detectedCount, 0) : "—") + '</div><div class="stat-note">уникальные исходные значения</div></div><div class="stat"><div class="stat-label">Канонических подрядчиков</div><div class="stat-value">' + formatNumber(canonicalCount, 0) + '</div><div class="stat-note">единые группы для отчёта</div></div><div class="stat ' + (pending.length ? "" : "highlight") + '"><div class="stat-label">Требуют акцепта</div><div class="stat-value">' + (state.kfo.status === "active" ? formatNumber(pending.length, 0) : "—") + '</div><div class="stat-note">обнаружены в текущей базе</div></div></div>' +
+          '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Общий справочник подрядчиков</h3><span class="badge green">config.json</span></div><p class="card-desc">Исходные наименования сохраняются для аудита. Каноническое наименование используется только при последующей группировке рассчитанных объёмов.</p></div><div class="card-body">' + body + '</div></section></div>';
       }
 
       function renderCoefficients(item) {
@@ -596,6 +771,7 @@
         var item = MENU.find(function (entry) { return entry.id === state.active; }) || MENU[0];
         var renderers = {
           "data-upload": renderDataUpload,
+          "contractor-directory": renderContractorDirectory,
           coefficients: renderCoefficients,
           pricing: renderPricing,
           aggregation: renderAggregation,
@@ -617,6 +793,30 @@
         if (calculationMode) calculationMode.addEventListener("change", function () { state.calculationMode = calculationMode.value === "with-regulations" ? "with-regulations" : "without-regulations"; });
         var refreshKfo = document.getElementById("refresh-kfo-data");
         if (refreshKfo) refreshKfo.addEventListener("click", refreshKfoData);
+        var openContractorDirectory = document.getElementById("open-contractor-directory");
+        if (openContractorDirectory) openContractorDirectory.addEventListener("click", function () { state.active = "contractor-directory"; renderNav(); renderContent(); document.getElementById("main-scroll").scrollTop = 0; });
+        var syncContractors = document.getElementById("sync-contractors");
+        if (syncContractors) syncContractors.addEventListener("click", loadKfoSources);
+        var directoryDownload = document.getElementById("directory-download");
+        if (directoryDownload) directoryDownload.addEventListener("click", downloadConfig);
+        var directorySearch = document.getElementById("directory-search");
+        if (directorySearch) directorySearch.addEventListener("input", function () { state.directorySearch = directorySearch.value; applyContractorDirectoryFilter(); });
+        var directoryFilter = document.getElementById("directory-filter");
+        if (directoryFilter) directoryFilter.addEventListener("change", function () { state.directoryFilter = directoryFilter.value; applyContractorDirectoryFilter(); });
+        document.querySelectorAll("[data-save-contractor]").forEach(function (node) {
+          node.addEventListener("click", function () {
+            var sourceName = node.getAttribute("data-save-contractor");
+            var input = Array.from(document.querySelectorAll("[data-contractor-input]")).find(function (entry) { return entry.getAttribute("data-contractor-input") === sourceName; });
+            saveContractorMapping(sourceName, input ? input.value : "");
+          });
+        });
+        document.querySelectorAll("[data-canonical-contractor]").forEach(function (node) {
+          node.addEventListener("click", function () { saveContractorMapping(node.getAttribute("data-canonical-contractor"), node.getAttribute("data-canonical-contractor")); });
+        });
+        document.querySelectorAll("[data-remove-contractor]").forEach(function (node) {
+          node.addEventListener("click", function () { removeContractorMapping(node.getAttribute("data-remove-contractor")); });
+        });
+        applyContractorDirectoryFilter();
         var addSource = document.getElementById("add-kfo-source");
         if (addSource) addSource.addEventListener("click", addKfoSource);
         document.querySelectorAll("[data-source-field]").forEach(function (node) {
@@ -644,6 +844,74 @@
         document.querySelectorAll("[data-demo-action]").forEach(function (node) {
           node.addEventListener("click", function () { showToast("Элемент интерфейса готов", "Функциональная логика будет подключена на следующем этапе."); });
         });
+      }
+
+      function applyContractorDirectoryFilter() {
+        var search = normalizeParserLabel(state.directorySearch);
+        document.querySelectorAll("#contractor-directory-body tr").forEach(function (row) {
+          var statusMatches = state.directoryFilter === "all" || row.getAttribute("data-directory-status") === state.directoryFilter;
+          var searchMatches = !search || String(row.getAttribute("data-directory-search") || "").indexOf(search) >= 0;
+          row.hidden = !(statusMatches && searchMatches);
+        });
+      }
+
+      function saveContractorMapping(sourceName, canonicalName) {
+        if (!state.editMode) return;
+        sourceName = String(sourceName || "").trim();
+        canonicalName = String(canonicalName || "").trim();
+        if (!sourceName || !canonicalName) {
+          showToast("Наименование не указано", "Выберите существующего канонического подрядчика или введите новое наименование.");
+          return;
+        }
+        var directory = getContractorDirectory();
+        var sourceKey = normalizeParserLabel(sourceName);
+        var canonicalKey = normalizeParserLabel(canonicalName);
+        var canonicalExists = directory.entries.some(function (entry) { return normalizeParserLabel(entry.sourceName) === canonicalKey && normalizeParserLabel(entry.canonicalName) === canonicalKey; });
+        if (!canonicalExists) directory.entries.push({ sourceName: canonicalName, canonicalName: canonicalName, status: "canonical" });
+        var existing = directory.entries.find(function (entry) { return normalizeParserLabel(entry.sourceName) === sourceKey; });
+        if (existing && existing.status === "canonical" && sourceKey !== canonicalKey) {
+          directory.entries.forEach(function (entry) {
+            if (normalizeParserLabel(entry.canonicalName) === sourceKey) {
+              entry.canonicalName = canonicalName;
+              entry.status = normalizeParserLabel(entry.sourceName) === canonicalKey ? "canonical" : "alias";
+            }
+          });
+        }
+        if (existing) {
+          existing.sourceName = sourceName;
+          existing.canonicalName = canonicalName;
+          existing.status = sourceKey === canonicalKey ? "canonical" : "alias";
+        } else {
+          directory.entries.push({ sourceName: sourceName, canonicalName: canonicalName, status: sourceKey === canonicalKey ? "canonical" : "alias" });
+        }
+        state.config.contractorDirectory = normalizeContractorDirectory(directory);
+        state.configDirty = true;
+        state.kfo.contractors = buildContractorSummaries(aggregateCanonicalGroups(state.kfo.groups || []));
+        applyConfigToChrome();
+        renderContent();
+        showToast("Подрядчик акцептован", sourceName === canonicalName ? "Наименование отмечено как каноническое." : sourceName + " объединён с " + canonicalName + ".");
+      }
+
+      function removeContractorMapping(sourceName) {
+        if (!state.editMode) return;
+        var directory = getContractorDirectory();
+        var sourceKey = normalizeParserLabel(sourceName);
+        var existing = directory.entries.find(function (entry) { return normalizeParserLabel(entry.sourceName) === sourceKey; });
+        if (!existing) return;
+        if (existing.status === "canonical") {
+          var aliases = directory.entries.filter(function (entry) { return normalizeParserLabel(entry.canonicalName) === sourceKey && normalizeParserLabel(entry.sourceName) !== sourceKey; });
+          if (aliases.length) {
+            showToast("Удаление невозможно", "Сначала переназначьте " + aliases.length + " связанных наименований.");
+            return;
+          }
+        }
+        directory.entries = directory.entries.filter(function (entry) { return normalizeParserLabel(entry.sourceName) !== sourceKey; });
+        state.config.contractorDirectory = normalizeContractorDirectory(directory);
+        state.configDirty = true;
+        state.kfo.contractors = buildContractorSummaries(aggregateCanonicalGroups(state.kfo.groups || []));
+        applyConfigToChrome();
+        renderContent();
+        showToast("Соответствие удалено", sourceName + " снова требует акцепта при наличии в БД КФО.");
       }
 
       function ensureEditableSources() {
@@ -926,6 +1194,7 @@
         var level = source.kqLevel === "kq1" || source.kqLevel === "kq2" ? source.kqLevel : state.kqLevel;
         var mode = source.calculationMode === "with-regulations" || source.calculationMode === "without-regulations" ? source.calculationMode : state.calculationMode;
         var groups = new Map();
+        var detectedContractors = new Map();
         var diagnostics = { totalRows: 0, includedRows: 0, dateExcludedRows: 0, futureFactRows: 0, missingContractorRows: 0, missingKqRows: 0, missingRegulationRows: 0, regulationMatchedRows: 0, zeroVolumeRows: 0 };
         var maximumRowDate = "";
         for (var rowIndex = resolved.headerIndex + 1; rowIndex <= resolved.lastRow; rowIndex += 1) {
@@ -934,6 +1203,12 @@
           var contractor = String(get("contractor") || "").trim();
           if (!erCode && !contractor) continue;
           diagnostics.totalRows += 1;
+          if (contractor) {
+            var detectedKey = normalizeParserLabel(contractor);
+            var detected = detectedContractors.get(detectedKey) || { name: contractor, rows: 0 };
+            detected.rows += 1;
+            detectedContractors.set(detectedKey, detected);
+          }
           if (!erCode || !contractor) { diagnostics.missingContractorRows += 1; continue; }
           var rowDate = parseExcelDate(get("rowDate"));
           if (rowDate && (!maximumRowDate || rowDate > maximumRowDate)) maximumRowDate = rowDate;
@@ -979,7 +1254,7 @@
         var coverageBase = diagnostics.regulationMatchedRows + diagnostics.missingRegulationRows;
         return {
           groups: outputGroups,
-          summary: { id: source.id, name: source.name, sheetName: selected.name, updatedAt: updatedAt, updatedAtOrigin: updatedAtOrigin, totalRows: diagnostics.totalRows, includedRows: diagnostics.includedRows, groupCount: outputGroups.length, regulationCoverage: coverageBase ? diagnostics.regulationMatchedRows / coverageBase * 100 : null, diagnostics: diagnostics, kqControl: analyzeKqControlSheet(workbook) }
+          summary: { id: source.id, name: source.name, sheetName: selected.name, updatedAt: updatedAt, updatedAtOrigin: updatedAtOrigin, totalRows: diagnostics.totalRows, includedRows: diagnostics.includedRows, groupCount: outputGroups.length, contractors: Array.from(detectedContractors.values()), regulationCoverage: coverageBase ? diagnostics.regulationMatchedRows / coverageBase * 100 : null, diagnostics: diagnostics, kqControl: analyzeKqControlSheet(workbook) }
         };
       }
 
@@ -1016,12 +1291,12 @@
       async function loadKfoSources() {
         var sources = getKfoSources().filter(function (source) { return source.enabled && source.url; });
         if (!sources.length) {
-          state.kfo = { status: "error", groups: [], contractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Не указана ссылка ни на одну БД КФО" };
+          state.kfo = { status: "error", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Не указана ссылка ни на одну БД КФО" };
           renderContent();
           showToast("Сведения не обновлены", "Укажите ссылку SharePoint в режиме редактирования.");
           return false;
         }
-        state.kfo = { status: "loading", groups: [], contractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Читаем источники…" };
+        state.kfo = { status: "loading", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Читаем источники…" };
         sources.forEach(function (source) { state.sourceConnections[source.id] = { status: "loading", checkedAt: new Date(), message: "Загружаем и разбираем Excel…" }; });
         renderContent();
         var parserConfig;
@@ -1052,7 +1327,8 @@
           renderContent();
         }
         state.dataUpdatedAt = new Date();
-        state.kfo = { status: summaries.length ? "active" : "error", groups: groups, contractors: buildContractorSummaries(groups), sourceSummaries: summaries, totalRows: summaries.reduce(function (sum, entry) { return sum + entry.totalRows; }, 0), includedRows: summaries.reduce(function (sum, entry) { return sum + entry.includedRows; }, 0), message: errors.length ? errors.join("; ") : "Сведения загружены" };
+        var canonicalGroups = aggregateCanonicalGroups(groups);
+        state.kfo = { status: summaries.length ? "active" : "error", groups: groups, contractors: buildContractorSummaries(canonicalGroups), rawContractors: combineDetectedContractors(summaries), sourceSummaries: summaries, totalRows: summaries.reduce(function (sum, entry) { return sum + entry.totalRows; }, 0), includedRows: summaries.reduce(function (sum, entry) { return sum + entry.includedRows; }, 0), message: errors.length ? errors.join("; ") : "Сведения загружены" };
         state.connection = { status: summaries.length ? "active" : "inactive", checkedAt: new Date(), message: summaries.length + " из " + sources.length + " источников обработано" };
         renderContent();
         showToast(summaries.length ? "Сведения БД КФО обновлены" : "Не удалось прочитать БД КФО", summaries.length ? ("Проанализировано строк: " + formatNumber(state.kfo.totalRows, 0) + ". Видов работ: " + formatNumber(countUniqueWorkTypes(groups), 0) + "." + (errors.length ? " Есть ошибки отдельных источников." : "")) : errors.join("; "));
@@ -1309,7 +1585,7 @@
           if (!response.ok) throw new Error("HTTP " + response.status);
           var incoming = await response.json();
           if (!incoming || incoming.application !== "nzp-calculator") throw new Error("неверный формат файла");
-          state.config = Object.assign({}, DEFAULT_CONFIG, incoming, { export: Object.assign({}, DEFAULT_CONFIG.export, incoming.export || {}), calculation: Object.assign({}, DEFAULT_CONFIG.calculation, incoming.calculation || {}) });
+          state.config = Object.assign({}, DEFAULT_CONFIG, incoming, { export: Object.assign({}, DEFAULT_CONFIG.export, incoming.export || {}), calculation: Object.assign({}, DEFAULT_CONFIG.calculation, incoming.calculation || {}), contractorDirectory: normalizeContractorDirectory(incoming.contractorDirectory || DEFAULT_CONFIG.contractorDirectory) });
           state.config.configUrl = incoming.configUrl || requestUrl.origin + requestUrl.pathname;
           if (!Array.isArray(state.config.dataSources) || !state.config.dataSources.length) state.config.dataSources = JSON.parse(JSON.stringify(DEFAULT_CONFIG.dataSources));
           state.config.dataSources = getKfoSources();
