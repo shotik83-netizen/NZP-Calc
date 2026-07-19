@@ -882,6 +882,10 @@
         if (kqLevel) kqLevel.addEventListener("change", function () { state.kqLevel = kqLevel.value === "kq1" ? "kq1" : "kq2"; });
         var refreshKfo = document.getElementById("refresh-kfo-data");
         if (refreshKfo) refreshKfo.addEventListener("click", refreshKfoData);
+        var loadRegulationsButton = document.getElementById("load-regulations");
+        if (loadRegulationsButton) loadRegulationsButton.addEventListener("click", function () { loadRegulations(false); });
+        var applyRegulationsButton = document.getElementById("apply-regulations-source");
+        if (applyRegulationsButton) applyRegulationsButton.addEventListener("click", applyRegulationsSource);
         var openContractorDirectory = document.getElementById("open-contractor-directory");
         if (openContractorDirectory) openContractorDirectory.addEventListener("click", function () { state.active = "contractor-directory"; renderNav(); renderContent(); document.getElementById("main-scroll").scrollTop = 0; });
         var syncContractors = document.getElementById("sync-contractors");
@@ -1726,6 +1730,29 @@
         showToast("Источники применены", "Ссылки включены в config.json.");
       }
 
+      async function applyRegulationsSource() {
+        if (!state.editMode) return;
+        var source = getRegulationsSource();
+        var actualSmr = parseKfoNumber(document.getElementById("regulations-default-smr").value, 0.5);
+        var acceptedSk = parseKfoNumber(document.getElementById("regulations-default-sk").value, 0.38);
+        var acceptedId = parseKfoNumber(document.getElementById("regulations-default-id").value, 0.12);
+        if (Math.abs(actualSmr + acceptedSk + acceptedId - 1) > 0.000001) {
+          showToast("Некорректное распределение", "Сумма коэффициентов должна быть равна 1 (100%).");
+          return;
+        }
+        state.config.regulationsSource = {
+          name: document.getElementById("regulations-source-name").value.trim() || source.name,
+          url: document.getElementById("regulations-source-url").value.trim(),
+          enabled: true,
+          sheetName: document.getElementById("regulations-source-sheet").value.trim() || "ДК",
+          headerSearchRows: source.headerSearchRows,
+          defaultDistribution: { actualSmr: actualSmr, acceptedSk: acceptedSk, acceptedId: acceptedId }
+        };
+        state.configDirty = true;
+        applyConfigToChrome();
+        await loadRegulations(false);
+      }
+
       function applySettings() {
         var configUrlValue = document.getElementById("setting-config-url").value.trim() || DEFAULT_CONFIG.configUrl;
         try {
@@ -1779,7 +1806,7 @@
         try {
           var localPreview = location.hostname === "127.0.0.1" || location.hostname === "localhost";
           var savedConfigUrl = localStorage.getItem(CONFIG_URL_KEY);
-          var configUrl = savedConfigUrl || (localPreview ? "./config.json" : DEFAULT_CONFIG.configUrl);
+          var configUrl = localPreview ? "./config.json" : (savedConfigUrl || DEFAULT_CONFIG.configUrl);
           var requestUrl = new URL(configUrl, location.href);
           requestUrl.searchParams.set("ts", Date.now());
           var response = await fetch(requestUrl.href, { cache: "no-store", credentials: "include" });
@@ -1801,6 +1828,7 @@
           applyConfigToChrome();
           setConfigStatus("ok", "config.json подключён");
           setEditMode(Boolean(state.config.editMode), true);
+          await loadRegulations(true);
           if (getKfoSources().some(function (source) { return source.url && source.enabled; })) checkKfoConnections(true);
           loadAggregation(true);
         } catch (error) {
