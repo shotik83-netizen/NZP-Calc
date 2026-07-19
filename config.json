@@ -8,7 +8,7 @@
     {
       "id": "kfo-main",
       "name": "БД КФО",
-      "url": "",
+      "url": "./kfo-test.xlsb",
       "enabled": true,
       "sheetName": "КФО",
       "dkSheetName": "ДК",

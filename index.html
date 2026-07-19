@@ -654,7 +654,7 @@
       }
 
       async function probeUrl(url) {
-        var parsed = new URL(url);
+        var parsed = new URL(url, location.href);
         if (!/^https?:$/.test(parsed.protocol)) throw new Error("поддерживаются только HTTP- и HTTPS-ссылки");
         var controller = new AbortController();
         var timer = window.setTimeout(function () { controller.abort(); }, 12000);
