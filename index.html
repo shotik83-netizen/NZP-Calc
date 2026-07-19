@@ -300,7 +300,7 @@
     </div>
 
     <footer class="app-footer">
-      <div class="footer-part"><span id="version-label">Версия 1.0</span></div>
+      <div class="footer-part"><span id="version-label">Версия 1.1</span></div>
       <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
       <div class="footer-part">
         <div class="status-chip edit-only" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
@@ -377,7 +377,7 @@
 
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
-        version: "1.0",
+        version: "1.1",
         title: "Отчёт по незавершённому строительству (НЗП)",
         configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
@@ -704,7 +704,7 @@
         var directoryAlert = kfo.status === "active" && pendingContractorCount
           ? '<div class="banner warning">' + icon("info") + '<div><strong>' + formatNumber(pendingContractorCount, 0) + ' подрядчиков отсутствуют в справочнике.</strong> Объёмы не потеряны и временно показаны под исходными наименованиями. Выполните акцепт перед выпуском отчёта.</div>' + button("Открыть справочник", "users", "banner-action", 'id="open-contractor-directory"') + '</div>'
           : "";
-        return pageHead(item, button("Проверить подключения", "refresh", "", 'id="check-kfo"')) +
+        return pageHead(item) +
           '<div class="stack">' +
             directoryAlert +
             '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники БД КФО</h3><span class="badge">Источников: ' + formatNumber(sources.length, 0) + '</span></div><p class="card-desc">Ссылка открывает файл-источник. Состояние подключения и происхождение дат показаны отдельно.</p></div><div class="card-body"><div class="source-grid">' + sourceCards + '</div></div><div class="card-footer edit-only block">' + button("Добавить источник", "plus", "", 'id="add-kfo-source"') + '</div></section>' +
@@ -806,8 +806,6 @@
       }
 
       function bindContentEvents() {
-        var checkKfo = document.getElementById("check-kfo");
-        if (checkKfo) checkKfo.addEventListener("click", function () { checkKfoConnections(false); });
         var asOfDate = document.getElementById("as-of-date");
         if (asOfDate) asOfDate.addEventListener("change", function () { state.asOfDate = asOfDate.value || new Date().toISOString().slice(0, 10); });
         var kqLevel = document.getElementById("kq-level");
