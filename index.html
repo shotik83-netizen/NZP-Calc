@@ -297,7 +297,7 @@
 
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
-        version: "0.3",
+        version: "0.4",
         title: "Отчёт по незавершённому строительству (НЗП)",
         configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
@@ -319,7 +319,7 @@
         connection: { status: "inactive", checkedAt: null, message: "Ссылка на БД КФО не указана" },
         asOfDate: new Date().toISOString().slice(0, 10),
         dataUpdatedAt: null,
-        aggregation: { status: "inactive", entries: [], parserVersion: "", message: "Справочник не загружен" }
+        aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: "Справочник не загружен" }
       };
 
       function icon(name, className) {
@@ -401,6 +401,9 @@
       function renderAggregation(item) {
         var entries = state.aggregation.entries || [];
         var source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
+        var runtimeConfig = state.aggregation.parserConfig;
+        var activeLevel = runtimeConfig && runtimeConfig.aggregationLogic ? runtimeConfig.aggregationLogic.activeLevel : "kq2";
+        var priorityText = runtimeConfig && Array.isArray(runtimeConfig.sourcePriority) ? runtimeConfig.sourcePriority.slice().sort(function (a, b) { return b.priority - a.priority; }).map(function (entry) { return entry.source; }).join(" → ") : "kfo → contractPrice → aggregation";
         var rows = entries.slice(0, 100).map(function (entry) {
           return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong><br><span class="muted">' + escapeHtml(entry.erName) + '</span></td><td><strong>' + escapeHtml(entry.kq2Code) + '</strong><br><span class="muted">' + escapeHtml(entry.kq2Name) + '</span></td><td class="num">' + escapeHtml(entry.kq2Coefficient) + '</td><td>' + escapeHtml(entry.kq1Code) + '<br><span class="muted">Коэф. ' + escapeHtml(entry.kq1Coefficient) + '</span></td><td>' + escapeHtml(entry.kq0Code) + '<br><span class="muted">Коэф. ' + escapeHtml(entry.kq0Coefficient) + '</span></td><td>' + escapeHtml(entry.status) + '</td></tr>';
         }).join("");
@@ -409,7 +412,7 @@
           : emptyState("Справочник не загружен", state.aggregation.message, "book");
         return pageHead(item, button("Загрузить справочник", "upload", "", 'id="load-aggregation"')) +
           '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
-          '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение справочника</h3><span class="badge ' + (entries.length ? "green" : "warning") + '">' + (entries.length ? entries.length + " записей" : "Нет данных") + '</span></div><p class="card-desc">Источник: ' + escapeHtml(source.url || "не задан") + '<br>Конфигуратор: ' + escapeHtml(state.config.parserConfigUrl || "не задан") + (state.aggregation.parserVersion ? ' (версия ' + escapeHtml(state.aggregation.parserVersion) + ')' : '') + '</p></div><div class="card-body">' + body + '</div></section></div>';
+          '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение справочника</h3><span class="badge ' + (entries.length ? "green" : "warning") + '">' + (entries.length ? entries.length + " записей" : "Нет данных") + '</span></div><p class="card-desc">Источник из JSON: ' + escapeHtml((runtimeConfig && runtimeConfig.sources && runtimeConfig.sources.aggregation.url) || source.url || "не задан") + '<br>Конфигуратор: ' + escapeHtml(state.config.parserConfigUrl || "не задан") + (state.aggregation.parserVersion ? ' (версия ' + escapeHtml(state.aggregation.parserVersion) + ')' : '') + '<br>Активный уровень: ' + escapeHtml(activeLevel.toUpperCase()) + '; приоритет: ' + escapeHtml(priorityText) + '</p></div><div class="card-body">' + body + '</div></section></div>';
       }
 
       function renderReport(item) {
@@ -593,6 +596,13 @@
         if (!aggregation.fields || !Array.isArray(aggregation.recordRequiredFields)) {
           throw new Error("в конфигураторе не описаны поля парсера укрупнения");
         }
+        if (!config.sources || !config.sources.aggregation || !config.sources.aggregation.url) {
+          throw new Error("в конфигураторе не указана ссылка sources.aggregation.url");
+        }
+        if (!config.aggregationLogic || !config.aggregationLogic.activeLevel || !Array.isArray(config.sourcePriority)) {
+          throw new Error("в конфигураторе не описаны aggregationLogic и sourcePriority");
+        }
+        config._sourceUrl = response.url || new URL(url, location.href).href;
         return config;
       }
 
@@ -656,25 +666,67 @@
         throw new Error("в Excel не найдена таблица, соответствующая JSON-конфигуратору");
       }
 
+      function buildAggregationIndex(entries, config) {
+        var logic = config.aggregationLogic || {};
+        var matchField = logic.matchField || "erCode";
+        var excluded = (logic.excludedStatuses || []).map(normalizeParserLabel);
+        var index = new Map();
+        entries.forEach(function (entry) {
+          if (excluded.indexOf(normalizeParserLabel(entry.status)) >= 0) return;
+          var key = normalizeParserLabel(entry[matchField]);
+          if (key && !index.has(key)) index.set(key, entry);
+        });
+        return index;
+      }
+
+      function calculateByAggregationRule(quantity, rule, config) {
+        var logic = config.aggregationLogic || {};
+        var levelName = logic.activeLevel || "kq2";
+        var level = (logic.levels || {})[levelName];
+        if (!level || !rule) return { quantity: quantity, code: "", name: "", coefficient: 1, level: "er" };
+        var coefficient = level.coefficientField ? Number(rule[level.coefficientField]) : Number(level.coefficient == null ? 1 : level.coefficient);
+        if (!Number.isFinite(coefficient)) coefficient = 1;
+        var operation = (logic.quantityCalculation || {}).operation || "multiply";
+        var result = operation === "multiply" ? Number(quantity) * coefficient : Number(quantity);
+        var rounding = Number((logic.quantityCalculation || {}).rounding);
+        if (Number.isInteger(rounding) && rounding >= 0 && rounding <= 12) result = Number(result.toFixed(rounding));
+        return { quantity: result, code: rule[level.codeField] || "", name: rule[level.nameField] || "", coefficient: coefficient, level: levelName };
+      }
+
+      function resolveAggregation(erCode, quantity, candidates) {
+        var config = state.aggregation.parserConfig;
+        if (!config) return { source: "source", quantity: quantity, code: erCode, name: "", coefficient: 1, level: "er" };
+        var available = candidates || {};
+        var priorities = config.sourcePriority.slice().sort(function (a, b) { return b.priority - a.priority; });
+        for (var index = 0; index < priorities.length; index += 1) {
+          var source = priorities[index].source;
+          var externalRule = available[source];
+          if (externalRule) return Object.assign({ source: source }, calculateByAggregationRule(quantity, externalRule, config));
+          if (source === "aggregation") {
+            var referenceRule = state.aggregation.index.get(normalizeParserLabel(erCode));
+            if (referenceRule) return Object.assign({ source: "aggregation" }, calculateByAggregationRule(quantity, referenceRule, config));
+          }
+        }
+        return { source: "source", quantity: quantity, code: erCode, name: "", coefficient: 1, level: "er" };
+      }
+
+      window.NZP_AGGREGATION_ENGINE = { resolve: resolveAggregation };
+
       async function loadAggregation(quiet) {
         var source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
-        if (!source.url) {
-          state.aggregation = { status: "inactive", entries: [], parserVersion: "", message: "Ссылка на Excel не задана в административных настройках" };
-          if (!quiet) { renderContent(); showToast("Источник не указан", state.aggregation.message); }
-          return false;
-        }
         state.aggregation.status = "loading";
         try {
           var parserConfig = await fetchParserConfiguration();
-          var response = await fetch(new URL(source.url, location.href).href, { cache: "no-store", credentials: "include" });
+          var configuredSource = parserConfig.sources.aggregation.url || source.url;
+          var response = await fetch(new URL(configuredSource, parserConfig._sourceUrl).href, { cache: "no-store", credentials: "include" });
           if (!response.ok) throw new Error("Справочник Excel: HTTP " + response.status);
           var entries = parseAggregationWorkbook(await response.arrayBuffer(), parserConfig.parsers.aggregation);
-          state.aggregation = { status: "active", entries: entries, parserVersion: parserConfig.version || "", message: "Справочник загружен" };
+          state.aggregation = { status: "active", entries: entries, parserVersion: parserConfig.version || "", parserConfig: parserConfig, index: buildAggregationIndex(entries, parserConfig), message: "Справочник загружен" };
           renderContent();
           if (!quiet) showToast("Справочник загружен", "Прочитано " + entries.length + " строк ЕР.");
           return true;
         } catch (error) {
-          state.aggregation = { status: "error", entries: [], parserVersion: "", message: error.message || "Ошибка чтения справочника" };
+          state.aggregation = { status: "error", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: error.message || "Ошибка чтения справочника" };
           renderContent();
           if (!quiet) showToast("Ошибка справочника", state.aggregation.message);
           return false;
@@ -766,7 +818,7 @@
           setConfigStatus("ok", "config.json подключён");
           setEditMode(Boolean(state.config.editMode), true);
           if (getKfoSource().url) checkKfoConnection(true);
-          if ((state.config.aggregationSource || {}).url) loadAggregation(true);
+          loadAggregation(true);
         } catch (error) {
           state.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
           state.configLoaded = false;

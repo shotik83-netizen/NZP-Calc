@@ -1,6 +1,13 @@
 {
   "application": "nzp-calculator",
-  "version": "1.0.0",
+  "version": "1.1.0",
+  "sources": {
+    "aggregation": {
+      "name": "Справочник укрупнения",
+      "url": "./aggregation-reference.xlsx",
+      "format": "xlsx"
+    }
+  },
   "parsers": {
     "aggregation": {
       "headerSearchRows": 50,
@@ -23,8 +30,26 @@
       "defaultStatus": "Действует"
     }
   },
+  "aggregationLogic": {
+    "matchField": "erCode",
+    "activeLevel": "kq2",
+    "quantityCalculation": {
+      "operation": "multiply",
+      "sourceField": "quantity",
+      "rounding": 6
+    },
+    "levels": {
+      "er": { "codeField": "erCode", "nameField": "erName", "coefficient": 1 },
+      "kq2": { "codeField": "kq2Code", "nameField": "kq2Name", "coefficientField": "kq2Coefficient" },
+      "kq1": { "codeField": "kq1Code", "nameField": "kq1Name", "coefficientField": "kq1Coefficient" },
+      "kq0": { "codeField": "kq0Code", "nameField": "kq0Name", "coefficientField": "kq0Coefficient" }
+    },
+    "excludedStatuses": ["Аннулировано*"],
+    "fallback": "keep-source"
+  },
   "sourcePriority": [
-    { "source": "pricing", "priority": 100 },
-    { "source": "aggregation", "priority": 50 }
+    { "source": "kfo", "priority": 300 },
+    { "source": "contractPrice", "priority": 200 },
+    { "source": "aggregation", "priority": 100 }
   ]
 }
