@@ -1,6 +1,10 @@
 {
   "application": "nzp-calculator",
+<<<<<<< HEAD
   "version": "0.8",
+=======
+  "version": "0.7",
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
   "title": "Отчёт по незавершённому строительству (НЗП)",
   "configUrl": "https://shotik83-netizen.github.io/NZP-Calc/config.json",
   "editMode": false,

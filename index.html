@@ -121,6 +121,7 @@
     .source-name { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
     .source-meta { overflow: hidden; margin-top: 2px; color: var(--muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
     .source-grid { display: grid; gap: 12px; }
+<<<<<<< HEAD
     .source-card { overflow: hidden; background: #fbfcfb; border: 1px solid var(--border); border-radius: 8px; }
     .source-overview { min-height: 46px; display: grid; grid-template-columns: minmax(90px, 1fr) auto minmax(190px, auto) auto auto; align-items: center; gap: 14px; padding: 9px 12px; }
     .source-overview-name { min-width: 0; overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
@@ -135,12 +136,35 @@
     .source-open-link { color: var(--primary-strong); font-size: 10px; font-weight: 650; text-decoration: none; white-space: nowrap; }
     .source-open-link:hover { text-decoration: underline; }
     .source-settings { margin: 0 12px 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+=======
+    .source-card { padding: 14px; background: #fbfcfb; border: 1px solid var(--border); border-radius: 8px; }
+    .source-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .source-card-title { margin: 0; font-size: 13px; font-weight: 650; }
+    .source-card-actions { display: flex; align-items: center; gap: 7px; }
+    .source-link { color: var(--primary-strong); text-decoration: none; word-break: break-all; }
+    .source-link:hover { text-decoration: underline; }
+    .source-settings { margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--border); }
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
     .settings-section-title { margin: 16px 0 4px; color: var(--foreground); font-size: 12px; font-weight: 650; }
     .settings-section-note { margin: 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
     .mapping-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
     .mapping-grid .input { text-transform: uppercase; }
     .result-note { margin: 10px 0 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
 
+<<<<<<< HEAD
+=======
+    .connection-summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 14px; background: #fafcfb; border: 1px solid var(--border); border-radius: 8px; }
+    .connection-main { min-width: 0; display: flex; align-items: center; gap: 11px; }
+    .connection-light { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; color: var(--danger); background: var(--danger-soft); border-radius: 50%; }
+    .connection-light.active { color: var(--primary-strong); background: var(--primary-soft); }
+    .connection-light svg { width: 17px; height: 17px; }
+    .connection-title { color: var(--foreground); font-size: 12px; font-weight: 650; }
+    .connection-note { margin-top: 3px; color: var(--muted-foreground); font-size: 10px; line-height: 1.4; }
+    .connection-facts { min-width: min(100%, 360px); display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 10px 16px; }
+    .connection-fact { min-width: 0; display: grid; gap: 2px; text-align: right; }
+    .connection-fact span { color: var(--muted-foreground); font-size: 9px; line-height: 1.3; }
+    .connection-fact strong { overflow: hidden; color: #44524c; font-size: 10px; font-weight: 650; line-height: 1.35; text-overflow: ellipsis; }
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
     .form-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
     .form-actions .field { min-width: min(100%, 210px); flex: 1; }
 
@@ -243,8 +267,14 @@
       .grid-2, .grid-3, .field-grid { grid-template-columns: 1fr; }
       .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .field-wide { grid-column: auto; }
+<<<<<<< HEAD
       .source-overview { grid-template-columns: minmax(60px, 1fr) auto auto auto auto; gap: 6px; padding-inline: 9px; }
       .source-overview-secondary, .source-date-origin { display: none; }
+=======
+      .connection-summary { align-items: flex-start; flex-direction: column; }
+      .connection-facts { width: 100%; grid-template-columns: 1fr; }
+      .connection-fact { text-align: left; }
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
       .metric-strip { grid-template-columns: 1fr; }
       .contractor-item > summary { grid-template-columns: minmax(0, 1fr) 18px; }
       .contractor-metrics { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
@@ -285,7 +315,11 @@
     </div>
 
     <footer class="app-footer">
+<<<<<<< HEAD
       <div class="footer-part"><span id="version-label">Версия 0.8</span></div>
+=======
+      <div class="footer-part"><span id="version-label">Версия 0.7</span></div>
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
       <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
       <div class="footer-part">
         <div class="status-chip edit-only" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
@@ -360,7 +394,11 @@
 
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
+<<<<<<< HEAD
         version: "0.8",
+=======
+        version: "0.7",
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
         title: "Отчёт по незавершённому строительству (НЗП)",
         configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
@@ -463,6 +501,7 @@
         var title = !source.enabled ? "Отключён" : (connection.status === "checking" || connection.status === "loading" ? "Проверка…" : (active ? "Активно" : "Нет подключения"));
         var checked = connection.checkedAt ? formatDateTime(connection.checkedAt) : "Проверка ещё не выполнялась";
         var updated = summary && summary.updatedAt ? formatDateShort(summary.updatedAt) : "Не определена";
+<<<<<<< HEAD
         var updatedOrigin = summary && summary.updatedAtOrigin ? summary.updatedAtOrigin.replace(/^ячейка\s+/i, "") : "";
         var statusDetails = (connection.message || "Источник данных недоступен") + " · Проверено: " + checked;
         var metric = summary ? '<strong>' + formatNumber(summary.totalRows, 0) + '</strong> строк <span class="source-overview-secondary">· ' + formatNumber(summary.includedRows, 0) + ' с объёмами</span>' : escapeHtml(connection.message || "Сведения ещё не загружены");
@@ -473,6 +512,14 @@
       }
 
       function renderKfoSourceCard(source, index) {
+=======
+        var updatedOrigin = summary && summary.updatedAtOrigin ? summary.updatedAtOrigin : "дата в книге не найдена";
+        return '<div class="connection-summary"><div class="connection-main"><div class="connection-light' + (active ? " active" : "") + '">' + (active ? ICONS.check : ICONS.database) + '</div><div><div class="connection-title">' + title + '</div><div class="connection-note">' + escapeHtml(connection.message || "Источник данных недоступен") + '</div></div></div><div class="connection-facts"><div class="connection-fact"><span>Дата обновления данных · ' + escapeHtml(updatedOrigin) + '</span><strong>' + updated + '</strong></div><div class="connection-fact"><span>Проверено приложением</span><strong>' + checked + '</strong></div></div></div>';
+      }
+
+      function renderKfoSourceCard(source, index) {
+        var summary = sourceSummary(source);
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
         var modeOptions = '<option value="inherit"' + (source.calculationMode === "inherit" ? " selected" : "") + '>Выбранный режим</option><option value="without-regulations"' + (source.calculationMode === "without-regulations" ? " selected" : "") + '>Без регламентов</option><option value="with-regulations"' + (source.calculationMode === "with-regulations" ? " selected" : "") + '>С регламентами</option>';
         var levelOptions = '<option value="inherit"' + (source.kqLevel === "inherit" ? " selected" : "") + '>Выбранный уровень</option><option value="kq1"' + (source.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (source.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option>';
         var mapping = KFO_COLUMN_FIELDS.map(function (field) {
@@ -480,8 +527,13 @@
         }).join("");
         var editor = state.editMode
           ? '<div class="source-settings"><div class="field-grid"><div class="field"><label>Наименование источника</label><input class="input" value="' + escapeHtml(source.name) + '" data-source-index="' + index + '" data-source-field="name" /></div><div class="field"><label>Использование</label><select class="input" data-source-index="' + index + '" data-source-field="enabled"><option value="true"' + (source.enabled ? " selected" : "") + '>Включён</option><option value="false"' + (!source.enabled ? " selected" : "") + '>Отключён</option></select></div><div class="field field-wide"><label>Ссылка SharePoint или путь к тестовому файлу</label><input class="input" type="text" placeholder="https://...sharepoint.com/.../БД-КФО.xlsb" value="' + escapeHtml(source.url) + '" data-source-index="' + index + '" data-source-field="url" /></div><div class="field"><label>Лист данных</label><input class="input" value="' + escapeHtml(source.sheetName) + '" data-source-index="' + index + '" data-source-field="sheetName" /></div><div class="field"><label>Лист регламентов</label><input class="input" value="' + escapeHtml(source.dkSheetName) + '" data-source-index="' + index + '" data-source-field="dkSheetName" /></div><div class="field"><label>Ячейка даты обновления</label><input class="input" value="' + escapeHtml(source.updatedAtCell) + '" data-source-index="' + index + '" data-source-field="updatedAtCell" /></div><div class="field"><label>Строк поиска заголовка</label><input class="input" type="number" min="1" max="500" value="' + source.headerSearchRows + '" data-source-index="' + index + '" data-source-field="headerSearchRows" /></div><div class="field"><label>Уровень KQ для файла</label><select class="input" data-source-index="' + index + '" data-source-field="kqLevel">' + levelOptions + '</select></div><div class="field"><label>Режим для файла</label><select class="input" data-source-index="' + index + '" data-source-field="calculationMode">' + modeOptions + '</select></div></div><h5 class="settings-section-title">Колонки для сбора информации</h5><p class="settings-section-note">Все поля доступны для настройки. Заголовки определяются автоматически, указанные буквы используются как резерв.</p><div class="mapping-grid">' + mapping + '</div></div>'
+<<<<<<< HEAD
           : "";
         return '<div class="source-card">' + connectionSummary(source, index) + editor + '</div>';
+=======
+          : '<div class="source-settings"><div class="source-meta">' + (source.url ? '<a class="source-link" href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(source.url) + '</a>' : "Ссылка SharePoint не указана") + '</div>' + (summary ? '<p class="result-note">Лист «' + escapeHtml(summary.sheetName) + '». Проанализировано ' + formatNumber(summary.totalRows, 0) + ' строк; ' + formatNumber(summary.includedRows, 0) + ' содержат ненулевые объёмы после применения условий среза.</p>' : "") + '</div>';
+        return '<div class="source-card"><div class="source-card-head"><div><h4 class="source-card-title">' + escapeHtml(source.name) + '</h4><div class="source-meta">' + (source.enabled ? "Используется в расчёте" : "Исключён из расчёта") + '</div></div><div class="source-card-actions">' + (state.editMode ? button("Удалить", "", "", 'data-remove-source="' + index + '"') : "") + '</div></div>' + editor + '<div style="margin-top:12px">' + connectionSummary(source) + '</div></div>';
+>>>>>>> 65f0cf0e21566f818270d902d5541c657694bc64
       }
 
       function formatNumber(value, digits) {
