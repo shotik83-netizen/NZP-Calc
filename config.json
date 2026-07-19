@@ -43,6 +43,116 @@
     "storage": "shared-config",
     "entries": [
       {
+        "sourceName": "«Эста Коснтракшен»",
+        "canonicalName": "Эста Коснтракшен",
+        "status": "alias"
+      },
+      {
+        "sourceName": "«Эста Коснтракшен» (АКЗ)",
+        "canonicalName": "Эста Коснтракшен",
+        "status": "alias"
+      },
+      {
+        "sourceName": "Yamata",
+        "canonicalName": "Yamata",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Yamata1",
+        "canonicalName": "Yamata",
+        "status": "alias"
+      },
+      {
+        "sourceName": "Альфа Инженеринг и Констракшн",
+        "canonicalName": "Альфа Инженеринг и Констракшн",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Енер Холдинг",
+        "canonicalName": "Енер Холдинг",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Не найден на плане",
+        "canonicalName": "Не найден на плане",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Не определен",
+        "canonicalName": "Не определен",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "НОВА",
+        "canonicalName": "НОВА",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Омегапромэнерго",
+        "canonicalName": "Омегапромэнерго",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ООО «РСУ»",
+        "canonicalName": "ООО «РСУ»",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ООО «СК «МАРТ»",
+        "canonicalName": "ООО «СК «МАРТ»",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ООО Альфавестстрой",
+        "canonicalName": "ООО Альфавестстрой",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ООО НП ЦМА",
+        "canonicalName": "ООО НП ЦМА",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ООО ПСК-КАМА",
+        "canonicalName": "ООО ПСК-КАМА",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Пондера_ИНДУСТРИ",
+        "canonicalName": "Пондера_ИНДУСТРИ",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Пондера_ИНДУСТРИ1",
+        "canonicalName": "Пондера_ИНДУСТРИ",
+        "status": "alias"
+      },
+      {
+        "sourceName": "РБР16",
+        "canonicalName": "РБР16",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "СТМ",
+        "canonicalName": "СТМ",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "СХМ",
+        "canonicalName": "СХМ",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ТАСКШЕРИНГ",
+        "canonicalName": "ТАСКШЕРИНГ",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Тек Строй",
+        "canonicalName": "Тек Строй",
+        "status": "canonical"
+      },
+      {
         "sourceName": "ФИТ",
         "canonicalName": "ФИТ",
         "status": "canonical"
@@ -63,34 +173,14 @@
         "status": "canonical"
       },
       {
-        "sourceName": "Эста Коснтракшен (АКЗ)",
-        "canonicalName": "Эста Коснтракшен",
-        "status": "alias"
-      },
-      {
         "sourceName": "Эста Констракшен1",
         "canonicalName": "Эста Коснтракшен",
         "status": "alias"
       },
       {
-        "sourceName": "Yamata",
-        "canonicalName": "Yamata",
+        "sourceName": "ЮНИТРАК",
+        "canonicalName": "ЮНИТРАК",
         "status": "canonical"
-      },
-      {
-        "sourceName": "Yamata1",
-        "canonicalName": "Yamata",
-        "status": "alias"
-      },
-      {
-        "sourceName": "Пондера_ИНДУСТРИ",
-        "canonicalName": "Пондера_ИНДУСТРИ",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "Пондера_ИНДУСТРИ1",
-        "canonicalName": "Пондера_ИНДУСТРИ",
-        "status": "alias"
       }
     ]
   },
