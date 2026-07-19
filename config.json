@@ -1,6 +1,6 @@
 {
   "application": "nzp-calculator",
-  "version": "1.5",
+  "version": "1.6",
   "title": "Отчёт по незавершённому строительству (НЗП)",
   "configUrl": "https://shotik83-netizen.github.io/NZP-Calc/config.json",
   "editMode": false,
@@ -28,7 +28,10 @@
         "lastFactDate": "AP",
         "acceptedSk": "AR",
         "acceptedId": "AZ",
+        "kq0Code": "",
+        "kq0Coefficient": "",
         "kq1Code": "BI",
+        "kq1Coefficient": "BJ",
         "kq2Code": "BK",
         "kq2Coefficient": "BL"
       }

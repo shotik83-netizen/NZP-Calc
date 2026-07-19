@@ -142,6 +142,33 @@
     .mapping-grid .input { text-transform: uppercase; }
     .result-note { margin: 10px 0 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
 
+    /* Коэффициенты читаются быстрее, когда рядом с точными значениями есть
+       компактная шкала. Полосы не заменяют таблицу и остаются доступными
+       через текстовые значения и aria-label. */
+    .coefficient-overview { display: grid; gap: 10px; margin-bottom: 14px; padding: 12px 14px; background: #fbfdfc; border: 1px solid var(--border); border-radius: 8px; }
+    .coefficient-overview-title { color: var(--foreground); font-size: 12px; font-weight: 650; }
+    .coefficient-overview-note { margin-top: 2px; color: var(--muted-foreground); font-size: 10px; line-height: 1.4; }
+    .coefficient-bars { display: grid; gap: 8px; }
+    .coefficient-bar-row { display: grid; grid-template-columns: 58px minmax(90px, 1fr) auto; align-items: center; gap: 8px; font-size: 10px; }
+    .coefficient-bar-label { color: #44524c; font-weight: 650; }
+    .coefficient-bar-track { height: 8px; overflow: hidden; background: var(--muted); border-radius: 999px; }
+    .coefficient-bar-fill { height: 100%; min-width: 2px; background: var(--primary); border-radius: inherit; transition: width .18s ease; }
+    .coefficient-bar-value { color: var(--muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .aggregation-coefficient-edit, .aggregation-group-coefficient-edit, .kfo-coefficient-edit { min-height: 28px; padding: 4px 7px; font-variant-numeric: tabular-nums; }
+    .aggregation-coefficient-edit:focus-visible, .aggregation-group-coefficient-edit:focus-visible, .kfo-coefficient-edit:focus-visible { outline-offset: 1px; }
+    .kq-detail { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 58px; line-height: 1.15; }
+    .kq-detail small { color: var(--muted-foreground); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .kfo-coefficient-edit { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; line-height: 1.15; }
+    .kfo-coefficient-edit { flex-direction: column; gap: 1px; line-height: 1.15; }
+    .aggregation-coefficient-input { min-height: 30px; padding: 5px 7px; text-align: right; font-variant-numeric: tabular-nums; }
+    .kq-detail { display: inline-flex; min-width: 78px; flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1.15; }
+    .kq-detail strong { font-size: 11px; }
+    .kq-detail small { color: var(--muted-foreground); font-size: 10px; font-variant-numeric: tabular-nums; }
+    @media (max-width: 680px) {
+      .coefficient-bar-row { grid-template-columns: 52px minmax(70px, 1fr) auto; gap: 6px; }
+      .coefficient-bar-value { font-size: 9px; }
+    }
+
     .form-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
     .form-actions .field { min-width: min(100%, 210px); flex: 1; }
 
@@ -360,14 +387,17 @@
         { key: "lastFactDate", label: "Дата последнего факта СМР" },
         { key: "acceptedSk", label: "Принято СК" },
         { key: "acceptedId", label: "Принято ИД" },
+        { key: "kq0Code", label: "KQ-0" },
+        { key: "kq0Coefficient", label: "Коэф-0" },
         { key: "kq1Code", label: "KQ-1" },
+        { key: "kq1Coefficient", label: "Коэф-1" },
         { key: "kq2Code", label: "KQ-2" },
         { key: "kq2Coefficient", label: "Коэф-2" }
       ];
       var DEFAULT_KFO_COLUMNS = {
         rowDate: "B", markCode: "J", erCode: "S", erName: "U", unit: "V", contractor: "AK", contractNumber: "AL",
         actualSmr: "AO", lastFactDate: "AP", acceptedSk: "AR", acceptedId: "AZ",
-        kq1Code: "BI", kq2Code: "BK", kq2Coefficient: "BL"
+        kq0Code: "", kq0Coefficient: "", kq1Code: "BI", kq1Coefficient: "BJ", kq2Code: "BK", kq2Coefficient: "BL"
       };
       var DEFAULT_KFO_SOURCE = {
         id: "kfo-main", name: "БД КФО", url: "./kfo-test.xlsb?v=20260719-205316", enabled: true, sheetName: "КФО", dkSheetName: "ДК",
@@ -376,7 +406,7 @@
 
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
-        version: "1.4",
+        version: "1.6",
         title: "Отчёт по незавершённому строительству (НЗП)",
         configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
@@ -441,7 +471,7 @@
         dataUpdatedAt: null,
         kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
         regulations: { status: "inactive", rules: new Map(), entries: [], sourceName: "", message: "Источник регламентов не подключён" },
-        aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: "Справочник не загружен" }
+        aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, parserDirty: false, index: new Map(), message: "Справочник не загружен" }
       };
       var aggregationSearchTimer = null;
 
@@ -492,6 +522,9 @@
         normalized.headerSearchRows = Math.max(1, Math.min(Number(incoming.headerSearchRows) || 50, 500));
         normalized.calculationMode = "with-regulations";
         normalized.columns = Object.assign({}, DEFAULT_KFO_COLUMNS, incoming.columns || {});
+        ["kq1Code", "kq1Coefficient", "kq2Code", "kq2Coefficient"].forEach(function (field) {
+          if (!String(normalized.columns[field] || "").trim()) normalized.columns[field] = DEFAULT_KFO_COLUMNS[field];
+        });
         return normalized;
       }
 
@@ -565,7 +598,7 @@
           var key = [normalizeParserLabel(canonicalName), normalizeParserLabel(entry.kqCode), normalizeParserLabel(entry.unit), entry.level || "", entry.mode || ""].join("||");
           var target = merged.get(key);
           if (!target) {
-            target = Object.assign({}, entry, { contractor: canonicalName, rows: 0, regulationRows: 0, actualSmr: 0, acceptedSk: 0, acceptedId: 0, evaluatedVolume: null, rawContractors: [] });
+            target = Object.assign({}, entry, { contractor: canonicalName, rows: 0, regulationRows: 0, actualSmr: 0, acceptedSk: 0, acceptedId: 0, evaluatedVolume: null, rawContractors: [], kqDetails: { kq0: [], kq1: [], kq2: [] } });
             merged.set(key, target);
           }
           target.rows += Number(entry.rows) || 0;
@@ -574,6 +607,7 @@
           target.acceptedSk += Number(entry.acceptedSk) || 0;
           target.acceptedId += Number(entry.acceptedId) || 0;
           if (entry.evaluatedVolume != null) target.evaluatedVolume = (target.evaluatedVolume || 0) + (Number(entry.evaluatedVolume) || 0);
+          mergeKqDetails(target, entry);
           if (target.rawContractors.indexOf(entry.contractor) < 0) target.rawContractors.push(entry.contractor);
         });
         return Array.from(merged.values()).sort(function (a, b) { return a.contractor.localeCompare(b.contractor, "ru") || a.kqCode.localeCompare(b.kqCode, "ru") || a.unit.localeCompare(b.unit, "ru"); });
@@ -650,7 +684,7 @@
       }
 
       function renderKfoSourceCard(source, index) {
-        var levelOptions = '<option value="inherit"' + (source.kqLevel === "inherit" ? " selected" : "") + '>Выбранный уровень</option><option value="kq1"' + (source.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (source.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option>';
+        var levelOptions = '<option value="inherit"' + (source.kqLevel === "inherit" ? " selected" : "") + '>Выбранный уровень</option><option value="kq0"' + (source.kqLevel === "kq0" ? " selected" : "") + '>KQ-0</option><option value="kq1"' + (source.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (source.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option>';
         var mapping = KFO_COLUMN_FIELDS.map(function (field) {
           return '<div class="field"><label>' + field.label + '</label><input class="input" maxlength="3" value="' + escapeHtml(source.columns[field.key] || "") + '" data-source-index="' + index + '" data-column-key="' + field.key + '" /></div>';
         }).join("");
@@ -685,6 +719,28 @@
         });
       }
 
+      // Keep the database cell explicit: code first, coefficient second. Database edits
+      // use the dedicated kfo scope so they are written back to kfoLogic corrections.
+      function renderKfoCoefficientCell(entry, levelName) {
+        var details = entry && entry.kqDetails && entry.kqDetails[levelName];
+        if (Array.isArray(details) && details.length > 1) {
+          return details.map(function (detail) {
+            var detailCode = String(detail.code || "").trim();
+            var detailValue = effectiveKfoCoefficient(state.aggregation.parserConfig, levelName, detailCode, entry.erCode, detail.coefficient);
+            var detailText = Number.isFinite(detailValue) ? formatNumber(detailValue, 3) : "—";
+            var detailContent = '<strong>' + escapeHtml(detailCode || "—") + '</strong><small>' + escapeHtml(detailText) + '</small>';
+            if (!state.editMode || !detailCode) return '<span class="kq-detail">' + detailContent + '</span>';
+            return '<button type="button" class="btn kfo-coefficient-edit" data-coefficient-scope="kfo" data-coefficient-level="' + escapeHtml(levelName) + '" data-group-code="' + escapeHtml(detailCode) + '" data-current-value="' + escapeHtml(Number.isFinite(detailValue) ? detailValue : "") + '" aria-label="Изменить коэффициент ' + escapeHtml(levelName.toUpperCase()) + ' для базы данных ' + escapeHtml(detailCode) + '">' + detailContent + '</button>';
+          }).join(" ");
+        }
+        var code = String(entry[levelName + "Code"] || "").trim();
+        var value = effectiveKfoCoefficient(state.aggregation.parserConfig, levelName, code, entry.erCode, entry[levelName + "Coefficient"]);
+        var valueText = Number.isFinite(value) ? formatNumber(value, 3) : "—";
+        var content = '<strong>' + escapeHtml(code || "—") + '</strong><small>' + escapeHtml(valueText) + '</small>';
+        if (!state.editMode || !code) return '<span class="kq-detail" title="' + escapeHtml(code ? "Код и коэффициент загружены из БД" : "В БД нет кода этого уровня") + '">' + content + '</span>';
+        return '<button type="button" class="btn kfo-coefficient-edit" data-coefficient-scope="kfo" data-coefficient-level="' + escapeHtml(levelName) + '" data-group-code="' + escapeHtml(code) + '" data-current-value="' + escapeHtml(Number.isFinite(value) ? value : "") + '" aria-label="Изменить коэффициент ' + escapeHtml(levelName.toUpperCase()) + ' для базы данных ' + escapeHtml(code) + '">' + content + '</button>';
+      }
+
       function renderKfoResults() {
         var groups = aggregateCanonicalGroups(state.kfo.groups || []).filter(hasDisplayedVolume);
         var contractors = buildContractorSummaries(groups);
@@ -698,16 +754,19 @@
         });
         var contractorCards = contractors.map(function (contractor) {
           var workRows = (byContractor.get(normalizeParserLabel(contractor.name)) || []).map(function (entry) {
-            return '<tr><td class="work-code"><strong>' + escapeHtml(entry.kqCode) + '</strong></td><td class="work-name">' + escapeHtml(entry.kqName || entry.erName || "Наименование не найдено") + '</td><td>' + escapeHtml(entry.unit) + '</td><td class="num">' + formatNumber(entry.actualSmr, 0) + '</td><td class="num">' + formatNumber(entry.acceptedSk, 0) + '</td><td class="num">' + formatNumber(entry.acceptedId, 0) + '</td><td class="num">' + (entry.evaluatedVolume == null ? "—" : formatNumber(entry.evaluatedVolume, 0)) + '</td></tr>';
+            return '<tr><td class="work-code"><strong>' + escapeHtml(entry.kqCode) + '</strong></td><td class="work-name">' + escapeHtml(entry.kqName || entry.erName || "Наименование не найдено") + '</td><td>' + escapeHtml(entry.unit) + '</td><td class="num">' + renderKfoCoefficientCell(entry, "kq0") + '</td><td class="num">' + renderKfoCoefficientCell(entry, "kq1") + '</td><td class="num">' + renderKfoCoefficientCell(entry, "kq2") + '</td><td class="num">' + formatNumber(entry.actualSmr, 0) + '</td><td class="num">' + formatNumber(entry.acceptedSk, 0) + '</td><td class="num">' + formatNumber(entry.acceptedId, 0) + '</td><td class="num">' + (entry.evaluatedVolume == null ? "—" : formatNumber(entry.evaluatedVolume, 0)) + '</td></tr>';
           }).join("");
           var coverage = contractor.regulationCoverage == null ? "Регламент не применяется" : "Покрытие ДК " + formatNumber(contractor.regulationCoverage, 0) + "%";
-          return '<details class="contractor-item"><summary><span class="contractor-name">' + escapeHtml(contractor.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(contractor.workTypes, 0) + '</strong> видов работ</span><span class="metric-inline"><strong>' + formatNumber(contractor.rows, 0) + '</strong> строк с объёмами</span><span class="metric-inline">' + coverage + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Шифр KQ</th><th>Наименование работ</th><th>Ед.</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th class="num">Оценка по регламенту</th></tr></thead><tbody>' + workRows + '</tbody></table></div></div></details>';
+          return '<details class="contractor-item"><summary><span class="contractor-name">' + escapeHtml(contractor.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(contractor.workTypes, 0) + '</strong> видов работ</span><span class="metric-inline"><strong>' + formatNumber(contractor.rows, 0) + '</strong> строк с объёмами</span><span class="metric-inline">' + coverage + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Шифр KQ</th><th>Наименование работ</th><th>Ед.</th><th class="num">Коэф. KQ-0</th><th class="num">Коэф. KQ-1</th><th class="num">Коэф. KQ-2</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th class="num">Оценка по регламенту</th></tr></thead><tbody>' + workRows + '</tbody></table></div></div></details>';
         }).join("");
         return '<section class="card"><div class="card-header"><h3 class="card-title">Физические объёмы по подрядчикам</h3><p class="card-desc">Выберите подрядчика, чтобы увидеть его виды работ. Нулевые строки скрыты; отображаемые объёмы округлены до целых, расчётная точность сохранена.</p></div><div class="card-body"><div class="contractor-list">' + contractorCards + '</div><p class="result-note">Факт СМР, Принято СК и Принято ИД рассчитываются без регламентов: исходный объём умножается только на коэффициент выбранного уровня KQ. Оценка по регламенту формируется отдельно по данным раздела «Регламенты»; без подключённого источника её значение равно 0.</p></div></section>';
       }
 
       function renderDataUpload(item) {
         var sources = getKfoSources();
+        var parserDownloadAction = state.editMode && state.aggregation.parserConfig
+          ? button("Скачать parser-config.json", "download", state.aggregation.parserDirty ? "btn-primary" : "", 'id="data-download-parser-config"')
+          : "";
         var sourceCards = sources.length ? sources.map(renderKfoSourceCard).join("") : emptyState("Источники не настроены", "Включите режим редактирования и добавьте ссылку на БД КФО.", "database");
         var kfo = state.kfo;
         var visibleGroups = aggregateCanonicalGroups(kfo.groups || []).filter(hasDisplayedVolume);
@@ -717,11 +776,14 @@
         var directoryAlert = kfo.status === "active" && pendingContractorCount
           ? '<div class="banner warning">' + icon("info") + '<div><strong>' + formatNumber(pendingContractorCount, 0) + ' подрядчиков отсутствуют в справочнике.</strong> Объёмы не потеряны и временно показаны под исходными наименованиями. Выполните акцепт перед выпуском отчёта.</div>' + button("Открыть справочник", "users", "banner-action", 'id="open-contractor-directory"') + '</div>'
           : "";
-        return pageHead(item) +
+        var kfoActions = state.editMode && state.aggregation.parserConfig
+          ? button("Скачать JSON коэффициентов", "download", state.aggregation.parserDirty ? "btn-primary" : "", 'id="download-parser-config"')
+          : "";
+        return pageHead(item, kfoActions) +
           '<div class="stack">' +
             directoryAlert +
             '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники БД КФО</h3><span class="badge">Источников: ' + formatNumber(sources.length, 0) + '</span></div><p class="card-desc">Ссылка открывает файл-источник. Состояние подключения и происхождение дат показаны отдельно.</p></div><div class="card-body"><div class="source-grid">' + sourceCards + '</div></div><div class="card-footer edit-only block">' + button("Добавить источник", "plus", "", 'id="add-kfo-source"') + '</div></section>' +
-            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Срез и способ расчёта</h3><span class="badge">На ' + formatDateShort(state.asOfDate) + '</span></div><p class="card-desc">Дата ограничивает строки по дате записи; факт СМР с более поздней датой последнего факта исключается. Для СК и ИД отдельных дат в книге нет, поэтому точный исторический откат этих этапов требует отдельного файла-среза. Регламентные коэффициенты не изменяют значения этапов и учитываются только в итоговой колонке оценки.</p></div><div class="card-body"><div class="form-actions"><div class="field"><label for="as-of-date">Дата сведений</label><input class="input" id="as-of-date" type="date" value="' + escapeHtml(state.asOfDate) + '" /></div><div class="field"><label for="kq-level">Уровень расчёта</label><select class="input" id="kq-level"><option value="kq1"' + (state.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (state.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option></select></div>' + button("Обновить сведения", "refresh", "btn-primary", 'id="refresh-kfo-data"') + '</div></div></section>' +
+            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Срез и способ расчёта</h3><span class="badge">На ' + formatDateShort(state.asOfDate) + '</span></div><p class="card-desc">Дата ограничивает строки по дате записи; факт СМР с более поздней датой последнего факта исключается. Для СК и ИД отдельных дат в книге нет, поэтому точный исторический откат этих этапов требует отдельного файла-среза. Регламентные коэффициенты не изменяют значения этапов и учитываются только в итоговой колонке оценки.</p></div><div class="card-body"><div class="form-actions"><div class="field"><label for="as-of-date">Дата сведений</label><input class="input" id="as-of-date" type="date" value="' + escapeHtml(state.asOfDate) + '" /></div><div class="field"><label for="kq-level">Уровень расчёта</label><select class="input" id="kq-level"><option value="kq0"' + (state.kqLevel === "kq0" ? " selected" : "") + '>KQ-0</option><option value="kq1"' + (state.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (state.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option></select></div>' + button("Обновить сведения", "refresh", "btn-primary", 'id="refresh-kfo-data"') + '</div></div></section>' +
             '<section class="card"><div class="card-header"><h3 class="card-title">Ключевые показатели</h3><p class="card-desc">Краткая оценка состава загруженных сведений без суммирования разных единиц измерения.</p></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(visibleContractors.length, 0) : "—") + '</div><div class="stat-note">с ненулевыми объёмами</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(kfo.totalRows, 0) : "—") + '</div><div class="stat-note">' + (kfo.status === "active" ? formatNumber(kfo.includedRows, 0) + ' с ненулевыми объёмами' : 'ожидается загрузка') + '</div></div><div class="stat"><div class="stat-label">Видов работ</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(workTypes, 0) : "—") + '</div><div class="stat-note">уникальные коды выбранного KQ</div></div></div></div></section>' +
             renderKfoResults() +
           '</div>';
@@ -764,7 +826,13 @@
       function renderCoefficients(item) {
         var source = getRegulationsSource();
         var regulations = state.regulations;
-        var entries = regulations.entries || [];
+        var entries = (regulations.entries || []).map(function (entry) {
+          if (!entry.contractor) return entry;
+          return Object.assign({}, entry, {
+            sourceContractor: entry.sourceContractor || entry.contractor,
+            contractor: canonicalContractorName(entry.sourceContractor || entry.contractor)
+          });
+        });
         var common = entries.filter(function (entry) { return !entry.contractor; });
         var contractorNames = Array.from(new Set(entries.map(function (entry) { return entry.contractor; }).filter(Boolean))).sort(function (a, b) { return a.localeCompare(b, "ru"); });
         var coverageValues = (state.kfo.sourceSummaries || []).map(function (summary) { return summary.regulationCoverage; }).filter(function (value) { return value != null; });
@@ -825,22 +893,68 @@
           kq1.groups.get(kq2Key).entries.push(entry);
           kq1.count += 1;
         });
+        var coefficientOverview = (function () {
+          var levels = [
+            { key: "kq0", label: "KQ-0" },
+            { key: "kq1", label: "KQ-1" },
+            { key: "kq2", label: "KQ-2" }
+          ];
+          var stats = levels.map(function (level) {
+            var values = filteredEntries.map(function (entry) {
+              var value = runtimeConfig ? getEffectiveLevelCoefficient(level.key, entry, runtimeConfig) : Number(entry[level.key + "Coefficient"]);
+              return Number.isFinite(Number(value)) ? Number(value) : null;
+            }).filter(function (value) { return value !== null; });
+            if (!values.length) return { label: level.label, count: 0, average: 0, min: 0, max: 0 };
+            var total = values.reduce(function (sum, value) { return sum + value; }, 0);
+            return {
+              label: level.label,
+              count: values.length,
+              average: total / values.length,
+              min: Math.min.apply(Math, values),
+              max: Math.max.apply(Math, values)
+            };
+          });
+          var maxAverage = Math.max.apply(Math, stats.map(function (stat) { return stat.average; }).concat([1]));
+          var bars = stats.map(function (stat) {
+            var width = stat.count ? Math.max(2, Math.min(100, stat.average / maxAverage * 100)) : 0;
+            var valueText = stat.count
+              ? formatNumber(stat.average, 3) + " (" + formatNumber(stat.min, 3) + "–" + formatNumber(stat.max, 3) + ")"
+              : "нет данных";
+            return '<div class="coefficient-bar-row" role="img" aria-label="' + escapeHtml(stat.label + ": среднее " + valueText) + '"><span class="coefficient-bar-label">' + stat.label + '</span><span class="coefficient-bar-track" aria-hidden="true"><span class="coefficient-bar-fill" style="width:' + width.toFixed(1) + '%"></span></span><span class="coefficient-bar-value">' + escapeHtml(valueText) + '</span></div>';
+          }).join("");
+          return '<div class="coefficient-overview"><div><div class="coefficient-overview-title">Распределение коэффициентов по уровням</div><div class="coefficient-overview-note">Среднее значение; в скобках — диапазон по найденным строкам (' + formatNumber(filteredEntries.length, 0) + ' ЕР).</div></div><div class="coefficient-bars">' + bars + '</div></div>';
+        }());
+
+        function coefficientCell(levelName, entry) {
+          var effective = runtimeConfig ? getEffectiveLevelCoefficient(levelName, entry, runtimeConfig) : Number(entry[levelName + "Coefficient"]);
+          var sourceValue = Number(entry[levelName + "Coefficient"]);
+          var corrected = Number.isFinite(sourceValue) && Number(effective) !== sourceValue;
+          if (!state.editMode) return '<strong>' + escapeHtml(effective) + '</strong>' + (corrected ? '<br><span class="badge warning">JSON</span>' : '');
+          return '<button type="button" class="btn aggregation-coefficient-edit" data-coefficient-level="' + escapeHtml(levelName) + '" data-er-code="' + escapeHtml(entry.erCode) + '" data-current-value="' + escapeHtml(effective) + '" aria-label="Изменить коэффициент ' + escapeHtml(levelName.toUpperCase()) + ' для ' + escapeHtml(entry.erCode) + '"><strong>' + escapeHtml(effective) + '</strong>' + (corrected ? ' <span class="badge warning">JSON</span>' : '') + '</button>';
+        }
+        function groupCoefficientControl(levelName, code, groupEntries) {
+          var values = Array.from(new Set(groupEntries.map(function (entry) { return runtimeConfig ? getEffectiveLevelCoefficient(levelName, entry, runtimeConfig) : Number(entry[levelName + "Coefficient"]); })));
+          var summary = values.length === 1 ? String(values[0]) : "разные: " + Math.min.apply(Math, values) + "–" + Math.max.apply(Math, values);
+          if (!state.editMode) return '<span class="badge">Коэф. ' + escapeHtml(levelName.toUpperCase()) + ': ' + escapeHtml(summary) + '</span>';
+          return '<button type="button" class="btn aggregation-group-coefficient-edit" data-coefficient-level="' + escapeHtml(levelName) + '" data-group-code="' + escapeHtml(code) + '" data-current-value="' + (values.length === 1 ? escapeHtml(values[0]) : '') + '" data-placeholder="' + escapeHtml(summary) + '" onclick="event.stopPropagation()" aria-label="Изменить коэффициент группы ' + escapeHtml(code) + '">Коэф. ' + escapeHtml(levelName.toUpperCase()) + ': ' + escapeHtml(summary) + '</button>';
+        }
         var groupedRows = Array.from(hierarchy.values()).sort(function (a, b) { return a.code.localeCompare(b.code, "ru"); }).map(function (kq1) {
+          var kq1Entries = Array.from(kq1.groups.values()).reduce(function (all, group) { return all.concat(group.entries); }, []);
           var kq2Rows = Array.from(kq1.groups.values()).sort(function (a, b) { return a.code.localeCompare(b.code, "ru"); }).map(function (kq2) {
             var erRows = kq2.entries.sort(function (a, b) { return a.erCode.localeCompare(b.erCode, "ru"); }).map(function (entry) {
-              var effectiveCoefficient = runtimeConfig ? getEffectiveKq2Coefficient(entry, runtimeConfig) : entry.kq2Coefficient;
-              var corrected = Number(effectiveCoefficient) !== Number(entry.kq2Coefficient);
-              return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong></td><td>' + escapeHtml(entry.erName) + '</td><td>' + escapeHtml(entry.unit) + '</td><td class="num"><strong>' + escapeHtml(effectiveCoefficient) + '</strong>' + (corrected ? '<br><span class="badge warning">JSON</span>' : '') + '</td><td>' + escapeHtml(entry.status || "Действует") + '</td></tr>';
+              return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong></td><td>' + escapeHtml(entry.erName) + '</td><td>' + escapeHtml(entry.unit) + '</td><td>' + escapeHtml(entry.kq0Code) + '</td><td class="num">' + coefficientCell("kq0", entry) + '</td><td class="num">' + coefficientCell("kq1", entry) + '</td><td class="num">' + coefficientCell("kq2", entry) + '</td><td>' + escapeHtml(entry.status || "Действует") + '</td></tr>';
             }).join("");
-            return '<details class="card" style="margin:8px 0"><summary style="cursor:pointer;padding:12px 16px"><span class="badge">Уровень 2 · KQ-2</span> <strong>' + escapeHtml(kq2.code) + '</strong> — ' + escapeHtml(kq2.name) + (kq2.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' <span class="badge">ЕР: ' + kq2.entries.length + '</span></summary><div class="table-wrap"><table><thead><tr><th>Уровень 3 · Шифр ЕР</th><th>Наименование ЕР</th><th>Ед. изм.</th><th class="num">Коэф. KQ-2</th><th>Статус</th></tr></thead><tbody>' + erRows + '</tbody></table></div></details>';
+            return '<details class="card" style="margin:8px 0"><summary style="cursor:pointer;padding:12px 16px"><span class="badge">Уровень 2 · KQ-2</span> <strong>' + escapeHtml(kq2.code) + '</strong> — ' + escapeHtml(kq2.name) + (kq2.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' ' + groupCoefficientControl("kq2", kq2.code, kq2.entries) + ' <span class="badge">ЕР: ' + kq2.entries.length + '</span></summary><div class="table-wrap"><table><thead><tr><th>Уровень 3 · Шифр ЕР</th><th>Наименование ЕР</th><th>Ед. изм.</th><th>KQ-0</th><th class="num">Коэф. KQ-0</th><th class="num">Коэф. KQ-1</th><th class="num">Коэф. KQ-2</th><th>Статус</th></tr></thead><tbody>' + erRows + '</tbody></table></div></details>';
           }).join("");
-          return '<details class="card" style="margin:12px 0"><summary style="cursor:pointer;padding:14px 16px"><span class="badge green">Уровень 1 · KQ-1</span> <strong>' + escapeHtml(kq1.code) + '</strong> — ' + escapeHtml(kq1.name) + (kq1.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' <span class="badge">KQ-2: ' + kq1.groups.size + '</span> <span class="badge">ЕР: ' + kq1.count + '</span></summary><div style="padding:0 12px 12px">' + kq2Rows + '</div></details>';
+          return '<details class="card" style="margin:12px 0"><summary style="cursor:pointer;padding:14px 16px"><span class="badge green">Уровень 1 · KQ-1</span> <strong>' + escapeHtml(kq1.code) + '</strong> — ' + escapeHtml(kq1.name) + (kq1.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' ' + groupCoefficientControl("kq1", kq1.code, kq1Entries) + ' <span class="badge">KQ-2: ' + kq1.groups.size + '</span> <span class="badge">ЕР: ' + kq1.count + '</span></summary><div style="padding:0 12px 12px">' + kq2Rows + '</div></details>';
         }).join("");
         var searchBlock = '<div class="field"><label for="aggregation-search">Поиск по шифрам</label><div class="form-actions"><input class="input" id="aggregation-search" type="search" placeholder="Введите KQ-1, KQ-2 или Шифр ЕР" value="' + escapeHtml(state.aggregationSearch) + '" />' + (state.aggregationSearch ? button("Очистить", "refresh", "", 'id="clear-aggregation-search"') : '') + '</div><p class="field-note">Поиск выполняется одновременно по кодам KQ-1, KQ-2 и единичных расценок.</p></div>';
+        var editHint = state.editMode ? '<div class="banner">' + icon("sliders") + '<div><strong>Режим редактирования:</strong> нажмите на любой коэффициент KQ-0, KQ-1 или KQ-2 в таблице либо на коэффициент группы в заголовке. Для значений из БД КФО используйте таблицу раздела «БД КФО». Enter сохраняет значение, Esc отменяет, клик вне поля сохраняет. После изменений скачайте обновлённый JSON.</div></div>' : '';
         var body = entries.length
-          ? searchBlock + '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Найдено ' + filteredEntries.length + ' из ' + entries.length + ' шифров ЕР.</div></div>' + (filteredEntries.length ? groupedRows : emptyState("Совпадений не найдено", "Измените запрос: поиск проверяет только коды KQ-1, KQ-2 и Шифр ЕР.", "book"))
+          ? editHint + searchBlock + '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Найдено ' + filteredEntries.length + ' из ' + entries.length + ' шифров ЕР.</div></div>' + (filteredEntries.length ? coefficientOverview + groupedRows : emptyState("Совпадений не найдено", "Измените запрос: поиск проверяет только коды KQ-1, KQ-2 и Шифр ЕР.", "book"))
           : emptyState("Справочник не загружен", state.aggregation.message, "book");
-        return pageHead(item, button("Загрузить справочник", "upload", "", 'id="load-aggregation"')) +
+        var aggregationActions = button("Загрузить справочник", "upload", "", 'id="load-aggregation"') + (state.editMode && runtimeConfig ? button("Скачать JSON", "download", state.aggregation.parserDirty ? "btn-primary" : "", 'id="download-parser-config"') : "");
+        return pageHead(item, aggregationActions) +
           '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
           '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение справочника</h3><span class="badge ' + (entries.length ? "green" : "warning") + '">' + (entries.length ? entries.length + " записей" : "Нет данных") + '</span></div><p class="card-desc">Источник из JSON: ' + escapeHtml((runtimeConfig && runtimeConfig.sources && runtimeConfig.sources.aggregation.url) || source.url || "не задан") + '<br>Конфигуратор: ' + escapeHtml(state.config.parserConfigUrl || "не задан") + (state.aggregation.parserVersion ? ' (версия ' + escapeHtml(state.aggregation.parserVersion) + ')' : '') + '<br>Активный уровень: ' + escapeHtml(activeLevel.toUpperCase()) + '; приоритет: ' + escapeHtml(priorityText) + '</p></div><div class="card-body">' + body + '</div></section></div>';
       }
@@ -879,7 +993,7 @@
         var asOfDate = document.getElementById("as-of-date");
         if (asOfDate) asOfDate.addEventListener("change", function () { state.asOfDate = asOfDate.value || new Date().toISOString().slice(0, 10); });
         var kqLevel = document.getElementById("kq-level");
-        if (kqLevel) kqLevel.addEventListener("change", function () { state.kqLevel = kqLevel.value === "kq1" ? "kq1" : "kq2"; });
+        if (kqLevel) kqLevel.addEventListener("change", function () { state.kqLevel = ["kq0", "kq1", "kq2"].indexOf(kqLevel.value) >= 0 ? kqLevel.value : "kq2"; });
         var refreshKfo = document.getElementById("refresh-kfo-data");
         if (refreshKfo) refreshKfo.addEventListener("click", refreshKfoData);
         var loadRegulationsButton = document.getElementById("load-regulations");
@@ -950,6 +1064,36 @@
           var nextSearch = document.getElementById("aggregation-search");
           if (nextSearch) nextSearch.focus();
         });
+        document.querySelectorAll(".aggregation-coefficient-edit").forEach(function (buttonNode) {
+          buttonNode.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            activateCoefficientEditor(buttonNode, "er");
+          });
+        });
+        document.querySelectorAll(".aggregation-group-coefficient-edit").forEach(function (buttonNode) {
+          buttonNode.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            activateCoefficientEditor(buttonNode, "group");
+          });
+        });
+        document.querySelectorAll(".kq-detail-edit").forEach(function (buttonNode) {
+          buttonNode.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            activateCoefficientEditor(buttonNode, "kfo");
+          });
+        });
+        document.querySelectorAll(".kfo-coefficient-edit").forEach(function (buttonNode) {
+          buttonNode.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            activateCoefficientEditor(buttonNode, "kfo");
+          });
+        });
+        var downloadParserConfigButton = document.getElementById("download-parser-config");
+        if (downloadParserConfigButton) downloadParserConfigButton.addEventListener("click", downloadParserConfig);
         var checkParser = document.getElementById("check-parser-config");
         if (checkParser) checkParser.addEventListener("click", function () { checkParserConfig(false); });
         var applySources = document.getElementById("apply-source-settings");
@@ -1141,7 +1285,7 @@
         var dateInput = document.getElementById("as-of-date");
         if (dateInput) state.asOfDate = dateInput.value || state.asOfDate;
         var levelInput = document.getElementById("kq-level");
-        if (levelInput) state.kqLevel = levelInput.value === "kq1" ? "kq1" : "kq2";
+        if (levelInput) state.kqLevel = ["kq0", "kq1", "kq2"].indexOf(levelInput.value) >= 0 ? levelInput.value : "kq2";
         state.calculationMode = "with-regulations";
         await loadKfoSources();
       }
@@ -1300,10 +1444,10 @@
       function findRegulationRule(rules, markCode, contractor, contractNumber) {
         var normalizedMark = normalizeParserLabel(markCode);
         var candidates = rules.get(normalizedMark) || (normalizedMark ? [] : (rules.get("") || []));
-        var contractorKey = normalizeParserLabel(contractor);
+        var contractorKey = normalizeParserLabel(canonicalContractorName(contractor));
         var contractKey = normalizeParserLabel(contractNumber);
         var matches = candidates.map(function (rule) {
-          var ruleContractor = normalizeParserLabel(rule.contractor);
+          var ruleContractor = normalizeParserLabel(canonicalContractorName(rule.sourceContractor || rule.contractor));
           var ruleContract = normalizeParserLabel(rule.contractNumber);
           if (ruleContractor && ruleContractor !== contractorKey) return null;
           if (ruleContract && ruleContract !== contractKey) return null;
@@ -1320,9 +1464,61 @@
       function resolveKqName(erCode, level, kqCode, erName) {
         var rule = state.aggregation.index && state.aggregation.index.get(normalizeParserLabel(erCode));
         if (!rule) return normalizeParserLabel(erCode) === normalizeParserLabel(kqCode) ? (erName || kqCode) : kqCode;
-        var codeField = level === "kq1" ? "kq1Code" : "kq2Code";
-        var nameField = level === "kq1" ? "kq1Name" : "kq2Name";
+        var codeField = level === "kq0" ? "kq0Code" : (level === "kq1" ? "kq1Code" : "kq2Code");
+        var nameField = level === "kq0" ? "kq0Name" : (level === "kq1" ? "kq1Name" : "kq2Name");
         return normalizeParserLabel(rule[codeField]) === normalizeParserLabel(kqCode) ? (rule[nameField] || kqCode) : kqCode;
+      }
+
+      function getKfoCoefficientCorrection(parserConfig, levelName, kqCode, erCode) {
+        var logic = parserConfig && parserConfig.kfoLogic || {};
+        var corrections = logic.coefficientCorrections || {};
+        var byEr = corrections.byErCode || {};
+        var erCorrection = byEr[erCode];
+        if (erCorrection === undefined) erCorrection = byEr[normalizeParserLabel(erCode)];
+        if (typeof erCorrection === "object" && erCorrection !== null && erCorrection[levelName] !== undefined) {
+          var erValue = Number(erCorrection[levelName]);
+          if (Number.isFinite(erValue)) return erValue;
+        }
+        var mapName = "by" + levelName.charAt(0).toUpperCase() + levelName.slice(1) + "Code";
+        var byCode = corrections[mapName] || {};
+        var corrected = byCode[kqCode];
+        if (corrected === undefined) corrected = byCode[normalizeParserLabel(kqCode)];
+        var value = Number(corrected);
+        return Number.isFinite(value) ? value : null;
+      }
+
+      function effectiveKfoCoefficient(parserConfig, levelName, kqCode, erCode, rawValue) {
+        var correction = getKfoCoefficientCorrection(parserConfig, levelName, kqCode, erCode);
+        return correction == null ? parseKfoNumber(rawValue, 1) : correction;
+      }
+
+      function appendKqDetail(group, levelName, code, coefficient) {
+        if (!group.kqDetails) group.kqDetails = { kq0: [], kq1: [], kq2: [] };
+        var details = group.kqDetails[levelName] || (group.kqDetails[levelName] = []);
+        var normalizedCode = String(code == null ? "" : code).trim();
+        var numericCoefficient = Number(coefficient);
+        var key = normalizedCode + "||" + (Number.isFinite(numericCoefficient) ? numericCoefficient : "");
+        if (!details.some(function (entry) { return entry.key === key; })) {
+          details.push({ key: key, code: normalizedCode, coefficient: Number.isFinite(numericCoefficient) ? numericCoefficient : 1 });
+        }
+      }
+
+      function mergeKqDetails(target, source) {
+        var levels = ["kq0", "kq1", "kq2"];
+        levels.forEach(function (levelName) {
+          var sourceDetails = source && source.kqDetails && source.kqDetails[levelName];
+          if (Array.isArray(sourceDetails)) sourceDetails.forEach(function (entry) { appendKqDetail(target, levelName, entry.code, entry.coefficient); });
+        });
+      }
+
+      function formatKqDetails(group, levelName) {
+        var details = group && group.kqDetails && group.kqDetails[levelName];
+        if (!Array.isArray(details) || !details.length) return '<span class="muted">—</span>';
+        return details.map(function (entry) {
+          var label = (entry.code || "—") + " · " + formatNumber(entry.coefficient, 6);
+          if (!state.editMode) return '<span class="kq-detail"><strong>' + escapeHtml(entry.code || "—") + '</strong><small>' + escapeHtml(formatNumber(entry.coefficient, 6)) + '</small></span>';
+          return '<button type="button" class="btn kq-detail-edit" data-coefficient-level="' + escapeHtml(levelName) + '" data-group-code="' + escapeHtml(entry.code) + '" data-current-value="' + escapeHtml(entry.coefficient) + '" data-placeholder="' + escapeHtml(label) + '" aria-label="Изменить коэффициент ' + escapeHtml(levelName.toUpperCase()) + ' для ' + escapeHtml(entry.code) + '"><strong>' + escapeHtml(entry.code || "—") + '</strong><small>' + escapeHtml(formatNumber(entry.coefficient, 6)) + '</small></button>';
+        }).join(" ");
       }
 
       function analyzeKqControlSheet(workbook) {
@@ -1352,7 +1548,7 @@
         if (!selected) throw new Error("лист «" + source.sheetName + "» не найден");
         var resolved = resolveParserColumns(selected.sheet, parser, source.columns, source.headerSearchRows);
         var regulationRules = state.regulations.status === "active" && state.regulations.rules instanceof Map ? state.regulations.rules : new Map();
-        var level = source.kqLevel === "kq1" || source.kqLevel === "kq2" ? source.kqLevel : state.kqLevel;
+        var level = ["kq0", "kq1", "kq2"].indexOf(source.kqLevel) >= 0 ? source.kqLevel : state.kqLevel;
         var mode = "with-regulations";
         var groups = new Map();
         var detectedContractors = new Map();
@@ -1380,9 +1576,29 @@
           var acceptedSk = parseKfoNumber(get("acceptedSk"), 0);
           var acceptedId = parseKfoNumber(get("acceptedId"), 0);
           if (actualSmr === 0 && acceptedSk === 0 && acceptedId === 0) { diagnostics.zeroVolumeRows += 1; continue; }
-          var codeField = level === "kq1" ? "kq1Code" : "kq2Code";
-          var kqCode = String(get(codeField) || "").trim();
-          var kqCoefficient = level === "kq2" ? parseKfoNumber(get("kq2Coefficient"), 1) : 1;
+          var codeField = level === "kq0" ? "kq0Code" : (level === "kq1" ? "kq1Code" : "kq2Code");
+          var coefficientField = level === "kq0" ? "kq0Coefficient" : (level === "kq1" ? "kq1Coefficient" : "kq2Coefficient");
+          var kq0Code = String(get("kq0Code") || "").trim();
+          var kq1Code = String(get("kq1Code") || "").trim();
+          var kq2Code = String(get("kq2Code") || "").trim();
+          var kq0Coefficient = parseKfoNumber(get("kq0Coefficient"), 1);
+          var kq1Coefficient = parseKfoNumber(get("kq1Coefficient"), 1);
+          var kq2Coefficient = parseKfoNumber(get("kq2Coefficient"), 1);
+          // The KFO workbook has no KQ-0 columns (BG/BH are labour norms).
+          // Enrich KQ-0 from the aggregation reference by ER code instead of
+          // interpreting those unrelated columns as a coefficient.
+          var aggregationRule = state.aggregation.index && state.aggregation.index.get(normalizeParserLabel(erCode));
+          if (!kq0Code && aggregationRule) kq0Code = String(aggregationRule.kq0Code || "").trim();
+          if (aggregationRule && (get("kq0Coefficient") == null || String(get("kq0Coefficient")).trim() === "")) {
+            var referenceKq0Coefficient = Number(aggregationRule.kq0Coefficient);
+            if (Number.isFinite(referenceKq0Coefficient)) kq0Coefficient = referenceKq0Coefficient;
+          }
+          var coefficientRule = { __kfoSource: true, erCode: erCode, kq0Code: kq0Code, kq1Code: kq1Code, kq2Code: kq2Code, kq0Coefficient: kq0Coefficient, kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient };
+          kq0Coefficient = getEffectiveLevelCoefficient("kq0", coefficientRule, parserConfig);
+          kq1Coefficient = getEffectiveLevelCoefficient("kq1", coefficientRule, parserConfig);
+          kq2Coefficient = getEffectiveLevelCoefficient("kq2", coefficientRule, parserConfig);
+          var kqCode = level === "kq0" ? kq0Code : String(get(codeField) || "").trim();
+          var kqCoefficient = coefficientField === "kq0Coefficient" ? kq0Coefficient : (coefficientField === "kq1Coefficient" ? kq1Coefficient : kq2Coefficient);
           if (!kqCode) { kqCode = erCode; kqCoefficient = 1; diagnostics.missingKqRows += 1; }
           var rule = findRegulationRule(regulationRules, String(get("markCode") || "").trim(), contractor, String(get("contractNumber") || "").trim());
           if (rule) diagnostics.regulationMatchedRows += 1; else diagnostics.missingRegulationRows += 1;
@@ -1396,9 +1612,12 @@
           var groupKey = [source.id, normalizeParserLabel(contractor), normalizeParserLabel(kqCode), normalizeParserLabel(unit), level, mode].join("||");
           var group = groups.get(groupKey);
           if (!group) {
-            group = { sourceId: source.id, sourceName: source.name, contractor: contractor, kqCode: kqCode, kqName: resolveKqName(erCode, level, kqCode, String(get("erName") || "").trim()), erName: String(get("erName") || "").trim(), unit: unit, level: level, mode: mode, rows: 0, regulationRows: 0, actualSmr: 0, acceptedSk: 0, acceptedId: 0, evaluatedVolume: 0 };
+            group = { sourceId: source.id, sourceName: source.name, contractor: contractor, kqCode: kqCode, kqName: resolveKqName(erCode, level, kqCode, String(get("erName") || "").trim()), erName: String(get("erName") || "").trim(), unit: unit, level: level, mode: mode, kq0Code: kq0Code, kq1Code: kq1Code, kq2Code: kq2Code, kq0Coefficient: kq0Coefficient, kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient, rows: 0, regulationRows: 0, actualSmr: 0, acceptedSk: 0, acceptedId: 0, evaluatedVolume: 0 };
             groups.set(groupKey, group);
           }
+          appendKqDetail(group, "kq0", kq0Code, kq0Coefficient);
+          appendKqDetail(group, "kq1", kq1Code, kq1Coefficient);
+          appendKqDetail(group, "kq2", kq2Code, kq2Coefficient);
           group.rows += 1;
           if (rule) group.regulationRows += 1;
           group.actualSmr += actualCalculated;
@@ -1463,12 +1682,32 @@
         var parserConfig;
         try {
           parserConfig = await fetchParserConfiguration();
+          var storedParserConfig = state.aggregation.parserConfig;
+          if (state.aggregation.parserDirty && storedParserConfig) {
+            ["aggregationLogic", "kfoLogic"].forEach(function (logicName) {
+              var storedLogic = storedParserConfig[logicName];
+              if (!storedLogic || !storedLogic.coefficientCorrections) return;
+              var currentLogic = parserConfig[logicName] = parserConfig[logicName] || {};
+              currentLogic.coefficientCorrections = storedLogic.coefficientCorrections;
+            });
+          }
+          // Keep the parser available for KFO-only editing even when the
+          // aggregation workbook has not been loaded (or is unavailable).
+          if (!state.aggregation.parserConfig) {
+            state.aggregation.parserConfig = parserConfig;
+            state.aggregation.parserVersion = parserConfig.version || "";
+          }
         } catch (error) {
           state.kfo.status = "error";
           state.kfo.message = error.message || "Не удалось загрузить JSON-конфигуратор";
           renderContent();
           showToast("Ошибка конфигурации БД КФО", state.kfo.message);
           return false;
+        }
+        state.aggregation.parserConfig = parserConfig;
+        state.aggregation.parserVersion = parserConfig.version || state.aggregation.parserVersion || "";
+        if (!state.aggregation.index || !state.aggregation.index.size) {
+          try { await loadAggregation(true); } catch (aggregationError) { /* KQ-0 remains empty when its reference is unavailable. */ }
         }
         var groups = [];
         var summaries = [];
@@ -1592,12 +1831,18 @@
             };
             var entry = {
               erCode: String(getValue("erCode")).trim(), erName: String(getValue("erName")).trim(), unit: String(getValue("unit")).trim(),
-              kq0Code: String(getValue("kq0Code")).trim(), kq0Name: String(getValue("kq0Name")).trim(),
-              kq1Code: String(getValue("kq1Code")).trim(), kq1Name: String(getValue("kq1Name")).trim(),
+              kq0Code: String(getValue("kq0Code")).trim(), kq0Name: String(getValue("kq0Name")).trim(), kq0Coefficient: numeric("kq0Coefficient"),
+              kq1Code: String(getValue("kq1Code")).trim(), kq1Name: String(getValue("kq1Name")).trim(), kq1Coefficient: numeric("kq1Coefficient"),
               kq2Code: String(getValue("kq2Code")).trim(), kq2Name: String(getValue("kq2Name")).trim(), kq2Coefficient: numeric("kq2Coefficient"),
               status: String(getValue("status") || parser.defaultStatus || "Действует").trim()
             };
-            if (entry.kq2Coefficient === null) continue;
+            // A dash/blank means that this hierarchy level does not change the quantity.
+            // Keep the row with a neutral coefficient so KQ-0/1/2 remain complete.
+            var defaultCoefficient = Number(parser.missingCoefficient);
+            if (!Number.isFinite(defaultCoefficient)) defaultCoefficient = 1;
+            ["kq0Coefficient", "kq1Coefficient", "kq2Coefficient"].forEach(function (field) {
+              if (entry[field] === null) entry[field] = defaultCoefficient;
+            });
             entries.push(entry);
           }
           if (entries.length) return entries;
@@ -1618,19 +1863,38 @@
         return index;
       }
 
-      function getEffectiveKq2Coefficient(rule, config) {
+      function getEffectiveLevelCoefficient(levelName, rule, config) {
         var logic = config.aggregationLogic || {};
         var corrections = logic.coefficientCorrections || {};
+        if (rule && rule.__kfoSource && config.kfoLogic) corrections = (config.kfoLogic.coefficientCorrections || {});
         var byEr = corrections.byErCode || {};
-        var byKq2 = corrections.byKq2Code || {};
         var erCode = String(rule.erCode || "");
-        var kq2Code = String(rule.kq2Code || "");
-        var corrected = byEr[erCode];
-        if (corrected === undefined) corrected = byEr[normalizeParserLabel(erCode)];
-        if (corrected === undefined) corrected = byKq2[kq2Code];
-        if (corrected === undefined) corrected = byKq2[normalizeParserLabel(kq2Code)];
-        var coefficient = corrected === undefined ? Number(rule.kq2Coefficient) : Number(corrected);
+        var erCorrection = byEr[erCode];
+        if (erCorrection === undefined) erCorrection = byEr[normalizeParserLabel(erCode)];
+        var corrected = typeof erCorrection === "object" && erCorrection !== null ? erCorrection[levelName] : (levelName === "kq2" ? erCorrection : undefined);
+        var level = (logic.levels || {})[levelName] || {};
+        var code = String(rule[level.codeField] || "");
+        var correctionMapName = "by" + levelName.charAt(0).toUpperCase() + levelName.slice(1) + "Code";
+        var byCode = corrections[correctionMapName] || {};
+        if (corrected === undefined) corrected = byCode[code];
+        if (corrected === undefined) corrected = byCode[normalizeParserLabel(code)];
+        // Group controls use the effective (possibly JSON-corrected) group code.
+        // Resolve that code as a fallback when the source KQ code was renamed.
+        if (corrected === undefined && (levelName === "kq1" || levelName === "kq2")) {
+          var effectiveGroup = getEffectiveAggregationGroup(levelName, code, rule[level.nameField], config);
+          var effectiveCode = String(effectiveGroup.code || "");
+          if (effectiveCode && effectiveCode !== code) {
+            corrected = byCode[effectiveCode];
+            if (corrected === undefined) corrected = byCode[normalizeParserLabel(effectiveCode)];
+          }
+        }
+        var sourceCoefficient = level.coefficientField ? rule[level.coefficientField] : level.coefficient;
+        var coefficient = corrected === undefined ? Number(sourceCoefficient) : Number(corrected);
         return Number.isFinite(coefficient) ? coefficient : 1;
+      }
+
+      function getEffectiveKq2Coefficient(rule, config) {
+        return getEffectiveLevelCoefficient("kq2", rule, config);
       }
 
       function getEffectiveAggregationGroup(level, sourceCode, sourceName, config) {
@@ -1656,9 +1920,7 @@
         var levelName = logic.activeLevel || "kq2";
         var level = (logic.levels || {})[levelName];
         if (!level || !rule) return { quantity: quantity, code: "", name: "", coefficient: 1, level: "er" };
-        var coefficient = levelName === "kq2"
-          ? getEffectiveKq2Coefficient(rule, config)
-          : Number(level.coefficient == null ? 1 : level.coefficient);
+        var coefficient = getEffectiveLevelCoefficient(levelName, rule, config);
         if (!Number.isFinite(coefficient)) coefficient = 1;
         var operation = (logic.quantityCalculation || {}).operation || "multiply";
         var result = operation === "multiply" ? Number(quantity) * coefficient : Number(quantity);
@@ -1691,6 +1953,8 @@
 
       async function loadAggregation(quiet) {
         var source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
+        var previousParserConfig = state.aggregation.parserConfig;
+        var previousParserDirty = state.aggregation.parserDirty;
         state.aggregation.status = "loading";
         try {
           var parserConfig = await fetchParserConfiguration();
@@ -1698,12 +1962,22 @@
           var response = await fetch(new URL(configuredSource, parserConfig._sourceUrl).href, { cache: "no-store", credentials: "include" });
           if (!response.ok) throw new Error("Справочник Excel: HTTP " + response.status);
           var entries = parseAggregationWorkbook(await response.arrayBuffer(), parserConfig.parsers.aggregation);
-          state.aggregation = { status: "active", entries: entries, parserVersion: parserConfig.version || "", parserConfig: parserConfig, index: buildAggregationIndex(entries, parserConfig), message: "Справочник загружен" };
+          previousParserConfig = state.aggregation.parserConfig;
+          previousParserDirty = state.aggregation.parserDirty;
+          if (previousParserDirty && previousParserConfig) {
+            ["aggregationLogic", "kfoLogic"].forEach(function (logicName) {
+              var previousLogic = previousParserConfig[logicName];
+              if (!previousLogic || !previousLogic.coefficientCorrections) return;
+              var currentLogic = parserConfig[logicName] = parserConfig[logicName] || {};
+              currentLogic.coefficientCorrections = previousLogic.coefficientCorrections;
+            });
+          }
+          state.aggregation = { status: "active", entries: entries, parserVersion: parserConfig.version || "", parserConfig: parserConfig, parserDirty: Boolean(previousParserDirty), index: buildAggregationIndex(entries, parserConfig), message: "Справочник загружен" };
           renderContent();
           if (!quiet) showToast("Справочник загружен", "Прочитано " + entries.length + " строк ЕР.");
           return true;
         } catch (error) {
-          state.aggregation = { status: "error", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: error.message || "Ошибка чтения справочника" };
+          state.aggregation = { status: "error", entries: [], parserVersion: "", parserConfig: previousParserConfig || null, parserDirty: Boolean(previousParserDirty), index: new Map(), message: error.message || "Ошибка чтения справочника" };
           renderContent();
           if (!quiet) showToast("Ошибка справочника", state.aggregation.message);
           return false;
@@ -1728,6 +2002,116 @@
         applyConfigToChrome();
         renderContent();
         showToast("Источники применены", "Ссылки включены в config.json.");
+      }
+
+      function setParserCoefficientCorrection(levelName, key, rawValue, scope) {
+        var parserConfig = state.aggregation.parserConfig;
+        var normalizedValue = String(rawValue == null ? "" : rawValue).trim().replace(",", ".");
+        var value = Number(normalizedValue);
+        if (!parserConfig || !levelName || !key || !normalizedValue || !Number.isFinite(value)) {
+          showToast("Коэффициент не сохранён", "Введите корректное числовое значение.");
+          return false;
+        }
+        var logic = scope === "kfo"
+          ? (parserConfig.kfoLogic = parserConfig.kfoLogic || {})
+          : (parserConfig.aggregationLogic = parserConfig.aggregationLogic || {});
+        var corrections = logic.coefficientCorrections = logic.coefficientCorrections || {};
+        if (scope === "er") {
+          var byEr = corrections.byErCode = corrections.byErCode || {};
+          var existing = byEr[key];
+          if (typeof existing === "number") existing = { kq2: existing };
+          if (!existing || typeof existing !== "object") existing = {};
+          existing[levelName] = value;
+          byEr[key] = existing;
+        } else {
+          var mapName = "by" + levelName.charAt(0).toUpperCase() + levelName.slice(1) + "Code";
+          corrections[mapName] = corrections[mapName] || {};
+          corrections[mapName][key] = value;
+        }
+        state.aggregation.parserDirty = true;
+        var downloadButton = document.getElementById("download-parser-config");
+        if (downloadButton) downloadButton.classList.add("btn-primary");
+        showToast("Коэффициент изменён", key + ": " + value + ". Скачайте обновлённый JSON.");
+        return true;
+      }
+
+      function activateCoefficientEditor(buttonNode, scope) {
+        if (!buttonNode || !buttonNode.parentNode) return;
+        var levelName = buttonNode.getAttribute("data-coefficient-level");
+        var keyAttribute = scope === "er" ? "data-er-code" : "data-group-code";
+        var key = buttonNode.getAttribute(keyAttribute);
+        var currentValue = buttonNode.getAttribute("data-current-value") || "";
+        var input = document.createElement("input");
+        var cancelled = false;
+        var finished = false;
+
+        input.type = "number";
+        input.step = "any";
+        input.className = "input aggregation-coefficient-input";
+        input.style.width = scope === "group" ? "150px" : "100px";
+        input.value = currentValue;
+        input.placeholder = buttonNode.getAttribute("data-placeholder") || currentValue;
+        input.setAttribute("aria-label", buttonNode.getAttribute("aria-label") || "Coefficient");
+
+        function finish(save) {
+          if (finished) return;
+          finished = true;
+          var normalizedValue = input.value.trim().replace(",", ".");
+          if (save && normalizedValue !== "" && Number.isFinite(Number(normalizedValue))) {
+            var saved = setParserCoefficientCorrection(levelName, key, normalizedValue, scope);
+            if (!saved) {
+              if (input.parentNode) input.parentNode.replaceChild(buttonNode, input);
+              return;
+            }
+            buttonNode.setAttribute("data-current-value", normalizedValue);
+            if (scope === "kfo") {
+              buttonNode.innerHTML = "<strong>" + escapeHtml(key) + "</strong><small>" + escapeHtml(formatNumber(Number(normalizedValue), 3)) + "</small>";
+            } else if (scope === "group") {
+              buttonNode.textContent = "Коэф. " + levelName.toUpperCase() + ": " + normalizedValue;
+            } else {
+              buttonNode.innerHTML = "<strong>" + escapeHtml(normalizedValue) + "</strong> <span class=\"badge warning\">JSON</span>";
+            }
+          } else if (save && normalizedValue !== "") {
+            showToast("Коэффициент не сохранён", "Введите корректное числовое значение.");
+          }
+          if (input.parentNode) input.parentNode.replaceChild(buttonNode, input);
+        }
+
+        input.addEventListener("click", function (event) { event.stopPropagation(); });
+        input.addEventListener("keydown", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            input.blur();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            cancelled = true;
+            finish(false);
+          }
+        });
+        input.addEventListener("blur", function () { finish(!cancelled); });
+        buttonNode.parentNode.replaceChild(input, buttonNode);
+        input.focus();
+        input.select();
+      }
+
+      function downloadParserConfig() {
+        var parserConfig = state.aggregation.parserConfig;
+        if (!parserConfig) return;
+        var clean = JSON.parse(JSON.stringify(parserConfig, function (key, value) {
+          return key.charAt(0) === "_" ? undefined : value;
+        }));
+        var blob = new Blob([JSON.stringify(clean, null, 2) + "\n"], { type: "application/json;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = "parser-config.json";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        state.aggregation.parserDirty = false;
+        showToast("JSON сформирован", "Замените parser-config.json в GitHub или SharePoint.");
+        renderContent();
       }
 
       async function applyRegulationsSource() {
@@ -1817,7 +2201,7 @@
           state.config.configUrl = incoming.configUrl || requestUrl.origin + requestUrl.pathname;
           if (!Array.isArray(state.config.dataSources) || !state.config.dataSources.length) state.config.dataSources = JSON.parse(JSON.stringify(DEFAULT_CONFIG.dataSources));
           state.config.dataSources = getKfoSources();
-          state.kqLevel = state.config.calculation.defaultKqLevel === "kq1" ? "kq1" : "kq2";
+          state.kqLevel = ["kq0", "kq1", "kq2"].indexOf(state.config.calculation.defaultKqLevel) >= 0 ? state.config.calculation.defaultKqLevel : "kq2";
           state.calculationMode = "with-regulations";
           state.sourceConnections = {};
           state.config.dataSources.forEach(function (source) { state.sourceConnections[source.id] = { status: "inactive", checkedAt: null, message: source.url ? "Источник ещё не проверен" : "Ссылка на БД КФО не указана" }; });
