@@ -601,16 +601,26 @@
       async function loadConfig() {
         setConfigStatus("", "Загрузка конфигурации…");
         try {
-          var response = await fetch("./config.json?ts=" + Date.now(), { cache: "no-store", credentials: "same-origin" });
+          var localPreview = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+          var savedConfigUrl = localStorage.getItem(CONFIG_URL_KEY);
+          var configUrl = savedConfigUrl || (localPreview ? "./config.json" : DEFAULT_CONFIG.configUrl);
+          var requestUrl = new URL(configUrl, location.href);
+          requestUrl.searchParams.set("ts", Date.now());
+          var response = await fetch(requestUrl.href, { cache: "no-store", credentials: "include" });
           if (!response.ok) throw new Error("HTTP " + response.status);
           var incoming = await response.json();
           if (!incoming || incoming.application !== "nzp-calculator") throw new Error("неверный формат файла");
           state.config = Object.assign({}, DEFAULT_CONFIG, incoming, { export: Object.assign({}, DEFAULT_CONFIG.export, incoming.export || {}) });
+          state.config.configUrl = incoming.configUrl || requestUrl.origin + requestUrl.pathname;
+          if (!Array.isArray(state.config.dataSources) || !state.config.dataSources.length) state.config.dataSources = JSON.parse(JSON.stringify(DEFAULT_CONFIG.dataSources));
+          localStorage.setItem(CONFIG_URL_KEY, state.config.configUrl);
           state.configLoaded = true;
           state.configDirty = false;
+          state.connection = { status: "inactive", checkedAt: null, message: getKfoSource().url ? "Источник ещё не проверен" : "Ссылка на БД КФО не указана" };
           applyConfigToChrome();
           setConfigStatus("ok", "config.json подключён");
           setEditMode(Boolean(state.config.editMode), true);
+          if (getKfoSource().url) checkKfoConnection(true);
         } catch (error) {
           state.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
           state.configLoaded = false;

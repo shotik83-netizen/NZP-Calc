@@ -1,9 +1,15 @@
 {
   "application": "nzp-calculator",
-  "version": "0.2",
+  "version": "0.3",
   "title": "Отчёт по незавершённому строительству (НЗП)",
+  "configUrl": "https://shotik83-netizen.github.io/NZP-Calc/config.json",
   "editMode": false,
-  "dataSources": [],
+  "dataSources": [
+    {
+      "name": "БД КФО",
+      "url": ""
+    }
+  ],
   "coefficientBindings": {},
   "pricingBindings": {},
   "export": {
