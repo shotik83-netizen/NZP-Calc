@@ -340,7 +340,7 @@
 
       var MENU = [
         { id: "data-upload", label: "БД КФО", icon: "database", description: "Подключение базы КФО на SharePoint и получение сведений на выбранную дату." },
-        { id: "contractor-directory", label: "08 Справочник подрядчиков", icon: "users", description: "Акцепт новых наименований и объединение вариантов одного подрядчика без изменения первичных расчётов." },
+        { id: "contractor-directory", label: "Справочник подрядчиков", icon: "users", description: "Акцепт новых наименований и объединение вариантов одного подрядчика без изменения первичных расчётов." },
         { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
         { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
         { id: "aggregation", label: "Справочник укрупнения", icon: "book", description: "Объединение детальных видов работ в отчётные группы." },
@@ -1560,11 +1560,17 @@
       }
 
       function setEditMode(enabled, quiet) {
+        var shouldDownloadConfig = state.editMode && !enabled && state.configDirty;
         state.editMode = Boolean(enabled);
         document.body.classList.toggle("edit-mode", state.editMode);
         document.getElementById("edit-mode").checked = state.editMode;
         renderContent();
-        if (!quiet) showToast(state.editMode ? "Режим редактирования включён" : "Режим просмотра включён", state.editMode ? "Доступны элементы настройки конфигурации." : "Поля настроек защищены от изменений.");
+        if (shouldDownloadConfig) {
+          downloadConfig();
+          if (!quiet) showToast("Режим просмотра включён", "Изменённый config.json сохранён в загрузках браузера для самостоятельной публикации.");
+        } else if (!quiet) {
+          showToast(state.editMode ? "Режим редактирования включён" : "Режим просмотра включён", state.editMode ? "Доступны элементы настройки конфигурации." : "Поля настроек защищены от изменений.");
+        }
       }
 
       function setConfigStatus(type, message) {
