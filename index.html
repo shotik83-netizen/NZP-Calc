@@ -263,6 +263,7 @@
   </div>
   <div class="toast-region" id="toast-region" aria-live="polite"></div>
 
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script>
     (function () {
       "use strict";
@@ -303,6 +304,8 @@
         dataSources: [{ name: "БД КФО", url: "" }],
         coefficientBindings: {},
         pricingBindings: {},
+        aggregationSource: { name: "Справочник укрупнения", url: "" },
+        parserConfigUrl: "https://shotik83-netizen.github.io/NZP-Calc/parser-config.json",
         export: { fileName: "Расчёт НЗП.xlsx", sheetName: "НЗП" }
       };
       var CONFIG_URL_KEY = "nzp-config-url";
@@ -315,7 +318,8 @@
         configDirty: false,
         connection: { status: "inactive", checkedAt: null, message: "Ссылка на БД КФО не указана" },
         asOfDate: new Date().toISOString().slice(0, 10),
-        dataUpdatedAt: null
+        dataUpdatedAt: null,
+        aggregation: { status: "inactive", entries: [], parserVersion: "", message: "Справочник не загружен" }
       };
 
       function icon(name, className) {
@@ -395,8 +399,17 @@
       }
 
       function renderAggregation(item) {
-        return pageHead(item, button("Загрузить справочник", "upload", "edit-only", 'data-demo-action="load-aggregation"')) +
-          '<div class="stack"><section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Группы укрупнения</h3><span class="badge">0 записей</span></div><p class="card-desc">Детальные наименования работ и соответствующие группы отчёта.</p></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Исходный вид работ</th><th>Группа отчёта</th><th>Код</th><th>Статус</th></tr></thead><tbody><tr><td colspan="4">' + emptyState("Справочник пуст", "Добавьте записи в режиме редактирования или загрузите Excel-файл.", "book") + '</td></tr></tbody></table></div></div></section></div>';
+        var entries = state.aggregation.entries || [];
+        var source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
+        var rows = entries.slice(0, 100).map(function (entry) {
+          return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong><br><span class="muted">' + escapeHtml(entry.erName) + '</span></td><td><strong>' + escapeHtml(entry.kq2Code) + '</strong><br><span class="muted">' + escapeHtml(entry.kq2Name) + '</span></td><td class="num">' + escapeHtml(entry.kq2Coefficient) + '</td><td>' + escapeHtml(entry.kq1Code) + '<br><span class="muted">Коэф. ' + escapeHtml(entry.kq1Coefficient) + '</span></td><td>' + escapeHtml(entry.kq0Code) + '<br><span class="muted">Коэф. ' + escapeHtml(entry.kq0Coefficient) + '</span></td><td>' + escapeHtml(entry.status) + '</td></tr>';
+        }).join("");
+        var body = entries.length
+          ? '<div class="table-wrap"><table><thead><tr><th>Шифр ЕР</th><th>KQ-2</th><th class="num">Коэф. KQ-2</th><th>KQ-1</th><th>KQ-0</th><th>Статус</th></tr></thead><tbody>' + rows + '</tbody></table></div><p class="muted">Показаны первые ' + Math.min(entries.length, 100) + ' из ' + entries.length + ' записей.</p>'
+          : emptyState("Справочник не загружен", state.aggregation.message, "book");
+        return pageHead(item, button("Загрузить справочник", "upload", "", 'id="load-aggregation"')) +
+          '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
+          '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение справочника</h3><span class="badge ' + (entries.length ? "green" : "warning") + '">' + (entries.length ? entries.length + " записей" : "Нет данных") + '</span></div><p class="card-desc">Источник: ' + escapeHtml(source.url || "не задан") + '<br>Конфигуратор: ' + escapeHtml(state.config.parserConfigUrl || "не задан") + (state.aggregation.parserVersion ? ' (версия ' + escapeHtml(state.aggregation.parserVersion) + ')' : '') + '</p></div><div class="card-body">' + body + '</div></section></div>';
       }
 
       function renderReport(item) {
@@ -410,6 +423,7 @@
         var exportConfig = state.config.export || DEFAULT_CONFIG.export;
         return pageHead(item, button("Скачать config.json", "download", "btn-primary edit-only", 'id="admin-download"')) +
           '<div class="stack">' + locked + '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные параметры</h3><span class="badge green">config.json</span></div><p class="card-desc">Расположение конфигурации, настройки интерфейса и параметры экспортируемого отчёта.</p></div><div class="card-body"><div class="field-grid"><div class="field field-wide"><label for="setting-config-url">Адрес расположения config.json</label><input class="input" id="setting-config-url" type="url" value="' + escapeHtml(state.config.configUrl || DEFAULT_CONFIG.configUrl) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-title">Заголовок приложения</label><input class="input" id="setting-title" value="' + escapeHtml(state.config.title) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-version">Версия конфигурации</label><input class="input" id="setting-version" value="' + escapeHtml(state.config.version) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-file">Имя файла экспорта</label><input class="input" id="setting-file" value="' + escapeHtml(exportConfig.fileName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-sheet">Название листа Excel</label><input class="input" id="setting-sheet" value="' + escapeHtml(exportConfig.sheetName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div></div></div><div class="card-footer edit-only block">' + button("Проверить адрес", "refresh", "", 'id="check-config-url"') + button("Применить изменения", "check", "btn-primary", 'id="apply-settings"') + '</div></section>' +
+          '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники и логика проекта</h3><span class="badge">Централизованное управление</span></div><p class="card-desc">Ссылки на нормативный Excel и JSON-конфигуратор парсеров.</p></div><div class="card-body"><div class="field-grid"><div class="field field-wide"><label for="setting-aggregation-url">Справочник укрупнения (Excel)</label><input class="input" id="setting-aggregation-url" type="url" placeholder="https://...sharepoint.com/.../aggregation.xlsx" value="' + escapeHtml((state.config.aggregationSource || {}).url || "") + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field field-wide"><label for="setting-parser-config-url">JSON-конфигуратор парсеров</label><input class="input" id="setting-parser-config-url" type="url" value="' + escapeHtml(state.config.parserConfigUrl || DEFAULT_CONFIG.parserConfigUrl) + '" ' + (state.editMode ? "" : "disabled") + ' /></div></div></div><div class="card-footer edit-only block">' + button("Проверить конфигуратор", "refresh", "", 'id="check-parser-config"') + button("Применить изменения", "check", "btn-primary", 'id="apply-source-settings"') + '</div></section>' +
           '<section class="card"><div class="card-header"><h3 class="card-title">Структура конфигурации</h3><p class="card-desc">Состояние подключённых источников и соответствий.</p></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Источников данных</div><div class="stat-value">' + (state.config.dataSources || []).length + '</div></div><div class="stat"><div class="stat-label">Регламентов</div><div class="stat-value">' + Object.keys(state.config.coefficientBindings || {}).length + '</div></div><div class="stat"><div class="stat-label">Баз расценок</div><div class="stat-value">' + Object.keys(state.config.pricingBindings || {}).length + '</div></div></div></div></section></div>';
       }
 
@@ -451,6 +465,12 @@
         if (apply) apply.addEventListener("click", applySettings);
         var checkConfig = document.getElementById("check-config-url");
         if (checkConfig) checkConfig.addEventListener("click", checkConfigLocation);
+        var loadAggregationButton = document.getElementById("load-aggregation");
+        if (loadAggregationButton) loadAggregationButton.addEventListener("click", function () { loadAggregation(false); });
+        var checkParser = document.getElementById("check-parser-config");
+        if (checkParser) checkParser.addEventListener("click", function () { checkParserConfig(false); });
+        var applySources = document.getElementById("apply-source-settings");
+        if (applySources) applySources.addEventListener("click", applySourceSettings);
         document.querySelectorAll("[data-demo-action]").forEach(function (node) {
           node.addEventListener("click", function () { showToast("Элемент интерфейса готов", "Функциональная логика будет подключена на следующем этапе."); });
         });
@@ -557,6 +577,130 @@
         }
       }
 
+      function normalizeParserLabel(value) {
+        return String(value == null ? "" : value).trim().replace(/\s+/g, " ").toLowerCase();
+      }
+
+      async function fetchParserConfiguration() {
+        var url = state.config.parserConfigUrl || DEFAULT_CONFIG.parserConfigUrl;
+        var response = await fetch(new URL(url, location.href).href, { cache: "no-store", credentials: "include" });
+        if (!response.ok) throw new Error("JSON-конфигуратор: HTTP " + response.status);
+        var config = await response.json();
+        if (!config || config.application !== "nzp-calculator" || !config.parsers || !config.parsers.aggregation) {
+          throw new Error("неверная структура JSON-конфигуратора");
+        }
+        var aggregation = config.parsers.aggregation;
+        if (!aggregation.fields || !Array.isArray(aggregation.recordRequiredFields)) {
+          throw new Error("в конфигураторе не описаны поля парсера укрупнения");
+        }
+        return config;
+      }
+
+      async function checkParserConfig(quiet) {
+        try {
+          var config = await fetchParserConfiguration();
+          if (!quiet) showToast("Конфигуратор доступен", "Версия " + (config.version || "без номера") + " успешно прочитана.");
+          return config;
+        } catch (error) {
+          if (!quiet) showToast("Ошибка конфигуратора", error.message || "Не удалось прочитать JSON.");
+          throw error;
+        }
+      }
+
+      function parseAggregationWorkbook(buffer, parser) {
+        if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
+        var workbook = XLSX.read(buffer, { type: "array" });
+        var fieldNames = Object.keys(parser.fields || {});
+        var searchRows = Math.max(1, Math.min(Number(parser.headerSearchRows) || 50, 500));
+        for (var sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex += 1) {
+          var sheet = workbook.Sheets[workbook.SheetNames[sheetIndex]];
+          var data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false });
+          var headerIndex = -1;
+          var columns = {};
+          for (var rowIndex = 0; rowIndex < Math.min(data.length, searchRows); rowIndex += 1) {
+            var row = data[rowIndex] || [];
+            columns = {};
+            fieldNames.forEach(function (field) {
+              var aliases = (parser.fields[field] && parser.fields[field].aliases) || [];
+              var index = row.findIndex(function (cell) {
+                return aliases.some(function (alias) { return normalizeParserLabel(alias) === normalizeParserLabel(cell); });
+              });
+              if (index >= 0) columns[field] = index;
+            });
+            var headersReady = fieldNames.filter(function (field) { return parser.fields[field].required; }).every(function (field) { return columns[field] !== undefined; });
+            if (headersReady) { headerIndex = rowIndex; break; }
+          }
+          if (headerIndex < 0) continue;
+          var entries = [];
+          for (var dataIndex = headerIndex + 1; dataIndex < data.length; dataIndex += 1) {
+            var sourceRow = data[dataIndex] || [];
+            var getValue = function (field) { return columns[field] === undefined ? "" : sourceRow[columns[field]]; };
+            var complete = parser.recordRequiredFields.every(function (field) { return String(getValue(field) == null ? "" : getValue(field)).trim(); });
+            if (!complete) continue;
+            var numeric = function (field) {
+              var value = Number(String(getValue(field)).replace(/\s/g, "").replace(",", "."));
+              return Number.isFinite(value) ? value : null;
+            };
+            var entry = {
+              erCode: String(getValue("erCode")).trim(), erName: String(getValue("erName")).trim(), unit: String(getValue("unit")).trim(),
+              kq0Code: String(getValue("kq0Code")).trim(), kq0Name: String(getValue("kq0Name")).trim(), kq0Coefficient: numeric("kq0Coefficient"),
+              kq1Code: String(getValue("kq1Code")).trim(), kq1Name: String(getValue("kq1Name")).trim(), kq1Coefficient: numeric("kq1Coefficient"),
+              kq2Code: String(getValue("kq2Code")).trim(), kq2Name: String(getValue("kq2Name")).trim(), kq2Coefficient: numeric("kq2Coefficient"),
+              status: String(getValue("status") || parser.defaultStatus || "Действует").trim()
+            };
+            if (entry.kq0Coefficient === null || entry.kq1Coefficient === null || entry.kq2Coefficient === null) continue;
+            entries.push(entry);
+          }
+          if (entries.length) return entries;
+        }
+        throw new Error("в Excel не найдена таблица, соответствующая JSON-конфигуратору");
+      }
+
+      async function loadAggregation(quiet) {
+        var source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
+        if (!source.url) {
+          state.aggregation = { status: "inactive", entries: [], parserVersion: "", message: "Ссылка на Excel не задана в административных настройках" };
+          if (!quiet) { renderContent(); showToast("Источник не указан", state.aggregation.message); }
+          return false;
+        }
+        state.aggregation.status = "loading";
+        try {
+          var parserConfig = await fetchParserConfiguration();
+          var response = await fetch(new URL(source.url, location.href).href, { cache: "no-store", credentials: "include" });
+          if (!response.ok) throw new Error("Справочник Excel: HTTP " + response.status);
+          var entries = parseAggregationWorkbook(await response.arrayBuffer(), parserConfig.parsers.aggregation);
+          state.aggregation = { status: "active", entries: entries, parserVersion: parserConfig.version || "", message: "Справочник загружен" };
+          renderContent();
+          if (!quiet) showToast("Справочник загружен", "Прочитано " + entries.length + " строк ЕР.");
+          return true;
+        } catch (error) {
+          state.aggregation = { status: "error", entries: [], parserVersion: "", message: error.message || "Ошибка чтения справочника" };
+          renderContent();
+          if (!quiet) showToast("Ошибка справочника", state.aggregation.message);
+          return false;
+        }
+      }
+
+      function applySourceSettings() {
+        var aggregationInput = document.getElementById("setting-aggregation-url");
+        var parserInput = document.getElementById("setting-parser-config-url");
+        var aggregationUrl = aggregationInput ? aggregationInput.value.trim() : "";
+        var parserUrl = parserInput ? parserInput.value.trim() : DEFAULT_CONFIG.parserConfigUrl;
+        try {
+          if (aggregationUrl) aggregationUrl = new URL(aggregationUrl).href;
+          parserUrl = new URL(parserUrl).href;
+        } catch (error) {
+          showToast("Некорректный адрес", "Укажите полные HTTP- или HTTPS-ссылки.");
+          return;
+        }
+        state.config.aggregationSource = { name: "Справочник укрупнения", url: aggregationUrl };
+        state.config.parserConfigUrl = parserUrl;
+        state.configDirty = true;
+        applyConfigToChrome();
+        renderContent();
+        showToast("Источники применены", "Ссылки включены в config.json.");
+      }
+
       function applySettings() {
         var configUrlValue = document.getElementById("setting-config-url").value.trim() || DEFAULT_CONFIG.configUrl;
         try {
@@ -622,6 +766,7 @@
           setConfigStatus("ok", "config.json подключён");
           setEditMode(Boolean(state.config.editMode), true);
           if (getKfoSource().url) checkKfoConnection(true);
+          if ((state.config.aggregationSource || {}).url) loadAggregation(true);
         } catch (error) {
           state.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
           state.configLoaded = false;

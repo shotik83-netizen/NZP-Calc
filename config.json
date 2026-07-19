@@ -12,6 +12,11 @@
   ],
   "coefficientBindings": {},
   "pricingBindings": {},
+  "aggregationSource": {
+    "name": "Справочник укрупнения",
+    "url": ""
+  },
+  "parserConfigUrl": "https://shotik83-netizen.github.io/NZP-Calc/parser-config.json",
   "export": {
     "fileName": "Расчёт НЗП.xlsx",
     "sheetName": "НЗП"
