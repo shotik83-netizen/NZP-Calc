@@ -3,167 +3,540 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Проверка приложения НЗП</title>
+  <meta name="theme-color" content="#289672" />
+  <title>Отчёт по незавершённому строительству (НЗП)</title>
   <style>
     :root {
       color-scheme: light;
-      --bg: #f5f7f6;
-      --panel: #ffffff;
-      --text: #17211d;
-      --muted: #68736e;
-      --line: #dce4e0;
-      --brand: #237a5d;
-      --brand-soft: #e3f1eb;
-      --danger: #b3261e;
-      --danger-soft: #fbe9e7;
-      font-family: "Segoe UI", Arial, sans-serif;
+      --background: #f8faf9;
+      --foreground: #17201c;
+      --card: #ffffff;
+      --card-foreground: #17201c;
+      --primary: #289672;
+      --primary-strong: #1f7a5d;
+      --primary-soft: #e8f5f0;
+      --primary-faint: #f4fbf8;
+      --muted: #f1f4f3;
+      --muted-foreground: #68736e;
+      --accent: #e8eeeb;
+      --border: #dce4e0;
+      --danger: #b42318;
+      --danger-soft: #fff0ee;
+      --warning: #9a6700;
+      --warning-soft: #fff8e6;
+      --shadow: 0 8px 24px rgba(23, 49, 39, 0.06);
+      --radius: 9px;
+      font-family: "Segoe UI", Inter, Arial, sans-serif;
     }
 
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); }
-    .shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
-    header { padding: 18px 28px; background: var(--panel); border-bottom: 1px solid var(--line); }
-    header h1 { margin: 0; font-size: 20px; font-weight: 650; }
-    main { width: min(760px, calc(100% - 32px)); margin: 36px auto; }
-    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; box-shadow: 0 8px 24px rgba(31, 51, 42, .06); }
-    .intro { margin: 0 0 22px; color: var(--muted); line-height: 1.55; }
-    .checks { display: grid; gap: 12px; }
-    .check { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
-    .mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #edf1ef; color: var(--muted); font-weight: 700; }
-    .check.ok .mark { background: var(--brand-soft); color: var(--brand); }
-    .check.error .mark { background: var(--danger-soft); color: var(--danger); }
-    .name { font-weight: 600; }
-    .detail { margin-top: 3px; color: var(--muted); font-size: 13px; word-break: break-word; }
-    .state { color: var(--muted); font-size: 13px; }
-    .check.ok .state { color: var(--brand); }
-    .check.error .state { color: var(--danger); }
-    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
-    button { border: 0; border-radius: 8px; padding: 10px 16px; background: var(--brand); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
-    button:hover { filter: brightness(.95); }
-    .summary { color: var(--muted); font-size: 13px; }
-    footer { display: flex; justify-content: space-between; gap: 16px; padding: 14px 28px; background: var(--panel); border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
-    code { font-family: Consolas, monospace; }
-    @media (max-width: 600px) {
-      header, footer { padding-left: 16px; padding-right: 16px; }
-      main { margin: 20px auto; }
-      .panel { padding: 18px; }
-      .check { grid-template-columns: 30px 1fr; }
-      .state { grid-column: 2; }
-      footer { flex-direction: column; }
+    html, body { margin: 0; min-height: 100%; background: var(--background); color: var(--foreground); }
+    body { min-width: 320px; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(40, 150, 114, .22); outline-offset: 2px; }
+    svg { display: block; }
+
+    .app-shell { width: 100%; min-height: 100vh; overflow-x: hidden; display: grid; grid-template-rows: 56px minmax(0, 1fr) 48px; }
+
+    .app-header {
+      position: sticky; top: 0; z-index: 30;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      padding: 0 20px; background: rgba(255, 255, 255, .96);
+      border-bottom: 1px solid var(--border); box-shadow: 0 2px 10px rgba(27, 53, 43, .04);
+      backdrop-filter: blur(10px);
+    }
+    .brand { min-width: 0; display: flex; align-items: center; gap: 11px; }
+    .brand-mark { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; color: white; background: var(--primary); border-radius: 9px; box-shadow: 0 4px 10px rgba(40, 150, 114, .22); }
+    .brand-copy { min-width: 0; }
+    .brand-title { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand-subtitle { display: none; color: var(--muted-foreground); font-size: 11px; margin-top: 2px; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+
+    .status-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 10px; color: var(--muted-foreground); background: var(--muted); border: 1px solid var(--border); border-radius: 999px; font-size: 12px; white-space: nowrap; }
+    .status-chip.ok { color: var(--primary-strong); background: var(--primary-soft); border-color: rgba(40, 150, 114, .24); }
+    .status-chip.error { color: var(--danger); background: var(--danger-soft); border-color: rgba(180, 35, 24, .2); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    .workspace { min-height: 0; display: grid; grid-template-columns: 256px minmax(0, 1fr); }
+    .sidebar { min-width: 0; overflow-y: auto; background: #f5f8f6; border-right: 1px solid var(--border); }
+    .sidebar-label { margin: 18px 14px 8px; color: var(--muted-foreground); font-size: 10px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
+    .nav-list { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 16px; }
+    .nav-item { width: 100%; display: flex; align-items: center; gap: 11px; min-height: 42px; padding: 9px 11px; color: #34423c; background: transparent; border: 0; border-radius: 7px; text-align: left; font-size: 13px; font-weight: 550; transition: background .16s ease, color .16s ease; }
+    .nav-item:hover { background: rgba(40, 150, 114, .07); }
+    .nav-item.active { color: var(--primary-strong); background: rgba(40, 150, 114, .1); }
+    .nav-icon { width: 18px; height: 18px; flex: 0 0 auto; color: var(--primary); }
+    .nav-text { line-height: 1.25; }
+
+    .content-scroll { min-width: 0; overflow: auto; }
+    .content { width: min(1120px, 100%); margin: 0 auto; padding: 30px 30px 42px; }
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 22px; }
+    .page-title-row { display: flex; align-items: center; gap: 10px; }
+    .page-icon { width: 23px; height: 23px; color: var(--primary); }
+    .page-title { margin: 0; font-size: 21px; line-height: 1.25; font-weight: 650; }
+    .page-description { max-width: 720px; margin: 6px 0 0 33px; color: var(--muted-foreground); font-size: 13px; line-height: 1.5; }
+    .page-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+    .btn { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 7px 12px; color: #34423c; background: var(--card); border: 1px solid var(--border); border-radius: 7px; font-size: 12px; font-weight: 600; transition: background .16s, border-color .16s, color .16s; }
+    .btn:hover { background: var(--muted); border-color: #cbd7d1; }
+    .btn-primary { color: white; background: var(--primary); border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-strong); border-color: var(--primary-strong); }
+    .btn-ghost { background: transparent; border-color: transparent; }
+    .btn:disabled { cursor: not-allowed; opacity: .46; }
+    .btn svg { width: 15px; height: 15px; }
+
+    .stack { display: grid; gap: 16px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card { min-width: 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 1px 2px rgba(20, 40, 32, .02); }
+    .card-header { padding: 18px 18px 0; }
+    .card-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-title { margin: 0; font-size: 14px; font-weight: 650; }
+    .card-desc { margin: 5px 0 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
+    .card-body { padding: 16px 18px 18px; }
+    .card-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 18px; background: #fbfcfb; border-top: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius); }
+
+    .banner { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; color: #44524c; background: var(--primary-faint); border: 1px solid rgba(40, 150, 114, .18); border-radius: 8px; font-size: 12px; line-height: 1.45; }
+    .banner svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--primary); margin-top: 1px; }
+    .banner.warning { background: var(--warning-soft); border-color: rgba(154, 103, 0, .18); }
+    .banner.warning svg { color: var(--warning); }
+
+    .badge { display: inline-flex; align-items: center; gap: 5px; min-height: 23px; padding: 3px 8px; color: #4c5a54; background: var(--muted); border: 1px solid var(--border); border-radius: 999px; font-size: 10px; font-weight: 650; white-space: nowrap; }
+    .badge.green { color: var(--primary-strong); background: var(--primary-soft); border-color: rgba(40, 150, 114, .2); }
+    .badge.warning { color: var(--warning); background: var(--warning-soft); border-color: rgba(154, 103, 0, .18); }
+
+    .upload-zone { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 190px; padding: 24px; color: var(--muted-foreground); background: #f9fbfa; border: 2px dashed #cbd7d1; border-radius: 9px; text-align: center; transition: border-color .16s, background .16s; }
+    .upload-zone:hover, .upload-zone.dragging { background: var(--primary-faint); border-color: var(--primary); }
+    .upload-zone input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .upload-mark { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 11px; color: var(--primary); background: var(--primary-soft); border-radius: 50%; }
+    .upload-mark svg { width: 20px; height: 20px; }
+    .upload-title { color: var(--foreground); font-size: 13px; font-weight: 650; }
+    .upload-note { max-width: 340px; margin-top: 5px; font-size: 11px; line-height: 1.45; }
+
+    .source-list { display: grid; gap: 8px; }
+    .source-row { display: flex; align-items: center; gap: 11px; padding: 11px; background: #fbfcfb; border: 1px solid var(--border); border-radius: 7px; }
+    .source-icon { width: 32px; height: 32px; flex: 0 0 auto; display: grid; place-items: center; color: var(--primary); background: var(--primary-soft); border-radius: 7px; }
+    .source-icon svg { width: 16px; height: 16px; }
+    .source-copy { min-width: 0; flex: 1; }
+    .source-name { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .source-meta { overflow: hidden; margin-top: 2px; color: var(--muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+
+    .empty { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 28px; color: var(--muted-foreground); background: #fafcfb; border: 1px dashed var(--border); border-radius: 8px; text-align: center; }
+    .empty-icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--muted-foreground); background: var(--muted); border-radius: 50%; }
+    .empty-icon svg { width: 19px; height: 19px; }
+    .empty-title { color: #3e4b45; font-size: 12px; font-weight: 650; }
+    .empty-note { max-width: 420px; font-size: 11px; line-height: 1.45; }
+
+    .stat { padding: 15px; background: #fafcfb; border: 1px solid var(--border); border-radius: 8px; }
+    .stat.highlight { background: var(--primary-faint); border-color: rgba(40, 150, 114, .2); }
+    .stat-label { color: var(--muted-foreground); font-size: 11px; }
+    .stat-value { margin-top: 6px; color: var(--foreground); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .stat.highlight .stat-value { color: var(--primary-strong); }
+    .stat-note { margin-top: 3px; color: var(--muted-foreground); font-size: 10px; }
+
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th { padding: 10px 12px; color: var(--muted-foreground); background: #f6f8f7; border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 650; letter-spacing: .05em; text-align: left; text-transform: uppercase; white-space: nowrap; }
+    td { padding: 11px 12px; border-bottom: 1px solid #e9eeeb; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: #fbfcfb; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .muted { color: var(--muted-foreground); }
+
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+    .field { display: grid; gap: 6px; }
+    .field label { color: #44524c; font-size: 11px; font-weight: 600; }
+    .input { width: 100%; min-height: 36px; padding: 7px 10px; color: var(--foreground); background: white; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; }
+    .input:disabled { color: var(--muted-foreground); background: var(--muted); }
+
+    .edit-only { display: none !important; }
+    body.edit-mode .edit-only { display: inline-flex !important; }
+    body.edit-mode .edit-only.block { display: flex !important; }
+    body.edit-mode .editable-card { border-color: rgba(40, 150, 114, .32); box-shadow: 0 0 0 2px rgba(40, 150, 114, .05); }
+
+    .app-footer { position: sticky; bottom: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 18px; color: var(--muted-foreground); background: rgba(255, 255, 255, .97); border-top: 1px solid var(--border); box-shadow: 0 -3px 14px rgba(27, 53, 43, .04); backdrop-filter: blur(10px); font-size: 11px; }
+    .footer-part { min-width: 0; display: flex; align-items: center; gap: 10px; }
+    .footer-center { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .edit-toggle { display: inline-flex; align-items: center; gap: 9px; color: #405048; font-size: 12px; font-weight: 600; user-select: none; cursor: pointer; }
+    .edit-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+    .switch { width: 36px; height: 20px; position: relative; flex: 0 0 auto; background: #cbd5d0; border-radius: 999px; transition: background .18s; }
+    .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); transition: transform .18s; }
+    .edit-toggle input:checked + .switch { background: var(--primary); }
+    .edit-toggle input:checked + .switch::after { transform: translateX(16px); }
+    .edit-toggle input:focus-visible + .switch { outline: 3px solid rgba(40, 150, 114, .22); outline-offset: 2px; }
+
+    .toast-region { position: fixed; z-index: 100; top: 70px; right: 18px; display: grid; gap: 8px; pointer-events: none; }
+    .toast { width: min(360px, calc(100vw - 36px)); display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; color: var(--card-foreground); background: var(--card); border: 1px solid var(--border); border-radius: 9px; box-shadow: var(--shadow); animation: toast-in .2s ease-out; pointer-events: auto; }
+    .toast svg { width: 17px; height: 17px; flex: 0 0 auto; color: var(--primary); }
+    .toast-title { font-size: 12px; font-weight: 650; }
+    .toast-note { margin-top: 2px; color: var(--muted-foreground); font-size: 10px; line-height: 1.4; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
+
+    @media (max-width: 900px) {
+      .app-shell { grid-template-rows: 56px auto minmax(0, 1fr) 52px; }
+      .workspace { display: contents; }
+      .sidebar { width: 100%; max-width: 100vw; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--border); }
+      .sidebar-label { display: none; }
+      .nav-list { width: 100%; max-width: 100vw; overflow-x: auto; flex-direction: row; padding: 7px 10px; }
+      .nav-item { width: auto; min-width: max-content; min-height: 38px; padding: 8px 10px; }
+      .nav-text { white-space: nowrap; }
+      .content-scroll { min-height: 0; }
+      .content { padding: 24px 20px 34px; }
+      .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .footer-center { display: none; }
+    }
+
+    @media (max-width: 680px) {
+      .app-header { padding: 0 12px; }
+      .brand-title { font-size: 14px; }
+      .header-actions .btn, body.edit-mode .header-actions .btn { display: none !important; }
+      .status-chip { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+      .content { padding: 20px 14px 30px; }
+      .page-head { display: grid; }
+      .page-actions { justify-content: flex-start; }
+      .page-description { margin-left: 0; }
+      .grid-2, .grid-3, .field-grid { grid-template-columns: 1fr; }
+      .app-footer { padding: 0 12px; }
+      .footer-part:first-child { display: none; }
+      .footer-part:last-child { margin-left: auto; }
+      .nav-icon { width: 16px; height: 16px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <header><h1>Проверка среды для приложения НЗП</h1></header>
-
-    <main>
-      <section class="panel" aria-labelledby="check-title">
-        <p id="check-title" class="intro">
-          Страница проверяет, может ли SharePoint выполнить код приложения и прочитать файл
-          <code>config.json</code> из той же папки.
-        </p>
-
-        <div class="checks">
-          <div class="check" id="check-page">
-            <div class="mark">1</div>
-            <div>
-              <div class="name">Открытие ASPX</div>
-              <div class="detail" id="page-detail">Страница загружена</div>
-            </div>
-            <div class="state">Проверка…</div>
-          </div>
-
-          <div class="check" id="check-script">
-            <div class="mark">2</div>
-            <div>
-              <div class="name">Выполнение JavaScript</div>
-              <div class="detail">Клиентская логика запущена</div>
-            </div>
-            <div class="state">Проверка…</div>
-          </div>
-
-          <div class="check" id="check-config">
-            <div class="mark">3</div>
-            <div>
-              <div class="name">Загрузка конфигурации</div>
-              <div class="detail" id="config-detail">Ожидание ответа</div>
-            </div>
-            <div class="state">Проверка…</div>
-          </div>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true" data-icon="file-chart"></div>
+        <div class="brand-copy">
+          <h1 class="brand-title" id="app-title">Отчёт по незавершённому строительству (НЗП)</h1>
+          <div class="brand-subtitle">Расчёт и подготовка отчётности</div>
         </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost edit-only" type="button" id="download-config" data-icon-button="download">Скачать config.json</button>
+        <div class="status-chip" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
+      </div>
+    </header>
 
-        <div class="actions">
-          <button type="button" id="repeat-check">Проверить ещё раз</button>
-          <span class="summary" id="summary" aria-live="polite">Выполняется проверка…</span>
-        </div>
-      </section>
-    </main>
+    <div class="workspace">
+      <aside class="sidebar" aria-label="Разделы приложения">
+        <div class="sidebar-label">Разделы</div>
+        <nav class="nav-list" id="nav-list"></nav>
+      </aside>
+      <main class="content-scroll" id="main-scroll">
+        <div class="content" id="content" aria-live="polite"></div>
+      </main>
+    </div>
 
-    <footer>
-      <span>Диагностическая версия 0.1</span>
-      <span id="location"></span>
+    <footer class="app-footer">
+      <div class="footer-part"><span id="version-label">Версия 0.2</span><span>•</span><span>GitHub Pages</span></div>
+      <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
+      <div class="footer-part">
+        <label class="edit-toggle" for="edit-mode">
+          <span>Режим редактирования</span>
+          <input id="edit-mode" type="checkbox" />
+          <span class="switch" aria-hidden="true"></span>
+        </label>
+      </div>
     </footer>
   </div>
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
 
   <script>
     (function () {
       "use strict";
 
-      var results = { page: false, script: false, config: false };
+      var ICONS = {
+        "file-chart": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 18v-2M12 18v-4M16 18v-6"/></svg>',
+        upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+        sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>',
+        calculator: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/></svg>',
+        book: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+        clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="18" rx="2"/><path d="M9 4V2h6v2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="13" y2="18"/></svg>',
+        settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.38.36.72.68 1 .3.25.69.39 1.1.4H21v4h-.1A1.7 1.7 0 0 0 19.4 15z"/></svg>',
+        info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>',
+        file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>',
+        download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+        plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+        refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>',
+        check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
+        lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+      };
 
-      function setCheck(id, ok, detail) {
-        var row = document.getElementById("check-" + id);
-        var state = row.querySelector(".state");
-        var mark = row.querySelector(".mark");
-        row.classList.remove("ok", "error");
-        row.classList.add(ok ? "ok" : "error");
-        state.textContent = ok ? "Доступно" : "Ошибка";
-        mark.textContent = ok ? "✓" : "!";
-        results[id] = ok;
-        if (detail) document.getElementById(id + "-detail").textContent = detail;
+      var MENU = [
+        { id: "data-upload", label: "Загрузка данных", icon: "upload", description: "Подключение исходных файлов и проверка структуры данных." },
+        { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
+        { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
+        { id: "aggregation", label: "Справочник укрупнения", icon: "book", description: "Объединение детальных видов работ в отчётные группы." },
+        { id: "report", label: "Отчёт по контрагентам", icon: "clipboard", description: "Сводные показатели НЗП и подготовка выгрузки в Excel." },
+        { id: "admin", label: "Административные настройки", icon: "settings", description: "Источники данных, соответствия колонок и параметры экспорта." }
+      ];
+
+      var DEFAULT_CONFIG = {
+        application: "nzp-calculator",
+        version: "0.2",
+        title: "Отчёт по незавершённому строительству (НЗП)",
+        editMode: false,
+        dataSources: [],
+        coefficientBindings: {},
+        pricingBindings: {},
+        export: { fileName: "Расчёт НЗП.xlsx", sheetName: "НЗП" }
+      };
+
+      var state = {
+        active: "data-upload",
+        editMode: false,
+        config: JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
+        configLoaded: false,
+        configDirty: false,
+        selectedFile: null
+      };
+
+      function icon(name, className) {
+        return '<span class="' + (className || "") + '" aria-hidden="true">' + (ICONS[name] || ICONS.file) + '</span>';
       }
 
-      function updateSummary() {
-        var passed = Object.keys(results).filter(function (key) { return results[key]; }).length;
-        var summary = document.getElementById("summary");
-        summary.textContent = passed === 3
-          ? "Все проверки пройдены — можно собирать основное приложение."
-          : "Пройдено проверок: " + passed + " из 3.";
+      function escapeHtml(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
       }
 
-      async function checkConfig() {
-        var configUrl = new URL("config.json", window.location.href);
-        document.getElementById("config-detail").textContent = configUrl.href;
+      function decorateStaticIcons(root) {
+        (root || document).querySelectorAll("[data-icon]").forEach(function (node) {
+          node.innerHTML = ICONS[node.getAttribute("data-icon")] || "";
+        });
+        (root || document).querySelectorAll("[data-icon-button]").forEach(function (node) {
+          if (!node.querySelector("svg")) node.insertAdjacentHTML("afterbegin", ICONS[node.getAttribute("data-icon-button")] || "");
+        });
+      }
 
-        try {
-          var response = await fetch(configUrl.href, {
-            credentials: "same-origin",
-            cache: "no-store",
-            headers: { "Accept": "application/json" }
-          });
-          if (!response.ok) throw new Error("HTTP " + response.status);
+      function renderNav() {
+        document.getElementById("nav-list").innerHTML = MENU.map(function (item) {
+          return '<button type="button" class="nav-item' + (state.active === item.id ? " active" : "") + '" data-section="' + item.id + '" aria-current="' + (state.active === item.id ? "page" : "false") + '">' + icon(item.icon, "nav-icon") + '<span class="nav-text">' + item.label + '</span></button>';
+        }).join("");
+      }
 
-          var config = await response.json();
-          if (!config || config.application !== "nzp-calculator") {
-            throw new Error("неверное содержимое config.json");
-          }
+      function pageHead(item, actions) {
+        return '<div class="page-head"><div><div class="page-title-row">' + icon(item.icon, "page-icon") + '<h2 class="page-title">' + item.label + '</h2></div><p class="page-description">' + item.description + '</p></div><div class="page-actions">' + (actions || "") + '</div></div>';
+      }
 
-          setCheck("config", true, "Загружена версия " + (config.version || "без номера"));
-        } catch (error) {
-          setCheck("config", false, "Не удалось загрузить config.json: " + error.message);
+      function button(label, iconName, extraClass, attrs) {
+        return '<button type="button" class="btn ' + (extraClass || "") + '" ' + (attrs || "") + '>' + (iconName ? icon(iconName) : "") + label + '</button>';
+      }
+
+      function emptyState(title, note, iconName) {
+        return '<div class="empty"><div class="empty-icon">' + (ICONS[iconName || "file"]) + '</div><div class="empty-title">' + title + '</div><div class="empty-note">' + note + '</div></div>';
+      }
+
+      function renderSources() {
+        var sources = Array.isArray(state.config.dataSources) ? state.config.dataSources : [];
+        if (!sources.length) return emptyState("Источники пока не добавлены", "В режиме редактирования можно добавить ссылки на файлы SharePoint или использовать локальную загрузку.", "database");
+        return '<div class="source-list">' + sources.map(function (source) {
+          var name = typeof source === "string" ? source : source.name || "Источник данных";
+          var url = typeof source === "string" ? source : source.url || "Адрес не указан";
+          return '<div class="source-row"><div class="source-icon">' + ICONS.database + '</div><div class="source-copy"><div class="source-name">' + escapeHtml(name) + '</div><div class="source-meta">' + escapeHtml(url) + '</div></div><span class="badge green">Подключён</span></div>';
+        }).join("") + '</div>';
+      }
+
+      function renderDataUpload(item) {
+        var selected = state.selectedFile
+          ? '<div class="source-row"><div class="source-icon">' + ICONS.file + '</div><div class="source-copy"><div class="source-name">' + escapeHtml(state.selectedFile.name) + '</div><div class="source-meta">' + formatBytes(state.selectedFile.size) + ' · готов к обработке</div></div><span class="badge green">Выбран</span></div>'
+          : "";
+        return pageHead(item, button("Обновить config.json", "refresh", "", 'id="reload-config"')) +
+          '<div class="stack">' +
+            '<div class="banner">' + icon("info") + '<div><strong>Автономный режим.</strong> Обработка файлов будет выполняться в браузере. Исходные данные не отправляются на внешний сервер.</div></div>' +
+            '<div class="grid-2">' +
+              '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Файл с объёмами работ</h3><span class="badge">XLSX / XLS</span></div><p class="card-desc">Выберите выгрузку с выполненными объёмами по контрагентам.</p></div><div class="card-body"><label class="upload-zone" id="volume-drop"><input type="file" id="volume-file" accept=".xlsx,.xls,.csv" /><span class="upload-mark">' + ICONS.upload + '</span><span class="upload-title">Перетащите файл или нажмите для выбора</span><span class="upload-note">Файл обрабатывается локально и не загружается в GitHub.</span></label>' + selected + '</div></section>' +
+              '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники SharePoint</h3>' + button("Добавить", "plus", "edit-only", 'data-demo-action="add-source"') + '</div><p class="card-desc">Ссылки на базы объёмов, сохранённые в конфигурации.</p></div><div class="card-body">' + renderSources() + '</div></section>' +
+            '</div>' +
+            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Готовность исходных данных</h3><span class="badge warning">Ожидает загрузки</span></div></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Строк объёмов</div><div class="stat-value">0</div><div class="stat-note">данные не загружены</div></div><div class="stat"><div class="stat-label">Контрагентов</div><div class="stat-value">0</div><div class="stat-note">будут определены автоматически</div></div><div class="stat highlight"><div class="stat-label">Готовность расчёта</div><div class="stat-value">0%</div><div class="stat-note">нужен файл объёмов</div></div></div></div></section>' +
+          '</div>';
+      }
+
+      function renderCoefficients(item) {
+        return pageHead(item, button("Загрузить регламент", "upload", "edit-only", 'data-demo-action="load-coefficients"')) +
+          '<div class="stack"><div class="grid-3"><div class="stat"><div class="stat-label">Регламентов</div><div class="stat-value">0</div><div class="stat-note">файлы не загружены</div></div><div class="stat"><div class="stat-label">Привязок</div><div class="stat-value">0</div><div class="stat-note">к контрагентам</div></div><div class="stat highlight"><div class="stat-label">Покрытие</div><div class="stat-value">0%</div><div class="stat-note">ожидается настройка</div></div></div>' +
+          '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Матрица регламентов</h3><span class="badge">Нет данных</span></div><p class="card-desc">После загрузки здесь появятся виды работ и коэффициенты выполнения.</p></div><div class="card-body">' + emptyState("Регламенты не загружены", "Включите режим редактирования и добавьте файл регламента либо укажите ссылку в config.json.", "sliders") + '</div></section></div>';
+      }
+
+      function renderPricing(item) {
+        return pageHead(item, button("Добавить базу расценок", "plus", "edit-only", 'data-demo-action="add-pricing"')) +
+          '<div class="stack"><div class="banner">' + icon("info") + '<div>Расценки сопоставляются с видами работ после загрузки объёмов и справочника укрупнения.</div></div><div class="grid-2">' +
+          '<section class="card editable-card"><div class="card-header"><h3 class="card-title">База расценок</h3><p class="card-desc">Файл со стоимостью единицы работ и материалов.</p></div><div class="card-body">' + emptyState("База не подключена", "Добавьте ссылку SharePoint или выберите локальный файл.", "calculator") + '</div></section>' +
+          '<section class="card"><div class="card-header"><h3 class="card-title">Привязка контрагентов</h3><p class="card-desc">Индивидуальные базы и соответствия колонок.</p></div><div class="card-body">' + emptyState("Контрагенты не определены", "Сначала загрузите исходные объёмы работ.", "database") + '</div></section></div></div>';
+      }
+
+      function renderAggregation(item) {
+        return pageHead(item, button("Загрузить справочник", "upload", "edit-only", 'data-demo-action="load-aggregation"')) +
+          '<div class="stack"><section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Группы укрупнения</h3><span class="badge">0 записей</span></div><p class="card-desc">Детальные наименования работ и соответствующие группы отчёта.</p></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Исходный вид работ</th><th>Группа отчёта</th><th>Код</th><th>Статус</th></tr></thead><tbody><tr><td colspan="4">' + emptyState("Справочник пуст", "Добавьте записи в режиме редактирования или загрузите Excel-файл.", "book") + '</td></tr></tbody></table></div></div></section></div>';
+      }
+
+      function renderReport(item) {
+        return pageHead(item, button("Экспортировать Excel", "download", "btn-primary", "disabled")) +
+          '<div class="stack"><div class="grid-3"><div class="stat"><div class="stat-label">Стоимость выполненных работ</div><div class="stat-value">0 ₽</div><div class="stat-note">по загруженным объёмам</div></div><div class="stat"><div class="stat-label">Принято к учёту</div><div class="stat-value">0 ₽</div><div class="stat-note">с учётом регламентов</div></div><div class="stat highlight"><div class="stat-label">Незавершённое производство</div><div class="stat-value">0 ₽</div><div class="stat-note">итоговая сумма НЗП</div></div></div>' +
+          '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Сводный отчёт</h3><span class="badge">0 контрагентов</span></div><p class="card-desc">Расчёт стоимости НЗП в разрезе контрагентов и групп работ.</p></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Контрагент</th><th>Группа работ</th><th class="num">Объём</th><th class="num">Стоимость</th><th class="num">НЗП</th></tr></thead><tbody><tr><td colspan="5">' + emptyState("Нет данных для отчёта", "Загрузите объёмы, регламенты и расценки — сводная таблица сформируется автоматически.", "clipboard") + '</td></tr></tbody></table></div></div></section></div>';
+      }
+
+      function renderAdmin(item) {
+        var locked = state.editMode ? "" : '<div class="banner warning">' + icon("lock") + '<div>Включите <strong>режим редактирования</strong> в футере, чтобы изменить настройки и скачать новую конфигурацию.</div></div>';
+        var exportConfig = state.config.export || DEFAULT_CONFIG.export;
+        return pageHead(item, button("Скачать config.json", "download", "btn-primary edit-only", 'id="admin-download"')) +
+          '<div class="stack">' + locked + '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные параметры</h3><span class="badge green">config.json</span></div><p class="card-desc">Настройки интерфейса и наименование экспортируемого отчёта.</p></div><div class="card-body"><div class="field-grid"><div class="field"><label for="setting-title">Заголовок приложения</label><input class="input" id="setting-title" value="' + escapeHtml(state.config.title) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-version">Версия конфигурации</label><input class="input" id="setting-version" value="' + escapeHtml(state.config.version) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-file">Имя файла экспорта</label><input class="input" id="setting-file" value="' + escapeHtml(exportConfig.fileName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-sheet">Название листа Excel</label><input class="input" id="setting-sheet" value="' + escapeHtml(exportConfig.sheetName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div></div></div><div class="card-footer edit-only block">' + button("Применить изменения", "check", "btn-primary", 'id="apply-settings"') + '</div></section>' +
+          '<section class="card"><div class="card-header"><h3 class="card-title">Структура конфигурации</h3><p class="card-desc">Состояние подключённых источников и соответствий.</p></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Источников данных</div><div class="stat-value">' + (state.config.dataSources || []).length + '</div></div><div class="stat"><div class="stat-label">Регламентов</div><div class="stat-value">' + Object.keys(state.config.coefficientBindings || {}).length + '</div></div><div class="stat"><div class="stat-label">Баз расценок</div><div class="stat-value">' + Object.keys(state.config.pricingBindings || {}).length + '</div></div></div></div></section></div>';
+      }
+
+      function renderContent() {
+        var item = MENU.find(function (entry) { return entry.id === state.active; }) || MENU[0];
+        var renderers = {
+          "data-upload": renderDataUpload,
+          coefficients: renderCoefficients,
+          pricing: renderPricing,
+          aggregation: renderAggregation,
+          report: renderReport,
+          admin: renderAdmin
+        };
+        document.getElementById("content").innerHTML = renderers[item.id](item);
+        bindContentEvents();
+      }
+
+      function bindContentEvents() {
+        var fileInput = document.getElementById("volume-file");
+        if (fileInput) fileInput.addEventListener("change", function () { selectFile(fileInput.files && fileInput.files[0]); });
+        var drop = document.getElementById("volume-drop");
+        if (drop) {
+          ["dragenter", "dragover"].forEach(function (name) { drop.addEventListener(name, function (event) { event.preventDefault(); drop.classList.add("dragging"); }); });
+          ["dragleave", "drop"].forEach(function (name) { drop.addEventListener(name, function (event) { event.preventDefault(); drop.classList.remove("dragging"); }); });
+          drop.addEventListener("drop", function (event) { selectFile(event.dataTransfer.files && event.dataTransfer.files[0]); });
         }
-        updateSummary();
+        var reload = document.getElementById("reload-config");
+        if (reload) reload.addEventListener("click", loadConfig);
+        var adminDownload = document.getElementById("admin-download");
+        if (adminDownload) adminDownload.addEventListener("click", downloadConfig);
+        var apply = document.getElementById("apply-settings");
+        if (apply) apply.addEventListener("click", applySettings);
+        document.querySelectorAll("[data-demo-action]").forEach(function (node) {
+          node.addEventListener("click", function () { showToast("Элемент интерфейса готов", "Функциональная логика будет подключена на следующем этапе."); });
+        });
       }
 
-      setCheck("page", true, window.location.href);
-      setCheck("script", true);
-      document.getElementById("location").textContent = window.location.hostname || "локальный файл";
-      document.getElementById("repeat-check").addEventListener("click", checkConfig);
-      updateSummary();
-      checkConfig();
+      function selectFile(file) {
+        if (!file) return;
+        state.selectedFile = file;
+        renderContent();
+        showToast("Файл выбран", file.name + " · " + formatBytes(file.size));
+      }
+
+      function formatBytes(value) {
+        if (!value) return "0 Б";
+        var units = ["Б", "КБ", "МБ", "ГБ"];
+        var power = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+        return (value / Math.pow(1024, power)).toFixed(power ? 1 : 0) + " " + units[power];
+      }
+
+      function applySettings() {
+        state.config.title = document.getElementById("setting-title").value.trim() || DEFAULT_CONFIG.title;
+        state.config.version = document.getElementById("setting-version").value.trim() || DEFAULT_CONFIG.version;
+        state.config.export = state.config.export || {};
+        state.config.export.fileName = document.getElementById("setting-file").value.trim() || DEFAULT_CONFIG.export.fileName;
+        state.config.export.sheetName = document.getElementById("setting-sheet").value.trim() || DEFAULT_CONFIG.export.sheetName;
+        state.configDirty = true;
+        applyConfigToChrome();
+        renderContent();
+        showToast("Настройки применены", "Скачайте config.json и замените файл в репозитории или SharePoint.");
+      }
+
+      function applyConfigToChrome() {
+        document.getElementById("app-title").textContent = state.config.title || DEFAULT_CONFIG.title;
+        document.title = state.config.title || DEFAULT_CONFIG.title;
+        document.getElementById("version-label").textContent = "Версия " + (state.config.version || DEFAULT_CONFIG.version);
+        document.getElementById("footer-status").textContent = state.configDirty ? "Есть несохранённые изменения конфигурации" : "Изменения конфигурации отсутствуют";
+      }
+
+      function setEditMode(enabled, quiet) {
+        state.editMode = Boolean(enabled);
+        document.body.classList.toggle("edit-mode", state.editMode);
+        document.getElementById("edit-mode").checked = state.editMode;
+        renderContent();
+        if (!quiet) showToast(state.editMode ? "Режим редактирования включён" : "Режим просмотра включён", state.editMode ? "Доступны элементы настройки конфигурации." : "Поля настроек защищены от изменений.");
+      }
+
+      function setConfigStatus(type, message) {
+        var node = document.getElementById("config-status");
+        node.className = "status-chip " + (type || "");
+        node.innerHTML = '<span class="status-dot"></span><span>' + escapeHtml(message) + '</span>';
+      }
+
+      async function loadConfig() {
+        setConfigStatus("", "Загрузка конфигурации…");
+        try {
+          var response = await fetch("./config.json?ts=" + Date.now(), { cache: "no-store", credentials: "same-origin" });
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          var incoming = await response.json();
+          if (!incoming || incoming.application !== "nzp-calculator") throw new Error("неверный формат файла");
+          state.config = Object.assign({}, DEFAULT_CONFIG, incoming, { export: Object.assign({}, DEFAULT_CONFIG.export, incoming.export || {}) });
+          state.configLoaded = true;
+          state.configDirty = false;
+          applyConfigToChrome();
+          setConfigStatus("ok", "config.json подключён");
+          setEditMode(Boolean(state.config.editMode), true);
+        } catch (error) {
+          state.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+          state.configLoaded = false;
+          applyConfigToChrome();
+          setConfigStatus("error", "Ошибка config.json");
+          renderContent();
+          showToast("Не удалось загрузить конфигурацию", error.message || "Неизвестная ошибка");
+        }
+      }
+
+      function downloadConfig() {
+        var output = Object.assign({}, state.config, { editMode: false });
+        var blob = new Blob([JSON.stringify(output, null, 2) + "\n"], { type: "application/json;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = "config.json";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        state.configDirty = false;
+        applyConfigToChrome();
+        showToast("config.json сформирован", "Замените им файл в GitHub или SharePoint.");
+      }
+
+      function showToast(title, note) {
+        var region = document.getElementById("toast-region");
+        var node = document.createElement("div");
+        node.className = "toast";
+        node.innerHTML = ICONS.check + '<div><div class="toast-title">' + escapeHtml(title) + '</div><div class="toast-note">' + escapeHtml(note || "") + '</div></div>';
+        region.appendChild(node);
+        window.setTimeout(function () { node.remove(); }, 3800);
+      }
+
+      document.getElementById("nav-list").addEventListener("click", function (event) {
+        var buttonNode = event.target.closest("[data-section]");
+        if (!buttonNode) return;
+        state.active = buttonNode.getAttribute("data-section");
+        renderNav();
+        renderContent();
+        document.getElementById("main-scroll").scrollTop = 0;
+      });
+      document.getElementById("edit-mode").addEventListener("change", function (event) { setEditMode(event.target.checked, false); });
+      document.getElementById("download-config").addEventListener("click", downloadConfig);
+
+      decorateStaticIcons(document);
+      renderNav();
+      renderContent();
+      loadConfig();
     }());
   </script>
 </body>
 </html>
-

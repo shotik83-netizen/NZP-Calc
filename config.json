@@ -1,7 +1,7 @@
 {
   "application": "nzp-calculator",
-  "version": "0.1",
-  "title": "Расчёт незавершённого производства",
+  "version": "0.2",
+  "title": "Отчёт по незавершённому строительству (НЗП)",
   "editMode": false,
   "dataSources": [],
   "coefficientBindings": {},
@@ -11,4 +11,3 @@
     "sheetName": "НЗП"
   }
 }
-
