@@ -1,6 +1,6 @@
 {
   "application": "nzp-calculator",
-  "version": "0.5",
+  "version": "0.6",
   "title": "Отчёт по незавершённому строительству (НЗП)",
   "configUrl": "https://shotik83-netizen.github.io/NZP-Calc/config.json",
   "editMode": false,
@@ -8,7 +8,7 @@
     {
       "id": "kfo-main",
       "name": "БД КФО",
-      "url": "",
+      "url": "./kfo-test.xlsb?v=20260719-205316",
       "enabled": true,
       "sheetName": "КФО",
       "dkSheetName": "ДК",
