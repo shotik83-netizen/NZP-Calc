@@ -121,6 +121,17 @@
     .source-name { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
     .source-meta { overflow: hidden; margin-top: 2px; color: var(--muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 
+    .connection-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; background: #fafcfb; border: 1px solid var(--border); border-radius: 8px; }
+    .connection-main { min-width: 0; display: flex; align-items: center; gap: 11px; }
+    .connection-light { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; color: var(--danger); background: var(--danger-soft); border-radius: 50%; }
+    .connection-light.active { color: var(--primary-strong); background: var(--primary-soft); }
+    .connection-light svg { width: 17px; height: 17px; }
+    .connection-title { color: var(--foreground); font-size: 12px; font-weight: 650; }
+    .connection-note { margin-top: 3px; color: var(--muted-foreground); font-size: 10px; line-height: 1.4; }
+    .connection-date { flex: 0 0 auto; color: var(--muted-foreground); font-size: 10px; text-align: right; }
+    .form-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+    .form-actions .field { min-width: min(100%, 210px); flex: 1; }
+
     .empty { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 28px; color: var(--muted-foreground); background: #fafcfb; border: 1px dashed var(--border); border-radius: 8px; text-align: center; }
     .empty-icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--muted-foreground); background: var(--muted); border-radius: 50%; }
     .empty-icon svg { width: 19px; height: 19px; }
@@ -145,6 +156,7 @@
 
     .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
     .field { display: grid; gap: 6px; }
+    .field-wide { grid-column: 1 / -1; }
     .field label { color: #44524c; font-size: 11px; font-weight: 600; }
     .input { width: 100%; min-height: 36px; padding: 7px 10px; color: var(--foreground); background: white; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; }
     .input:disabled { color: var(--muted-foreground); background: var(--muted); }
@@ -196,6 +208,9 @@
       .page-actions { justify-content: flex-start; }
       .page-description { margin-left: 0; }
       .grid-2, .grid-3, .field-grid { grid-template-columns: 1fr; }
+      .field-wide { grid-column: auto; }
+      .connection-summary { align-items: flex-start; flex-direction: column; }
+      .connection-date { text-align: left; }
       .app-footer { padding: 0 12px; }
       .footer-part:first-child { display: none; }
       .footer-part:last-child { margin-left: auto; }
@@ -234,7 +249,7 @@
     </div>
 
     <footer class="app-footer">
-      <div class="footer-part"><span id="version-label">Версия 0.2</span><span>•</span><span>GitHub Pages</span></div>
+      <div class="footer-part"><span id="version-label">Версия 0.3</span></div>
       <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
       <div class="footer-part">
         <label class="edit-toggle" for="edit-mode">
@@ -270,7 +285,7 @@
       };
 
       var MENU = [
-        { id: "data-upload", label: "Загрузка данных", icon: "upload", description: "Подключение исходных файлов и проверка структуры данных." },
+        { id: "data-upload", label: "БД КФО", icon: "database", description: "Подключение базы КФО на SharePoint и получение сведений на выбранную дату." },
         { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
         { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
         { id: "aggregation", label: "Справочник укрупнения", icon: "book", description: "Объединение детальных видов работ в отчётные группы." },
@@ -280,14 +295,16 @@
 
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
-        version: "0.2",
+        version: "0.3",
         title: "Отчёт по незавершённому строительству (НЗП)",
+        configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
-        dataSources: [],
+        dataSources: [{ name: "БД КФО", url: "" }],
         coefficientBindings: {},
         pricingBindings: {},
         export: { fileName: "Расчёт НЗП.xlsx", sheetName: "НЗП" }
       };
+      var CONFIG_URL_KEY = "nzp-config-url";
 
       var state = {
         active: "data-upload",
@@ -295,7 +312,9 @@
         config: JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
         configLoaded: false,
         configDirty: false,
-        selectedFile: null
+        connection: { status: "inactive", checkedAt: null, message: "Ссылка на БД КФО не указана" },
+        asOfDate: new Date().toISOString().slice(0, 10),
+        dataUpdatedAt: null
       };
 
       function icon(name, className) {
@@ -335,28 +354,29 @@
         return '<div class="empty"><div class="empty-icon">' + (ICONS[iconName || "file"]) + '</div><div class="empty-title">' + title + '</div><div class="empty-note">' + note + '</div></div>';
       }
 
-      function renderSources() {
+      function getKfoSource() {
         var sources = Array.isArray(state.config.dataSources) ? state.config.dataSources : [];
-        if (!sources.length) return emptyState("Источники пока не добавлены", "В режиме редактирования можно добавить ссылки на файлы SharePoint или использовать локальную загрузку.", "database");
-        return '<div class="source-list">' + sources.map(function (source) {
-          var name = typeof source === "string" ? source : source.name || "Источник данных";
-          var url = typeof source === "string" ? source : source.url || "Адрес не указан";
-          return '<div class="source-row"><div class="source-icon">' + ICONS.database + '</div><div class="source-copy"><div class="source-name">' + escapeHtml(name) + '</div><div class="source-meta">' + escapeHtml(url) + '</div></div><span class="badge green">Подключён</span></div>';
-        }).join("") + '</div>';
+        var source = sources[0] || { name: "БД КФО", url: "" };
+        if (typeof source === "string") return { name: "БД КФО", url: source };
+        return { name: source.name || "БД КФО", url: source.url || "" };
+      }
+
+      function connectionSummary() {
+        var active = state.connection.status === "active";
+        var checked = state.connection.checkedAt ? formatDateTime(state.connection.checkedAt) : "Проверка ещё не выполнялась";
+        return '<div class="connection-summary" id="connection-summary"><div class="connection-main"><div class="connection-light' + (active ? " active" : "") + '">' + (active ? ICONS.check : ICONS.database) + '</div><div><div class="connection-title">' + (active ? "Активно" : "Нет подключения") + '</div><div class="connection-note">' + escapeHtml(state.connection.message || "Источник данных недоступен") + '</div></div></div><div class="connection-date">' + (active ? "Сведения обновлены<br>" : "Последняя проверка<br>") + escapeHtml(checked) + '</div></div>';
       }
 
       function renderDataUpload(item) {
-        var selected = state.selectedFile
-          ? '<div class="source-row"><div class="source-icon">' + ICONS.file + '</div><div class="source-copy"><div class="source-name">' + escapeHtml(state.selectedFile.name) + '</div><div class="source-meta">' + formatBytes(state.selectedFile.size) + ' · готов к обработке</div></div><span class="badge green">Выбран</span></div>'
-          : "";
-        return pageHead(item, button("Обновить config.json", "refresh", "", 'id="reload-config"')) +
+        var source = getKfoSource();
+        var active = state.connection.status === "active";
+        return pageHead(item, button("Проверить подключение", "refresh", "", 'id="check-kfo"')) +
           '<div class="stack">' +
-            '<div class="banner">' + icon("info") + '<div><strong>Автономный режим.</strong> Обработка файлов будет выполняться в браузере. Исходные данные не отправляются на внешний сервер.</div></div>' +
-            '<div class="grid-2">' +
-              '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Файл с объёмами работ</h3><span class="badge">XLSX / XLS</span></div><p class="card-desc">Выберите выгрузку с выполненными объёмами по контрагентам.</p></div><div class="card-body"><label class="upload-zone" id="volume-drop"><input type="file" id="volume-file" accept=".xlsx,.xls,.csv" /><span class="upload-mark">' + ICONS.upload + '</span><span class="upload-title">Перетащите файл или нажмите для выбора</span><span class="upload-note">Файл обрабатывается локально и не загружается в GitHub.</span></label>' + selected + '</div></section>' +
-              '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники SharePoint</h3>' + button("Добавить", "plus", "edit-only", 'data-demo-action="add-source"') + '</div><p class="card-desc">Ссылки на базы объёмов, сохранённые в конфигурации.</p></div><div class="card-body">' + renderSources() + '</div></section>' +
-            '</div>' +
-            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Готовность исходных данных</h3><span class="badge warning">Ожидает загрузки</span></div></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Строк объёмов</div><div class="stat-value">0</div><div class="stat-note">данные не загружены</div></div><div class="stat"><div class="stat-label">Контрагентов</div><div class="stat-value">0</div><div class="stat-note">будут определены автоматически</div></div><div class="stat highlight"><div class="stat-label">Готовность расчёта</div><div class="stat-value">0%</div><div class="stat-note">нужен файл объёмов</div></div></div></div></section>' +
+            '<div class="banner">' + icon("info") + '<div>Сведения загружаются напрямую из БД КФО по ссылке SharePoint. Адрес источника можно изменить только в режиме редактирования.</div></div>' +
+            '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение к БД КФО</h3><span class="badge ' + (active ? "green" : "warning") + '" id="kfo-status-badge">' + (active ? "Активно" : "Нет подключения") + '</span></div><p class="card-desc">Укажите прямую ссылку на файл базы данных в библиотеке SharePoint.</p></div><div class="card-body stack"><div class="field"><label for="kfo-url">Ссылка на БД КФО</label><input class="input" id="kfo-url" type="url" placeholder="https://...sharepoint.com/.../БД-КФО.xlsx" value="' + escapeHtml(source.url) + '" ' + (state.editMode ? "" : "disabled") + ' /></div>' + connectionSummary() + '</div></section>' +
+            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Сведения на дату</h3><span class="badge">Срез данных</span></div><p class="card-desc">Выберите дату, на которую нужно получить выполнение и физические объёмы.</p></div><div class="card-body"><div class="form-actions"><div class="field"><label for="as-of-date">Дата сведений</label><input class="input" id="as-of-date" type="date" value="' + escapeHtml(state.asOfDate) + '" /></div>' + button("Обновить сведения", "refresh", "btn-primary", 'id="refresh-kfo-data"') + '</div></div></section>' +
+            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные физические объёмы</h3><span class="badge">На ' + formatDateShort(state.asOfDate) + '</span></div><p class="card-desc">Показатели будут заполнены после подключения структуры БД КФО.</p></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">—</div><div class="stat-note">будут определены из базы</div></div><div class="stat"><div class="stat-label">Строк выполнения</div><div class="stat-value">—</div><div class="stat-note">на выбранную дату</div></div><div class="stat highlight"><div class="stat-label">Физический объём</div><div class="stat-value">—</div><div class="stat-note">агрегация будет настроена далее</div></div></div></div></section>' +
+            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подрядчики</h3><span class="badge">0 записей</span></div><p class="card-desc">Список подрядчиков и выполнение на выбранную дату.</p></div><div class="card-body">' + emptyState("Сведения о подрядчиках пока не загружены", "После настройки структуры БД КФО здесь появятся подрядчики и основные физические объёмы.", "database") + '</div></section>' +
           '</div>';
       }
 
@@ -388,7 +408,7 @@
         var locked = state.editMode ? "" : '<div class="banner warning">' + icon("lock") + '<div>Включите <strong>режим редактирования</strong> в футере, чтобы изменить настройки и скачать новую конфигурацию.</div></div>';
         var exportConfig = state.config.export || DEFAULT_CONFIG.export;
         return pageHead(item, button("Скачать config.json", "download", "btn-primary edit-only", 'id="admin-download"')) +
-          '<div class="stack">' + locked + '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные параметры</h3><span class="badge green">config.json</span></div><p class="card-desc">Настройки интерфейса и наименование экспортируемого отчёта.</p></div><div class="card-body"><div class="field-grid"><div class="field"><label for="setting-title">Заголовок приложения</label><input class="input" id="setting-title" value="' + escapeHtml(state.config.title) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-version">Версия конфигурации</label><input class="input" id="setting-version" value="' + escapeHtml(state.config.version) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-file">Имя файла экспорта</label><input class="input" id="setting-file" value="' + escapeHtml(exportConfig.fileName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-sheet">Название листа Excel</label><input class="input" id="setting-sheet" value="' + escapeHtml(exportConfig.sheetName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div></div></div><div class="card-footer edit-only block">' + button("Применить изменения", "check", "btn-primary", 'id="apply-settings"') + '</div></section>' +
+          '<div class="stack">' + locked + '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные параметры</h3><span class="badge green">config.json</span></div><p class="card-desc">Расположение конфигурации, настройки интерфейса и параметры экспортируемого отчёта.</p></div><div class="card-body"><div class="field-grid"><div class="field field-wide"><label for="setting-config-url">Адрес расположения config.json</label><input class="input" id="setting-config-url" type="url" value="' + escapeHtml(state.config.configUrl || DEFAULT_CONFIG.configUrl) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-title">Заголовок приложения</label><input class="input" id="setting-title" value="' + escapeHtml(state.config.title) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-version">Версия конфигурации</label><input class="input" id="setting-version" value="' + escapeHtml(state.config.version) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-file">Имя файла экспорта</label><input class="input" id="setting-file" value="' + escapeHtml(exportConfig.fileName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div><div class="field"><label for="setting-sheet">Название листа Excel</label><input class="input" id="setting-sheet" value="' + escapeHtml(exportConfig.sheetName) + '" ' + (state.editMode ? "" : "disabled") + ' /></div></div></div><div class="card-footer edit-only block">' + button("Проверить адрес", "refresh", "", 'id="check-config-url"') + button("Применить изменения", "check", "btn-primary", 'id="apply-settings"') + '</div></section>' +
           '<section class="card"><div class="card-header"><h3 class="card-title">Структура конфигурации</h3><p class="card-desc">Состояние подключённых источников и соответствий.</p></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Источников данных</div><div class="stat-value">' + (state.config.dataSources || []).length + '</div></div><div class="stat"><div class="stat-label">Регламентов</div><div class="stat-value">' + Object.keys(state.config.coefficientBindings || {}).length + '</div></div><div class="stat"><div class="stat-label">Баз расценок</div><div class="stat-value">' + Object.keys(state.config.pricingBindings || {}).length + '</div></div></div></div></section></div>';
       }
 
@@ -407,46 +427,151 @@
       }
 
       function bindContentEvents() {
-        var fileInput = document.getElementById("volume-file");
-        if (fileInput) fileInput.addEventListener("change", function () { selectFile(fileInput.files && fileInput.files[0]); });
-        var drop = document.getElementById("volume-drop");
-        if (drop) {
-          ["dragenter", "dragover"].forEach(function (name) { drop.addEventListener(name, function (event) { event.preventDefault(); drop.classList.add("dragging"); }); });
-          ["dragleave", "drop"].forEach(function (name) { drop.addEventListener(name, function (event) { event.preventDefault(); drop.classList.remove("dragging"); }); });
-          drop.addEventListener("drop", function (event) { selectFile(event.dataTransfer.files && event.dataTransfer.files[0]); });
+        var kfoUrl = document.getElementById("kfo-url");
+        if (kfoUrl) {
+          kfoUrl.addEventListener("input", function () {
+            setKfoUrl(kfoUrl.value);
+            state.connection = { status: "inactive", checkedAt: null, message: "Изменённая ссылка ещё не проверена" };
+            state.configDirty = true;
+            applyConfigToChrome();
+            refreshConnectionElements();
+          });
+          kfoUrl.addEventListener("change", function () { checkKfoConnection(false); });
         }
-        var reload = document.getElementById("reload-config");
-        if (reload) reload.addEventListener("click", loadConfig);
+        var checkKfo = document.getElementById("check-kfo");
+        if (checkKfo) checkKfo.addEventListener("click", function () { checkKfoConnection(false); });
+        var asOfDate = document.getElementById("as-of-date");
+        if (asOfDate) asOfDate.addEventListener("change", function () { state.asOfDate = asOfDate.value || new Date().toISOString().slice(0, 10); });
+        var refreshKfo = document.getElementById("refresh-kfo-data");
+        if (refreshKfo) refreshKfo.addEventListener("click", refreshKfoData);
         var adminDownload = document.getElementById("admin-download");
         if (adminDownload) adminDownload.addEventListener("click", downloadConfig);
         var apply = document.getElementById("apply-settings");
         if (apply) apply.addEventListener("click", applySettings);
+        var checkConfig = document.getElementById("check-config-url");
+        if (checkConfig) checkConfig.addEventListener("click", checkConfigLocation);
         document.querySelectorAll("[data-demo-action]").forEach(function (node) {
           node.addEventListener("click", function () { showToast("Элемент интерфейса готов", "Функциональная логика будет подключена на следующем этапе."); });
         });
       }
 
-      function selectFile(file) {
-        if (!file) return;
-        state.selectedFile = file;
-        renderContent();
-        showToast("Файл выбран", file.name + " · " + formatBytes(file.size));
+      function setKfoUrl(url) {
+        state.config.dataSources = [{ name: "БД КФО", url: String(url || "").trim() }];
       }
 
-      function formatBytes(value) {
-        if (!value) return "0 Б";
-        var units = ["Б", "КБ", "МБ", "ГБ"];
-        var power = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-        return (value / Math.pow(1024, power)).toFixed(power ? 1 : 0) + " " + units[power];
+      function formatDateTime(value) {
+        var date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return "—";
+        return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "medium" }).format(date);
+      }
+
+      function formatDateShort(value) {
+        var date = new Date(String(value || "") + "T00:00:00");
+        if (Number.isNaN(date.getTime())) return "—";
+        return new Intl.DateTimeFormat("ru-RU").format(date);
+      }
+
+      function refreshConnectionElements() {
+        var badge = document.getElementById("kfo-status-badge");
+        if (badge) {
+          var active = state.connection.status === "active";
+          badge.className = "badge " + (active ? "green" : "warning");
+          badge.textContent = active ? "Активно" : "Нет подключения";
+        }
+        var summary = document.getElementById("connection-summary");
+        if (summary) summary.outerHTML = connectionSummary();
+      }
+
+      async function probeUrl(url) {
+        var parsed = new URL(url);
+        if (!/^https?:$/.test(parsed.protocol)) throw new Error("поддерживаются только HTTP- и HTTPS-ссылки");
+        var controller = new AbortController();
+        var timer = window.setTimeout(function () { controller.abort(); }, 12000);
+        try {
+          var response = await fetch(parsed.href, { method: "HEAD", cache: "no-store", credentials: "include", signal: controller.signal });
+          if (response.status === 405 || response.status === 501) {
+            response = await fetch(parsed.href, { method: "GET", cache: "no-store", credentials: "include", signal: controller.signal });
+            if (response.body) response.body.cancel();
+          }
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          return response;
+        } finally {
+          window.clearTimeout(timer);
+        }
+      }
+
+      async function checkKfoConnection(quiet) {
+        var source = getKfoSource();
+        if (!source.url) {
+          state.connection = { status: "inactive", checkedAt: new Date(), message: "Ссылка на БД КФО не указана" };
+          refreshConnectionElements();
+          if (!quiet) showToast("Нет подключения", "Укажите ссылку на БД КФО в режиме редактирования.");
+          return false;
+        }
+        state.connection = { status: "checking", checkedAt: new Date(), message: "Проверяем доступность источника…" };
+        refreshConnectionElements();
+        try {
+          await probeUrl(source.url);
+          state.connection = { status: "active", checkedAt: new Date(), message: "Файл БД КФО найден и доступен" };
+          refreshConnectionElements();
+          if (!quiet) showToast("Подключение активно", "БД КФО доступна. Время проверки: " + formatDateTime(state.connection.checkedAt));
+          return true;
+        } catch (error) {
+          var message = error && error.name === "AbortError" ? "Превышено время ожидания ответа" : (error.message || "Файл не найден");
+          state.connection = { status: "inactive", checkedAt: new Date(), message: message };
+          refreshConnectionElements();
+          if (!quiet) showToast("Нет подключения", message);
+          return false;
+        }
+      }
+
+      async function refreshKfoData() {
+        var dateInput = document.getElementById("as-of-date");
+        if (dateInput) state.asOfDate = dateInput.value || state.asOfDate;
+        var connected = await checkKfoConnection(true);
+        if (!connected) {
+          showToast("Сведения не обновлены", "Нет подключения к БД КФО.");
+          return;
+        }
+        state.dataUpdatedAt = new Date();
+        renderContent();
+        showToast("Источник проверен", "Подключение активно. Обработка сведений на " + formatDateShort(state.asOfDate) + " будет добавлена следующим этапом.");
+      }
+
+      async function checkConfigLocation() {
+        var input = document.getElementById("setting-config-url");
+        var url = input ? input.value.trim() : "";
+        if (!url) {
+          showToast("Адрес не указан", "Введите ссылку на config.json.");
+          return;
+        }
+        try {
+          var response = await fetch(new URL(url).href, { cache: "no-store", credentials: "include" });
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          var config = await response.json();
+          if (config.application !== "nzp-calculator") throw new Error("неверный формат config.json");
+          showToast("Адрес config.json доступен", "Конфигурация версии " + (config.version || "без номера") + " успешно прочитана.");
+        } catch (error) {
+          showToast("config.json недоступен", error.message || "Не удалось прочитать файл.");
+        }
       }
 
       function applySettings() {
+        var configUrlValue = document.getElementById("setting-config-url").value.trim() || DEFAULT_CONFIG.configUrl;
+        try {
+          configUrlValue = new URL(configUrlValue).href;
+        } catch (error) {
+          showToast("Некорректный адрес config.json", "Укажите полную HTTP- или HTTPS-ссылку.");
+          return;
+        }
+        state.config.configUrl = configUrlValue;
         state.config.title = document.getElementById("setting-title").value.trim() || DEFAULT_CONFIG.title;
         state.config.version = document.getElementById("setting-version").value.trim() || DEFAULT_CONFIG.version;
         state.config.export = state.config.export || {};
         state.config.export.fileName = document.getElementById("setting-file").value.trim() || DEFAULT_CONFIG.export.fileName;
         state.config.export.sheetName = document.getElementById("setting-sheet").value.trim() || DEFAULT_CONFIG.export.sheetName;
         state.configDirty = true;
+        localStorage.setItem(CONFIG_URL_KEY, state.config.configUrl);
         applyConfigToChrome();
         renderContent();
         showToast("Настройки применены", "Скачайте config.json и замените файл в репозитории или SharePoint.");
