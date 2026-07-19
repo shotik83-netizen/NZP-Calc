@@ -361,14 +361,13 @@
         { key: "acceptedSk", label: "Принято СК" },
         { key: "acceptedId", label: "Принято ИД" },
         { key: "kq1Code", label: "KQ-1" },
-        { key: "kq1Coefficient", label: "Коэф-1" },
         { key: "kq2Code", label: "KQ-2" },
         { key: "kq2Coefficient", label: "Коэф-2" }
       ];
       var DEFAULT_KFO_COLUMNS = {
         rowDate: "B", markCode: "J", erCode: "S", erName: "U", unit: "V", contractor: "AK", contractNumber: "AL",
         actualSmr: "AO", lastFactDate: "AP", acceptedSk: "AR", acceptedId: "AZ",
-        kq1Code: "BI", kq1Coefficient: "BJ", kq2Code: "BK", kq2Coefficient: "BL"
+        kq1Code: "BI", kq2Code: "BK", kq2Coefficient: "BL"
       };
       var DEFAULT_KFO_SOURCE = {
         id: "kfo-main", name: "БД КФО", url: "./kfo-test.xlsb?v=20260719-205316", enabled: true, sheetName: "КФО", dkSheetName: "ДК",
@@ -383,6 +382,7 @@
         editMode: false,
         dataSources: [DEFAULT_KFO_SOURCE],
         calculation: { defaultKqLevel: "kq2", defaultMode: "with-regulations" },
+        regulationsSource: { name: "Регламенты КФО", url: "./kfo-test.xlsb?v=20260719-205316", enabled: true, sheetName: "ДК", headerSearchRows: 30, defaultDistribution: { actualSmr: 0.5, acceptedSk: 0.38, acceptedId: 0.12 } },
         contractorDirectory: {
           storage: "shared-config",
           entries: [
@@ -440,7 +440,7 @@
         directoryFilter: "all",
         dataUpdatedAt: null,
         kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
-        regulations: { status: "inactive", rules: new Map(), message: "Источник регламентов не подключён" },
+        regulations: { status: "inactive", rules: new Map(), entries: [], sourceName: "", message: "Источник регламентов не подключён" },
         aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: "Справочник не загружен" }
       };
       var aggregationSearchTimer = null;
@@ -502,6 +502,16 @@
 
       function getKfoSource() {
         return getKfoSources()[0] || normalizeKfoSource(DEFAULT_KFO_SOURCE, 0);
+      }
+
+      function getRegulationsSource() {
+        var fallback = DEFAULT_CONFIG.regulationsSource;
+        var source = Object.assign({}, fallback, state.config.regulationsSource || {});
+        source.defaultDistribution = Object.assign({}, fallback.defaultDistribution, source.defaultDistribution || {});
+        source.sheetName = String(source.sheetName || "ДК").trim() || "ДК";
+        source.headerSearchRows = Math.max(1, Math.min(Number(source.headerSearchRows) || 30, 500));
+        source.enabled = source.enabled !== false;
+        return source;
       }
 
       function normalizeContractorDirectory(directory) {
@@ -752,9 +762,34 @@
       }
 
       function renderCoefficients(item) {
-        return pageHead(item, button("Загрузить регламент", "upload", "edit-only", 'data-demo-action="load-coefficients"')) +
-          '<div class="stack"><div class="grid-3"><div class="stat"><div class="stat-label">Регламентов</div><div class="stat-value">0</div><div class="stat-note">файлы не загружены</div></div><div class="stat"><div class="stat-label">Привязок</div><div class="stat-value">0</div><div class="stat-note">к контрагентам</div></div><div class="stat highlight"><div class="stat-label">Покрытие</div><div class="stat-value">0%</div><div class="stat-note">ожидается настройка</div></div></div>' +
-          '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Матрица регламентов</h3><span class="badge">Нет источника</span></div><p class="card-desc">После подключения здесь появятся коэффициенты оценки для этапов Факт СМР, Принято СК и Принято ИД.</p></div><div class="card-body">' + emptyState("Источник регламентов не подключён", "До подключения источника колонка «Оценка по регламенту» во всех расчётах равна 0.", "sliders") + '</div></section></div>';
+        var source = getRegulationsSource();
+        var regulations = state.regulations;
+        var entries = regulations.entries || [];
+        var common = entries.filter(function (entry) { return !entry.contractor; });
+        var contractorNames = Array.from(new Set(entries.map(function (entry) { return entry.contractor; }).filter(Boolean))).sort(function (a, b) { return a.localeCompare(b, "ru"); });
+        var coverageValues = (state.kfo.sourceSummaries || []).map(function (summary) { return summary.regulationCoverage; }).filter(function (value) { return value != null; });
+        var coverage = coverageValues.length ? coverageValues.reduce(function (sum, value) { return sum + value; }, 0) / coverageValues.length : null;
+        var statusClass = regulations.status === "active" ? "green" : regulations.status === "error" ? "warning" : "";
+        var statusLabel = regulations.status === "active" ? "Подключено" : regulations.status === "loading" ? "Загрузка…" : regulations.status === "error" ? "Ошибка" : "Нет источника";
+        var sourceLink = source.url ? '<a href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(source.name || "Регламенты КФО") + ' ↗</a>' : "Ссылка не указана";
+        var editor = '<section class="card editable-card edit-only block"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источник регламентов</h3><span class="badge green">config.json</span></div><p class="card-desc">Источник задаётся отдельно от БД КФО и читается по правилам parsers.dk JSON-конфигуратора.</p></div><div class="card-body"><div class="field-grid"><div class="field"><label for="regulations-source-name">Наименование</label><input class="input" id="regulations-source-name" value="' + escapeHtml(source.name) + '" /></div><div class="field field-wide"><label for="regulations-source-url">Ссылка на документ с вкладкой ДК</label><input class="input" id="regulations-source-url" type="url" value="' + escapeHtml(source.url) + '" /></div><div class="field"><label for="regulations-source-sheet">Вкладка</label><input class="input" id="regulations-source-sheet" value="' + escapeHtml(source.sheetName) + '" /></div><div class="field"><label for="regulations-default-smr">Без вида работ: Факт СМР</label><input class="input" id="regulations-default-smr" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.actualSmr) + '" /></div><div class="field"><label for="regulations-default-sk">Без вида работ: Принято СК</label><input class="input" id="regulations-default-sk" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedSk) + '" /></div><div class="field"><label for="regulations-default-id">Без вида работ: Принято ИД</label><input class="input" id="regulations-default-id" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedId) + '" /></div></div></div><div class="card-footer">' + button("Применить источник", "check", "btn-primary", 'id="apply-regulations-source"') + '</div></section>';
+        var matrix = "";
+        if (regulations.status === "loading") {
+          matrix = emptyState("Читаем регламенты", "Большой файл .xlsb обрабатывается в браузере.", "sliders");
+        } else if (!entries.length) {
+          matrix = emptyState("Источник регламентов не подключён", regulations.message || "До подключения источника колонка «Оценка по регламенту» равна 0.", "sliders");
+        } else {
+          var groups = [{ name: "Общие регламенты КФО", entries: common, common: true }].concat(contractorNames.map(function (contractor) { return { name: contractor, entries: entries.filter(function (entry) { return entry.contractor === contractor; }), common: false }; }));
+          matrix = '<div class="contractor-list">' + groups.map(function (group) {
+            var rows = group.entries.map(function (entry) {
+              return '<tr><td><strong>' + escapeHtml(entry.markCode) + '</strong></td><td>' + escapeHtml(entry.contractNumber || "—") + '</td><td class="num">' + formatNumber(entry.actualSmr * 100, 0) + '%</td><td class="num">' + formatNumber(entry.acceptedSk * 100, 0) + '%</td><td class="num">' + formatNumber(entry.acceptedId * 100, 0) + '%</td><td><a href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">Открыть регламент ↗</a></td></tr>';
+            }).join("");
+            return '<details class="contractor-item"' + (group.common ? " open" : "") + '><summary><span class="contractor-name">' + escapeHtml(group.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(group.entries.length, 0) + '</strong> правил</span><span class="badge ' + (group.common ? "" : "green") + '">' + (group.common ? "Для остальных подрядчиков" : "Особые коэффициенты") + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Вид работ</th><th>Договор</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th>Документ</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></details>';
+          }).join("") + '</div>';
+        }
+        return pageHead(item, button("Обновить регламенты", "refresh", "", 'id="load-regulations"')) +
+          '<div class="stack"><div class="grid-3"><div class="stat"><div class="stat-label">Регламентов</div><div class="stat-value">' + (regulations.status === "active" ? formatNumber(entries.length, 0) : "—") + '</div><div class="stat-note">' + formatNumber(common.length, 0) + ' общих</div></div><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (regulations.status === "active" ? formatNumber(contractorNames.length, 0) : "—") + '</div><div class="stat-note">с особыми коэффициентами</div></div><div class="stat highlight"><div class="stat-label">Покрытие расчёта</div><div class="stat-value">' + (coverage == null ? "—" : formatNumber(coverage, 0) + "%") + '</div><div class="stat-note">после обновления БД КФО</div></div></div>' + editor +
+          '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Матрица регламентов</h3><span class="badge ' + statusClass + '">' + statusLabel + '</span></div><p class="card-desc">Источник: ' + sourceLink + '. Общие правила применяются к подрядчикам без персональной записи; персональные правила имеют приоритет.</p></div><div class="card-body">' + matrix + '</div></section></div>';
       }
 
       function renderPricing(item) {
@@ -1190,8 +1225,77 @@
         return null;
       }
 
+      function parseRegulationsWorkbook(buffer, source, parserConfig) {
+        if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
+        var parser = parserConfig.parsers && parserConfig.parsers.dk;
+        if (!parser) throw new Error("в JSON-конфигураторе отсутствует parsers.dk");
+        var workbook = XLSX.read(buffer, { type: "array", dense: true, cellDates: true, sheets: [source.sheetName] });
+        var selected = getWorkbookSheet(workbook, source.sheetName, parser.sheetAliases);
+        if (!selected) throw new Error("лист «" + source.sheetName + "» не найден");
+        var resolved = resolveParserColumns(selected.sheet, parser, null, source.headerSearchRows);
+        var rules = new Map();
+        var entries = [];
+        for (var rowIndex = resolved.headerIndex + 1; rowIndex <= resolved.lastRow; rowIndex += 1) {
+          var get = function (field) { return resolved.columns[field] === undefined ? "" : readSheetCell(selected.sheet, rowIndex, resolved.columns[field]); };
+          var markCode = String(get("markCode") || "").trim();
+          if (!markCode) continue;
+          var rule = {
+            markCode: markCode,
+            contractor: String(get("contractor") || "").trim(),
+            contractNumber: String(get("contractNumber") || "").trim(),
+            actualSmr: parseKfoNumber(get("actualSmr"), 0),
+            acceptedSk: parseKfoNumber(get("acceptedSk"), 0),
+            acceptedId: parseKfoNumber(get("acceptedId"), 0),
+            sourceRow: rowIndex + 1
+          };
+          var key = normalizeParserLabel(markCode);
+          var list = rules.get(key) || [];
+          list.push(rule);
+          rules.set(key, list);
+          entries.push(rule);
+        }
+        var defaults = source.defaultDistribution || {};
+        rules.set("", [{
+          markCode: "",
+          contractor: "",
+          contractNumber: "",
+          actualSmr: parseKfoNumber(defaults.actualSmr, 0.5),
+          acceptedSk: parseKfoNumber(defaults.acceptedSk, 0.38),
+          acceptedId: parseKfoNumber(defaults.acceptedId, 0.12),
+          isDefault: true,
+          sourceRow: 0
+        }]);
+        return { rules: rules, entries: entries, sheetName: selected.name };
+      }
+
+      async function loadRegulations(quiet) {
+        var source = getRegulationsSource();
+        if (!source.enabled || !source.url) {
+          state.regulations = { status: "inactive", rules: new Map(), entries: [], sourceName: source.name, message: "Источник регламентов не подключён" };
+          if (state.active === "coefficients") renderContent();
+          return false;
+        }
+        state.regulations = { status: "loading", rules: new Map(), entries: [], sourceName: source.name, message: "Читаем регламенты…" };
+        if (state.active === "coefficients") renderContent();
+        try {
+          var parserConfig = await fetchParserConfiguration();
+          var parsed = parseRegulationsWorkbook(await fetchWorkbookBuffer(source.url), source, parserConfig);
+          state.regulations = { status: "active", rules: parsed.rules, entries: parsed.entries, sourceName: source.name, sheetName: parsed.sheetName, message: "Регламенты загружены" };
+          if (!quiet) showToast("Регламенты загружены", "Прочитано записей: " + formatNumber(parsed.entries.length, 0) + ".");
+          if (state.kfo.status === "active") await loadKfoSources();
+          if (state.active === "coefficients") renderContent();
+          return true;
+        } catch (error) {
+          state.regulations = { status: "error", rules: new Map(), entries: [], sourceName: source.name, message: error.message || "Не удалось прочитать регламенты" };
+          if (!quiet) showToast("Регламенты не загружены", state.regulations.message);
+          if (state.active === "coefficients") renderContent();
+          return false;
+        }
+      }
+
       function findRegulationRule(rules, markCode, contractor, contractNumber) {
-        var candidates = rules.get(normalizeParserLabel(markCode)) || [];
+        var normalizedMark = normalizeParserLabel(markCode);
+        var candidates = rules.get(normalizedMark) || (normalizedMark ? [] : (rules.get("") || []));
         var contractorKey = normalizeParserLabel(contractor);
         var contractKey = normalizeParserLabel(contractNumber);
         var matches = candidates.map(function (rule) {
@@ -1273,9 +1377,8 @@
           var acceptedId = parseKfoNumber(get("acceptedId"), 0);
           if (actualSmr === 0 && acceptedSk === 0 && acceptedId === 0) { diagnostics.zeroVolumeRows += 1; continue; }
           var codeField = level === "kq1" ? "kq1Code" : "kq2Code";
-          var coefficientField = level === "kq1" ? "kq1Coefficient" : "kq2Coefficient";
           var kqCode = String(get(codeField) || "").trim();
-          var kqCoefficient = parseKfoNumber(get(coefficientField), 1);
+          var kqCoefficient = level === "kq2" ? parseKfoNumber(get("kq2Coefficient"), 1) : 1;
           if (!kqCode) { kqCode = erCode; kqCoefficient = 1; diagnostics.missingKqRows += 1; }
           var rule = findRegulationRule(regulationRules, String(get("markCode") || "").trim(), contractor, String(get("contractNumber") || "").trim());
           if (rule) diagnostics.regulationMatchedRows += 1; else diagnostics.missingRegulationRows += 1;
@@ -1485,12 +1588,12 @@
             };
             var entry = {
               erCode: String(getValue("erCode")).trim(), erName: String(getValue("erName")).trim(), unit: String(getValue("unit")).trim(),
-              kq0Code: String(getValue("kq0Code")).trim(), kq0Name: String(getValue("kq0Name")).trim(), kq0Coefficient: numeric("kq0Coefficient"),
-              kq1Code: String(getValue("kq1Code")).trim(), kq1Name: String(getValue("kq1Name")).trim(), kq1Coefficient: numeric("kq1Coefficient"),
+              kq0Code: String(getValue("kq0Code")).trim(), kq0Name: String(getValue("kq0Name")).trim(),
+              kq1Code: String(getValue("kq1Code")).trim(), kq1Name: String(getValue("kq1Name")).trim(),
               kq2Code: String(getValue("kq2Code")).trim(), kq2Name: String(getValue("kq2Name")).trim(), kq2Coefficient: numeric("kq2Coefficient"),
               status: String(getValue("status") || parser.defaultStatus || "Действует").trim()
             };
-            if (entry.kq0Coefficient === null || entry.kq1Coefficient === null || entry.kq2Coefficient === null) continue;
+            if (entry.kq2Coefficient === null) continue;
             entries.push(entry);
           }
           if (entries.length) return entries;

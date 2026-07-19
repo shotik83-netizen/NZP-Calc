@@ -29,7 +29,6 @@
         "acceptedSk": "AR",
         "acceptedId": "AZ",
         "kq1Code": "BI",
-        "kq1Coefficient": "BJ",
         "kq2Code": "BK",
         "kq2Coefficient": "BL"
       }
@@ -38,6 +37,18 @@
   "calculation": {
     "defaultKqLevel": "kq2",
     "defaultMode": "with-regulations"
+  },
+  "regulationsSource": {
+    "name": "Регламенты КФО",
+    "url": "./kfo-test.xlsb?v=20260719-205316",
+    "enabled": true,
+    "sheetName": "ДК",
+    "headerSearchRows": 30,
+    "defaultDistribution": {
+      "actualSmr": 0.5,
+      "acceptedSk": 0.38,
+      "acceptedId": 0.12
+    }
   },
   "contractorDirectory": {
     "storage": "shared-config",

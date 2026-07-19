@@ -26,7 +26,6 @@
         "acceptedSk": { "aliases": ["Принято СК"], "required": true, "fallbackColumn": "AR" },
         "acceptedId": { "aliases": ["Принято ИД"], "required": true, "fallbackColumn": "AZ" },
         "kq1Code": { "aliases": ["KQ-1", "Код KQ-1"], "required": false, "fallbackColumn": "BI" },
-        "kq1Coefficient": { "aliases": ["Коэф-1", "Коэф. KQ-1"], "required": false, "fallbackColumn": "BJ" },
         "kq2Code": { "aliases": ["KQ-2", "Код KQ-2"], "required": false, "fallbackColumn": "BK" },
         "kq2Coefficient": { "aliases": ["Коэф-2", "Коэф. KQ-2"], "required": false, "fallbackColumn": "BL" }
       },
@@ -52,10 +51,8 @@
         "unit": { "aliases": ["Ед. изм.", "Ед. изм", "UoM"], "required": true },
         "kq0Code": { "aliases": ["Код KQ-0"], "required": true },
         "kq0Name": { "aliases": ["Наименование KQ-0"], "required": true },
-        "kq0Coefficient": { "aliases": ["Коэф. ФО KQ-0"], "required": true },
         "kq1Code": { "aliases": ["Код KQ-1"], "required": true },
         "kq1Name": { "aliases": ["Наименование KQ-1"], "required": true },
-        "kq1Coefficient": { "aliases": ["Коэф. ФО KQ-1"], "required": true },
         "kq2Code": { "aliases": ["Код KQ-2"], "required": true },
         "kq2Name": { "aliases": ["Наименование KQ-2"], "required": true },
         "kq2Coefficient": { "aliases": ["Коэф. ФО KQ-2"], "required": true },
