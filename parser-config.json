@@ -1,0 +1,30 @@
+{
+  "application": "nzp-calculator",
+  "version": "1.0.0",
+  "parsers": {
+    "aggregation": {
+      "headerSearchRows": 50,
+      "fields": {
+        "erCode": { "aliases": ["Шифр ЕР", "Код ЕР"], "required": true },
+        "erName": { "aliases": ["Наименование ЕР"], "required": true },
+        "unit": { "aliases": ["Ед. изм.", "Ед. изм", "UoM"], "required": true },
+        "kq0Code": { "aliases": ["Код KQ-0"], "required": true },
+        "kq0Name": { "aliases": ["Наименование KQ-0"], "required": true },
+        "kq0Coefficient": { "aliases": ["Коэф. ФО KQ-0"], "required": true },
+        "kq1Code": { "aliases": ["Код KQ-1"], "required": true },
+        "kq1Name": { "aliases": ["Наименование KQ-1"], "required": true },
+        "kq1Coefficient": { "aliases": ["Коэф. ФО KQ-1"], "required": true },
+        "kq2Code": { "aliases": ["Код KQ-2"], "required": true },
+        "kq2Name": { "aliases": ["Наименование KQ-2"], "required": true },
+        "kq2Coefficient": { "aliases": ["Коэф. ФО KQ-2"], "required": true },
+        "status": { "aliases": ["Статус"], "required": false }
+      },
+      "recordRequiredFields": ["erCode", "erName", "unit", "kq0Code", "kq1Code", "kq2Code"],
+      "defaultStatus": "Действует"
+    }
+  },
+  "sourcePriority": [
+    { "source": "pricing", "priority": 100 },
+    { "source": "aggregation", "priority": 50 }
+  ]
+}
