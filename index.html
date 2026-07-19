@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Проверка приложения НЗП</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7f6;
+      --panel: #ffffff;
+      --text: #17211d;
+      --muted: #68736e;
+      --line: #dce4e0;
+      --brand: #237a5d;
+      --brand-soft: #e3f1eb;
+      --danger: #b3261e;
+      --danger-soft: #fbe9e7;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    .shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
+    header { padding: 18px 28px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    header h1 { margin: 0; font-size: 20px; font-weight: 650; }
+    main { width: min(760px, calc(100% - 32px)); margin: 36px auto; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; box-shadow: 0 8px 24px rgba(31, 51, 42, .06); }
+    .intro { margin: 0 0 22px; color: var(--muted); line-height: 1.55; }
+    .checks { display: grid; gap: 12px; }
+    .check { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; }
+    .mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: #edf1ef; color: var(--muted); font-weight: 700; }
+    .check.ok .mark { background: var(--brand-soft); color: var(--brand); }
+    .check.error .mark { background: var(--danger-soft); color: var(--danger); }
+    .name { font-weight: 600; }
+    .detail { margin-top: 3px; color: var(--muted); font-size: 13px; word-break: break-word; }
+    .state { color: var(--muted); font-size: 13px; }
+    .check.ok .state { color: var(--brand); }
+    .check.error .state { color: var(--danger); }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
+    button { border: 0; border-radius: 8px; padding: 10px 16px; background: var(--brand); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    button:hover { filter: brightness(.95); }
+    .summary { color: var(--muted); font-size: 13px; }
+    footer { display: flex; justify-content: space-between; gap: 16px; padding: 14px 28px; background: var(--panel); border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+    code { font-family: Consolas, monospace; }
+    @media (max-width: 600px) {
+      header, footer { padding-left: 16px; padding-right: 16px; }
+      main { margin: 20px auto; }
+      .panel { padding: 18px; }
+      .check { grid-template-columns: 30px 1fr; }
+      .state { grid-column: 2; }
+      footer { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header><h1>Проверка среды для приложения НЗП</h1></header>
+
+    <main>
+      <section class="panel" aria-labelledby="check-title">
+        <p id="check-title" class="intro">
+          Страница проверяет, может ли SharePoint выполнить код приложения и прочитать файл
+          <code>config.json</code> из той же папки.
+        </p>
+
+        <div class="checks">
+          <div class="check" id="check-page">
+            <div class="mark">1</div>
+            <div>
+              <div class="name">Открытие ASPX</div>
+              <div class="detail" id="page-detail">Страница загружена</div>
+            </div>
+            <div class="state">Проверка…</div>
+          </div>
+
+          <div class="check" id="check-script">
+            <div class="mark">2</div>
+            <div>
+              <div class="name">Выполнение JavaScript</div>
+              <div class="detail">Клиентская логика запущена</div>
+            </div>
+            <div class="state">Проверка…</div>
+          </div>
+
+          <div class="check" id="check-config">
+            <div class="mark">3</div>
+            <div>
+              <div class="name">Загрузка конфигурации</div>
+              <div class="detail" id="config-detail">Ожидание ответа</div>
+            </div>
+            <div class="state">Проверка…</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="repeat-check">Проверить ещё раз</button>
+          <span class="summary" id="summary" aria-live="polite">Выполняется проверка…</span>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Диагностическая версия 0.1</span>
+      <span id="location"></span>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var results = { page: false, script: false, config: false };
+
+      function setCheck(id, ok, detail) {
+        var row = document.getElementById("check-" + id);
+        var state = row.querySelector(".state");
+        var mark = row.querySelector(".mark");
+        row.classList.remove("ok", "error");
+        row.classList.add(ok ? "ok" : "error");
+        state.textContent = ok ? "Доступно" : "Ошибка";
+        mark.textContent = ok ? "✓" : "!";
+        results[id] = ok;
+        if (detail) document.getElementById(id + "-detail").textContent = detail;
+      }
+
+      function updateSummary() {
+        var passed = Object.keys(results).filter(function (key) { return results[key]; }).length;
+        var summary = document.getElementById("summary");
+        summary.textContent = passed === 3
+          ? "Все проверки пройдены — можно собирать основное приложение."
+          : "Пройдено проверок: " + passed + " из 3.";
+      }
+
+      async function checkConfig() {
+        var configUrl = new URL("config.json", window.location.href);
+        document.getElementById("config-detail").textContent = configUrl.href;
+
+        try {
+          var response = await fetch(configUrl.href, {
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: { "Accept": "application/json" }
+          });
+          if (!response.ok) throw new Error("HTTP " + response.status);
+
+          var config = await response.json();
+          if (!config || config.application !== "nzp-calculator") {
+            throw new Error("неверное содержимое config.json");
+          }
+
+          setCheck("config", true, "Загружена версия " + (config.version || "без номера"));
+        } catch (error) {
+          setCheck("config", false, "Не удалось загрузить config.json: " + error.message);
+        }
+        updateSummary();
+      }
+
+      setCheck("page", true, window.location.href);
+      setCheck("script", true);
+      document.getElementById("location").textContent = window.location.hostname || "локальный файл";
+      document.getElementById("repeat-check").addEventListener("click", checkConfig);
+      updateSummary();
+      checkConfig();
+    }());
+  </script>
+</body>
+</html>
+

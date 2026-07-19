@@ -1,0 +1,14 @@
+{
+  "application": "nzp-calculator",
+  "version": "0.1",
+  "title": "Расчёт незавершённого производства",
+  "editMode": false,
+  "dataSources": [],
+  "coefficientBindings": {},
+  "pricingBindings": {},
+  "export": {
+    "fileName": "Расчёт НЗП.xlsx",
+    "sheetName": "НЗП"
+  }
+}
+
