@@ -1,6 +1,6 @@
 {
   "application": "nzp-calculator",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "sources": {
     "aggregation": {
       "name": "Справочник укрупнения",
@@ -86,6 +86,7 @@
   "aggregationLogic": {
     "matchField": "erCode",
     "activeLevel": "kq2",
+    "displayHierarchy": ["kq1", "kq2", "er"],
     "quantityCalculation": {
       "operation": "multiply",
       "sourceField": "quantity",
@@ -94,8 +95,12 @@
     "levels": {
       "er": { "codeField": "erCode", "nameField": "erName", "coefficient": 1 },
       "kq2": { "codeField": "kq2Code", "nameField": "kq2Name", "coefficientField": "kq2Coefficient" },
-      "kq1": { "codeField": "kq1Code", "nameField": "kq1Name", "coefficientField": "kq1Coefficient" },
-      "kq0": { "codeField": "kq0Code", "nameField": "kq0Name", "coefficientField": "kq0Coefficient" }
+      "kq1": { "codeField": "kq1Code", "nameField": "kq1Name", "coefficient": 1, "coefficientMode": "none" },
+      "kq0": { "codeField": "kq0Code", "nameField": "kq0Name", "coefficient": 1, "coefficientMode": "none", "display": false }
+    },
+    "coefficientCorrections": {
+      "byKq2Code": {},
+      "byErCode": {}
     },
     "excludedStatuses": ["Аннулировано*"],
     "fallback": "keep-source"

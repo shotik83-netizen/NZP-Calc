@@ -768,11 +768,29 @@
         var runtimeConfig = state.aggregation.parserConfig;
         var activeLevel = runtimeConfig && runtimeConfig.aggregationLogic ? runtimeConfig.aggregationLogic.activeLevel : "kq2";
         var priorityText = runtimeConfig && Array.isArray(runtimeConfig.sourcePriority) ? runtimeConfig.sourcePriority.slice().sort(function (a, b) { return b.priority - a.priority; }).map(function (entry) { return entry.source; }).join(" → ") : "kfo → contractPrice → aggregation";
-        var rows = entries.slice(0, 100).map(function (entry) {
-          return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong><br><span class="muted">' + escapeHtml(entry.erName) + '</span></td><td><strong>' + escapeHtml(entry.kq2Code) + '</strong><br><span class="muted">' + escapeHtml(entry.kq2Name) + '</span></td><td class="num">' + escapeHtml(entry.kq2Coefficient) + '</td><td>' + escapeHtml(entry.kq1Code) + '<br><span class="muted">Коэф. ' + escapeHtml(entry.kq1Coefficient) + '</span></td><td>' + escapeHtml(entry.kq0Code) + '<br><span class="muted">Коэф. ' + escapeHtml(entry.kq0Coefficient) + '</span></td><td>' + escapeHtml(entry.status) + '</td></tr>';
+        var hierarchy = new Map();
+        entries.forEach(function (entry) {
+          var kq1Key = entry.kq1Code || "Без KQ-1";
+          if (!hierarchy.has(kq1Key)) hierarchy.set(kq1Key, { code: kq1Key, name: entry.kq1Name || "Без наименования", groups: new Map(), count: 0 });
+          var kq1 = hierarchy.get(kq1Key);
+          var kq2Key = entry.kq2Code || "Без KQ-2";
+          if (!kq1.groups.has(kq2Key)) kq1.groups.set(kq2Key, { code: kq2Key, name: entry.kq2Name || "Без наименования", entries: [] });
+          kq1.groups.get(kq2Key).entries.push(entry);
+          kq1.count += 1;
+        });
+        var groupedRows = Array.from(hierarchy.values()).sort(function (a, b) { return a.code.localeCompare(b.code, "ru"); }).map(function (kq1) {
+          var kq2Rows = Array.from(kq1.groups.values()).sort(function (a, b) { return a.code.localeCompare(b.code, "ru"); }).map(function (kq2) {
+            var erRows = kq2.entries.sort(function (a, b) { return a.erCode.localeCompare(b.erCode, "ru"); }).map(function (entry) {
+              var effectiveCoefficient = runtimeConfig ? getEffectiveKq2Coefficient(entry, runtimeConfig) : entry.kq2Coefficient;
+              var corrected = Number(effectiveCoefficient) !== Number(entry.kq2Coefficient);
+              return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong></td><td>' + escapeHtml(entry.erName) + '</td><td>' + escapeHtml(entry.unit) + '</td><td class="num"><strong>' + escapeHtml(effectiveCoefficient) + '</strong>' + (corrected ? '<br><span class="badge warning">JSON</span>' : '') + '</td><td>' + escapeHtml(entry.status || "Действует") + '</td></tr>';
+            }).join("");
+            return '<details class="card" style="margin:8px 0"><summary style="cursor:pointer;padding:12px 16px"><strong>' + escapeHtml(kq2.code) + '</strong> — ' + escapeHtml(kq2.name) + ' <span class="badge">ЕР: ' + kq2.entries.length + '</span></summary><div class="table-wrap"><table><thead><tr><th>Шифр ЕР</th><th>Наименование ЕР</th><th>Ед. изм.</th><th class="num">Коэф. KQ-2</th><th>Статус</th></tr></thead><tbody>' + erRows + '</tbody></table></div></details>';
+          }).join("");
+          return '<details class="card" style="margin:12px 0"><summary style="cursor:pointer;padding:14px 16px"><strong>' + escapeHtml(kq1.code) + '</strong> — ' + escapeHtml(kq1.name) + ' <span class="badge">KQ-2: ' + kq1.groups.size + '</span> <span class="badge">ЕР: ' + kq1.count + '</span></summary><div style="padding:0 12px 12px">' + kq2Rows + '</div></details>';
         }).join("");
         var body = entries.length
-          ? '<div class="table-wrap"><table><thead><tr><th>Шифр ЕР</th><th>KQ-2</th><th class="num">Коэф. KQ-2</th><th>KQ-1</th><th>KQ-0</th><th>Статус</th></tr></thead><tbody>' + rows + '</tbody></table></div><p class="muted">Показаны первые ' + Math.min(entries.length, 100) + ' из ' + entries.length + ' записей.</p>'
+          ? '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Коэффициент существует только у строки ЕР для перехода к KQ-2; у KQ-1 и KQ-0 дополнительного коэффициента нет.</div></div>' + groupedRows
           : emptyState("Справочник не загружен", state.aggregation.message, "book");
         return pageHead(item, button("Загрузить справочник", "upload", "", 'id="load-aggregation"')) +
           '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
@@ -1460,12 +1478,29 @@
         return index;
       }
 
+      function getEffectiveKq2Coefficient(rule, config) {
+        var logic = config.aggregationLogic || {};
+        var corrections = logic.coefficientCorrections || {};
+        var byEr = corrections.byErCode || {};
+        var byKq2 = corrections.byKq2Code || {};
+        var erCode = String(rule.erCode || "");
+        var kq2Code = String(rule.kq2Code || "");
+        var corrected = byEr[erCode];
+        if (corrected === undefined) corrected = byEr[normalizeParserLabel(erCode)];
+        if (corrected === undefined) corrected = byKq2[kq2Code];
+        if (corrected === undefined) corrected = byKq2[normalizeParserLabel(kq2Code)];
+        var coefficient = corrected === undefined ? Number(rule.kq2Coefficient) : Number(corrected);
+        return Number.isFinite(coefficient) ? coefficient : 1;
+      }
+
       function calculateByAggregationRule(quantity, rule, config) {
         var logic = config.aggregationLogic || {};
         var levelName = logic.activeLevel || "kq2";
         var level = (logic.levels || {})[levelName];
         if (!level || !rule) return { quantity: quantity, code: "", name: "", coefficient: 1, level: "er" };
-        var coefficient = level.coefficientField ? Number(rule[level.coefficientField]) : Number(level.coefficient == null ? 1 : level.coefficient);
+        var coefficient = levelName === "kq2"
+          ? getEffectiveKq2Coefficient(rule, config)
+          : Number(level.coefficient == null ? 1 : level.coefficient);
         if (!Number.isFinite(coefficient)) coefficient = 1;
         var operation = (logic.quantityCalculation || {}).operation || "multiply";
         var result = operation === "multiply" ? Number(quantity) * coefficient : Number(quantity);
