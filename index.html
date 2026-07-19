@@ -120,6 +120,18 @@
     .source-copy { min-width: 0; flex: 1; }
     .source-name { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
     .source-meta { overflow: hidden; margin-top: 2px; color: var(--muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    .source-grid { display: grid; gap: 12px; }
+    .source-card { padding: 14px; background: #fbfcfb; border: 1px solid var(--border); border-radius: 8px; }
+    .source-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .source-card-title { margin: 0; font-size: 13px; font-weight: 650; }
+    .source-card-actions { display: flex; align-items: center; gap: 7px; }
+    .source-link { color: var(--primary-strong); text-decoration: none; word-break: break-all; }
+    .source-link:hover { text-decoration: underline; }
+    .source-settings { margin-top: 13px; padding-top: 13px; border-top: 1px solid var(--border); }
+    .source-settings summary { color: #44524c; cursor: pointer; font-size: 11px; font-weight: 650; }
+    .mapping-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+    .mapping-grid .input { text-transform: uppercase; }
+    .result-note { margin: 10px 0 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.45; }
 
     .connection-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; background: #fafcfb; border: 1px solid var(--border); border-radius: 8px; }
     .connection-main { min-width: 0; display: flex; align-items: center; gap: 11px; }
@@ -196,6 +208,7 @@
       .content-scroll { min-height: 0; }
       .content { padding: 24px 20px 34px; }
       .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .mapping-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .footer-center { display: none; }
     }
 
@@ -209,6 +222,7 @@
       .page-actions { justify-content: flex-start; }
       .page-description { margin-left: 0; }
       .grid-2, .grid-3, .field-grid { grid-template-columns: 1fr; }
+      .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .field-wide { grid-column: auto; }
       .connection-summary { align-items: flex-start; flex-direction: column; }
       .connection-date { text-align: left; }
@@ -249,7 +263,7 @@
     </div>
 
     <footer class="app-footer">
-      <div class="footer-part"><span id="version-label">Версия 0.3</span></div>
+      <div class="footer-part"><span id="version-label">Версия 0.5</span></div>
       <div class="footer-center" id="footer-status">Изменения конфигурации отсутствуют</div>
       <div class="footer-part">
         <div class="status-chip edit-only" id="config-status"><span class="status-dot"></span><span>Загрузка конфигурации…</span></div>
@@ -295,13 +309,41 @@
         { id: "admin", label: "Административные настройки", icon: "settings", description: "Источники данных, соответствия колонок и параметры экспорта." }
       ];
 
+      var KFO_COLUMN_FIELDS = [
+        { key: "rowDate", label: "Дата записи" },
+        { key: "markCode", label: "Марка" },
+        { key: "erCode", label: "Шифр ЕР" },
+        { key: "erName", label: "Наименование ЕР" },
+        { key: "unit", label: "Ед. изм." },
+        { key: "contractor", label: "Подрядчик" },
+        { key: "contractNumber", label: "Договор" },
+        { key: "actualSmr", label: "Факт СМР" },
+        { key: "lastFactDate", label: "Дата факта СМР" },
+        { key: "acceptedSk", label: "Принято СК" },
+        { key: "acceptedId", label: "Принято ИД" },
+        { key: "kq1Code", label: "KQ-1" },
+        { key: "kq1Coefficient", label: "Коэф-1" },
+        { key: "kq2Code", label: "KQ-2" },
+        { key: "kq2Coefficient", label: "Коэф-2" }
+      ];
+      var DEFAULT_KFO_COLUMNS = {
+        rowDate: "B", markCode: "J", erCode: "S", erName: "U", unit: "V", contractor: "AK", contractNumber: "AL",
+        actualSmr: "AO", lastFactDate: "AP", acceptedSk: "AR", acceptedId: "AZ",
+        kq1Code: "BI", kq1Coefficient: "BJ", kq2Code: "BK", kq2Coefficient: "BL"
+      };
+      var DEFAULT_KFO_SOURCE = {
+        id: "kfo-main", name: "БД КФО", url: "", enabled: true, sheetName: "КФО", dkSheetName: "ДК",
+        headerSearchRows: 50, updatedAtCell: "AN1", kqLevel: "inherit", calculationMode: "inherit", columns: DEFAULT_KFO_COLUMNS
+      };
+
       var DEFAULT_CONFIG = {
         application: "nzp-calculator",
-        version: "0.4",
+        version: "0.5",
         title: "Отчёт по незавершённому строительству (НЗП)",
         configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
         editMode: false,
-        dataSources: [{ name: "БД КФО", url: "" }],
+        dataSources: [DEFAULT_KFO_SOURCE],
+        calculation: { defaultKqLevel: "kq2", defaultMode: "without-regulations" },
         coefficientBindings: {},
         pricingBindings: {},
         aggregationSource: { name: "Справочник укрупнения", url: "" },
@@ -317,8 +359,12 @@
         configLoaded: false,
         configDirty: false,
         connection: { status: "inactive", checkedAt: null, message: "Ссылка на БД КФО не указана" },
+        sourceConnections: {},
         asOfDate: new Date().toISOString().slice(0, 10),
+        kqLevel: "kq2",
+        calculationMode: "without-regulations",
         dataUpdatedAt: null,
+        kfo: { status: "inactive", groups: [], contractors: [], sourceSummaries: [], includedRows: 0, message: "Сведения не загружены" },
         aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: "Справочник не загружен" }
       };
 
@@ -359,29 +405,93 @@
         return '<div class="empty"><div class="empty-icon">' + (ICONS[iconName || "file"]) + '</div><div class="empty-title">' + title + '</div><div class="empty-note">' + note + '</div></div>';
       }
 
-      function getKfoSource() {
-        var sources = Array.isArray(state.config.dataSources) ? state.config.dataSources : [];
-        var source = sources[0] || { name: "БД КФО", url: "" };
-        if (typeof source === "string") return { name: "БД КФО", url: source };
-        return { name: source.name || "БД КФО", url: source.url || "" };
+      function normalizeKfoSource(source, index) {
+        var incoming = typeof source === "string" ? { url: source } : (source || {});
+        var normalized = Object.assign({}, DEFAULT_KFO_SOURCE, incoming);
+        normalized.id = String(incoming.id || "kfo-" + (index + 1)).replace(/[^a-zA-Z0-9_-]/g, "-");
+        normalized.name = String(incoming.name || "БД КФО " + (index + 1));
+        normalized.url = String(incoming.url || "").trim();
+        normalized.enabled = incoming.enabled !== false;
+        normalized.headerSearchRows = Math.max(1, Math.min(Number(incoming.headerSearchRows) || 50, 500));
+        normalized.columns = Object.assign({}, DEFAULT_KFO_COLUMNS, incoming.columns || {});
+        return normalized;
       }
 
-      function connectionSummary() {
-        var active = state.connection.status === "active";
-        var checked = state.connection.checkedAt ? formatDateTime(state.connection.checkedAt) : "Проверка ещё не выполнялась";
-        return '<div class="connection-summary" id="connection-summary"><div class="connection-main"><div class="connection-light' + (active ? " active" : "") + '">' + (active ? ICONS.check : ICONS.database) + '</div><div><div class="connection-title">' + (active ? "Активно" : "Нет подключения") + '</div><div class="connection-note">' + escapeHtml(state.connection.message || "Источник данных недоступен") + '</div></div></div><div class="connection-date">' + (active ? "Сведения обновлены<br>" : "Последняя проверка<br>") + escapeHtml(checked) + '</div></div>';
+      function getKfoSources() {
+        var sources = Array.isArray(state.config.dataSources) ? state.config.dataSources : [];
+        return sources.map(normalizeKfoSource);
+      }
+
+      function getKfoSource() {
+        return getKfoSources()[0] || normalizeKfoSource(DEFAULT_KFO_SOURCE, 0);
+      }
+
+      function sourceSummary(source) {
+        return (state.kfo.sourceSummaries || []).find(function (entry) { return entry.id === source.id; }) || null;
+      }
+
+      function sourceConnection(source) {
+        return state.sourceConnections[source.id] || { status: "inactive", checkedAt: null, message: source.url ? "Источник ещё не проверен" : "Ссылка не указана" };
+      }
+
+      function connectionSummary(source) {
+        var connection = sourceConnection(source);
+        var summary = sourceSummary(source);
+        var active = connection.status === "active";
+        var title = connection.status === "checking" || connection.status === "loading" ? "Проверка…" : (active ? "Активно" : "Нет подключения");
+        var checked = connection.checkedAt ? formatDateTime(connection.checkedAt) : "Проверка ещё не выполнялась";
+        var updateText = summary && summary.updatedAt ? "Дата данных<br>" + formatDateShort(summary.updatedAt) : "Последняя проверка<br>" + checked;
+        return '<div class="connection-summary"><div class="connection-main"><div class="connection-light' + (active ? " active" : "") + '">' + (active ? ICONS.check : ICONS.database) + '</div><div><div class="connection-title">' + title + '</div><div class="connection-note">' + escapeHtml(connection.message || "Источник данных недоступен") + '</div></div></div><div class="connection-date">' + updateText + '</div></div>';
+      }
+
+      function renderKfoSourceCard(source, index) {
+        var connection = sourceConnection(source);
+        var summary = sourceSummary(source);
+        var active = connection.status === "active";
+        var modeOptions = '<option value="inherit"' + (source.calculationMode === "inherit" ? " selected" : "") + '>Выбранный режим</option><option value="without-regulations"' + (source.calculationMode === "without-regulations" ? " selected" : "") + '>Без регламентов</option><option value="with-regulations"' + (source.calculationMode === "with-regulations" ? " selected" : "") + '>С регламентами</option>';
+        var levelOptions = '<option value="inherit"' + (source.kqLevel === "inherit" ? " selected" : "") + '>Выбранный уровень</option><option value="kq1"' + (source.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (source.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option>';
+        var mapping = KFO_COLUMN_FIELDS.map(function (field) {
+          return '<div class="field"><label>' + field.label + '</label><input class="input" maxlength="3" value="' + escapeHtml(source.columns[field.key] || "") + '" data-source-index="' + index + '" data-column-key="' + field.key + '" /></div>';
+        }).join("");
+        var editor = state.editMode
+          ? '<div class="source-settings"><div class="field-grid"><div class="field"><label>Наименование источника</label><input class="input" value="' + escapeHtml(source.name) + '" data-source-index="' + index + '" data-source-field="name" /></div><div class="field"><label>Использование</label><select class="input" data-source-index="' + index + '" data-source-field="enabled"><option value="true"' + (source.enabled ? " selected" : "") + '>Включён</option><option value="false"' + (!source.enabled ? " selected" : "") + '>Отключён</option></select></div><div class="field field-wide"><label>Ссылка SharePoint</label><input class="input" type="url" placeholder="https://...sharepoint.com/.../БД-КФО.xlsb" value="' + escapeHtml(source.url) + '" data-source-index="' + index + '" data-source-field="url" /></div><div class="field"><label>Лист данных</label><input class="input" value="' + escapeHtml(source.sheetName) + '" data-source-index="' + index + '" data-source-field="sheetName" /></div><div class="field"><label>Лист регламентов</label><input class="input" value="' + escapeHtml(source.dkSheetName) + '" data-source-index="' + index + '" data-source-field="dkSheetName" /></div><div class="field"><label>Ячейка даты обновления</label><input class="input" value="' + escapeHtml(source.updatedAtCell) + '" data-source-index="' + index + '" data-source-field="updatedAtCell" /></div><div class="field"><label>Строк поиска заголовка</label><input class="input" type="number" min="1" max="500" value="' + source.headerSearchRows + '" data-source-index="' + index + '" data-source-field="headerSearchRows" /></div><div class="field"><label>Уровень KQ для файла</label><select class="input" data-source-index="' + index + '" data-source-field="kqLevel">' + levelOptions + '</select></div><div class="field"><label>Режим для файла</label><select class="input" data-source-index="' + index + '" data-source-field="calculationMode">' + modeOptions + '</select></div></div><details><summary>Резервные буквы колонок</summary><div class="mapping-grid">' + mapping + '</div><p class="result-note">Сначала колонки определяются по заголовкам. Эти буквы используются только как резерв для нестандартной книги.</p></details></div>'
+          : '<div class="source-settings"><div class="source-meta">' + (source.url ? '<a class="source-link" href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(source.url) + '</a>' : "Ссылка SharePoint не указана") + '</div>' + (summary ? '<p class="result-note">Лист «' + escapeHtml(summary.sheetName) + '», строк: ' + formatNumber(summary.includedRows, 0) + ', групп KQ: ' + formatNumber(summary.groupCount, 0) + ', покрытие регламентами: ' + (summary.regulationCoverage == null ? "не применяется" : formatNumber(summary.regulationCoverage, 1) + "%") + '.</p>' : "") + '</div>';
+        return '<div class="source-card"><div class="source-card-head"><div><h4 class="source-card-title">' + escapeHtml(source.name) + '</h4><div class="source-meta">' + (source.enabled ? "Источник включён" : "Источник отключён") + '</div></div><div class="source-card-actions"><span class="badge ' + (active ? "green" : "warning") + '">' + (active ? "Активно" : "Нет подключения") + '</span>' + (state.editMode ? button("Удалить", "", "", 'data-remove-source="' + index + '"') : "") + '</div></div>' + editor + '<div style="margin-top:12px">' + connectionSummary(source) + '</div></div>';
+      }
+
+      function formatNumber(value, digits) {
+        if (value == null || value === "") return "—";
+        var number = Number(value);
+        if (!Number.isFinite(number)) return "—";
+        return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: digits == null ? 3 : digits }).format(number);
+      }
+
+      function renderKfoResults() {
+        var groups = state.kfo.groups || [];
+        var contractors = state.kfo.contractors || [];
+        if (state.kfo.status === "loading") return emptyState("Читаем БД КФО", "Большой файл .xlsb обрабатывается в браузере. Не закрывайте страницу.", "database");
+        if (!groups.length) return emptyState("Сведения о выполнении не загружены", state.kfo.message || "Проверьте источники и обновите сведения.", "database");
+        var contractorRows = contractors.map(function (entry) {
+          return '<tr><td><strong>' + escapeHtml(entry.name) + '</strong></td><td class="num">' + formatNumber(entry.rows, 0) + '</td><td class="num">' + formatNumber(entry.groups, 0) + '</td><td class="num">' + formatNumber(entry.units, 0) + '</td><td class="num">' + (entry.regulationCoverage == null ? "—" : formatNumber(entry.regulationCoverage, 1) + "%") + '</td></tr>';
+        }).join("");
+        var groupRows = groups.slice(0, 500).map(function (entry) {
+          return '<tr><td>' + escapeHtml(entry.sourceName) + '</td><td><strong>' + escapeHtml(entry.contractor) + '</strong></td><td><strong>' + escapeHtml(entry.kqCode) + '</strong><br><span class="muted">' + escapeHtml(entry.kqName || entry.erName || "Наименование не найдено") + '</span></td><td>' + escapeHtml(entry.unit) + '</td><td class="num">' + formatNumber(entry.actualSmr) + '</td><td class="num">' + formatNumber(entry.acceptedSk) + '</td><td class="num">' + formatNumber(entry.acceptedId) + '</td><td class="num">' + (entry.evaluatedVolume == null ? "—" : formatNumber(entry.evaluatedVolume)) + '</td></tr>';
+        }).join("");
+        return '<div class="stack"><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подрядчики</h3><span class="badge green">' + contractors.length + ' записей</span></div><p class="card-desc">Строки и группы выполнения на выбранную дату; физические единицы не складываются между собой.</p></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th class="num">Строк</th><th class="num">Групп KQ</th><th class="num">Ед. изм.</th><th class="num">Покрытие ДК</th></tr></thead><tbody>' + contractorRows + '</tbody></table></div></div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Физические объёмы по видам работ</h3><span class="badge">' + groups.length + ' групп</span></div><p class="card-desc">Объёмы уже приведены коэффициентом выбранного уровня KQ. В режиме регламентов каждый этап дополнительно умножен на свой коэффициент листа «ДК».</p></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Источник</th><th>Подрядчик</th><th>Вид работ</th><th>Ед.</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th class="num">Регламентная оценка</th></tr></thead><tbody>' + groupRows + '</tbody></table></div><p class="result-note">Показаны первые ' + Math.min(groups.length, 500) + ' из ' + groups.length + ' групп. Лист «KQ» исходной книги используется только для диагностики и не влияет на расчёт.</p></div></section></div>';
       }
 
       function renderDataUpload(item) {
-        var source = getKfoSource();
-        var active = state.connection.status === "active";
-        return pageHead(item, button("Проверить подключение", "refresh", "", 'id="check-kfo"')) +
+        var sources = getKfoSources();
+        var activeSources = sources.filter(function (source) { return sourceConnection(source).status === "active"; }).length;
+        var sourceCards = sources.length ? sources.map(renderKfoSourceCard).join("") : emptyState("Источники не настроены", "Включите режим редактирования и добавьте ссылку на БД КФО.", "database");
+        var kfo = state.kfo;
+        return pageHead(item, button("Проверить подключения", "refresh", "", 'id="check-kfo"')) +
           '<div class="stack">' +
-            '<div class="banner">' + icon("info") + '<div>Сведения загружаются напрямую из БД КФО по ссылке SharePoint. Адрес источника можно изменить только в режиме редактирования.</div></div>' +
-            '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение к БД КФО</h3><span class="badge ' + (active ? "green" : "warning") + '" id="kfo-status-badge">' + (active ? "Активно" : "Нет подключения") + '</span></div><p class="card-desc">Укажите прямую ссылку на файл базы данных в библиотеке SharePoint.</p></div><div class="card-body stack"><div class="field"><label for="kfo-url">Ссылка на БД КФО</label><input class="input" id="kfo-url" type="url" placeholder="https://...sharepoint.com/.../БД-КФО.xlsx" value="' + escapeHtml(source.url) + '" ' + (state.editMode ? "" : "disabled") + ' /></div>' + connectionSummary() + '</div></section>' +
-            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Сведения на дату</h3><span class="badge">Срез данных</span></div><p class="card-desc">Выберите дату, на которую нужно получить выполнение и физические объёмы.</p></div><div class="card-body"><div class="form-actions"><div class="field"><label for="as-of-date">Дата сведений</label><input class="input" id="as-of-date" type="date" value="' + escapeHtml(state.asOfDate) + '" /></div>' + button("Обновить сведения", "refresh", "btn-primary", 'id="refresh-kfo-data"') + '</div></div></section>' +
-            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные физические объёмы</h3><span class="badge">На ' + formatDateShort(state.asOfDate) + '</span></div><p class="card-desc">Показатели будут заполнены после подключения структуры БД КФО.</p></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">—</div><div class="stat-note">будут определены из базы</div></div><div class="stat"><div class="stat-label">Строк выполнения</div><div class="stat-value">—</div><div class="stat-note">на выбранную дату</div></div><div class="stat highlight"><div class="stat-label">Физический объём</div><div class="stat-value">—</div><div class="stat-note">агрегация будет настроена далее</div></div></div></div></section>' +
-            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подрядчики</h3><span class="badge">0 записей</span></div><p class="card-desc">Список подрядчиков и выполнение на выбранную дату.</p></div><div class="card-body">' + emptyState("Сведения о подрядчиках пока не загружены", "После настройки структуры БД КФО здесь появятся подрядчики и основные физические объёмы.", "database") + '</div></section>' +
+            '<div class="banner">' + icon("info") + '<div>БД КФО — основополагающий источник выполненных физических объёмов. Можно объединить несколько файлов; у каждого сохраняются свои листы, колонки и режим расчёта.</div></div>' +
+            '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источники БД КФО</h3><span class="badge ' + (activeSources ? "green" : "warning") + '">' + activeSources + ' из ' + sources.length + ' подключено</span></div><p class="card-desc">В режиме просмотра ссылка открывает расположение файла на SharePoint. Настройки доступны только в режиме редактирования.</p></div><div class="card-body"><div class="source-grid">' + sourceCards + '</div></div><div class="card-footer edit-only block">' + button("Добавить источник", "plus", "", 'id="add-kfo-source"') + '</div></section>' +
+            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Срез и способ расчёта</h3><span class="badge">На ' + formatDateShort(state.asOfDate) + '</span></div><p class="card-desc">Дата ограничивает строки по дате записи; факт СМР с более поздней датой последнего факта исключается. Для СК и ИД отдельных дат в книге нет, поэтому точный исторический откат этих этапов требует отдельного файла-среза.</p></div><div class="card-body"><div class="form-actions"><div class="field"><label for="as-of-date">Дата сведений</label><input class="input" id="as-of-date" type="date" value="' + escapeHtml(state.asOfDate) + '" /></div><div class="field"><label for="kq-level">Уровень расчёта</label><select class="input" id="kq-level"><option value="kq1"' + (state.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (state.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option></select></div><div class="field"><label for="calculation-mode">Регламенты</label><select class="input" id="calculation-mode"><option value="without-regulations"' + (state.calculationMode === "without-regulations" ? " selected" : "") + '>Без применения регламентов</option><option value="with-regulations"' + (state.calculationMode === "with-regulations" ? " selected" : "") + '>С применением регламентов</option></select></div>' + button("Обновить сведения", "refresh", "btn-primary", 'id="refresh-kfo-data"') + '</div></div></section>' +
+            '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные физические объёмы</h3><span class="badge ' + (kfo.status === "active" ? "green" : "") + '">' + (kfo.status === "active" ? "Данные загружены" : "Ожидается загрузка") + '</span></div><p class="card-desc">Сводные показатели не суммируют несовместимые единицы измерения.</p></div><div class="card-body"><div class="grid-3"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber((kfo.contractors || []).length, 0) : "—") + '</div><div class="stat-note">из всех подключённых файлов</div></div><div class="stat"><div class="stat-label">Строк выполнения</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(kfo.includedRows, 0) : "—") + '</div><div class="stat-note">после применения даты среза</div></div><div class="stat highlight"><div class="stat-label">Групп физобъёмов</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber((kfo.groups || []).length, 0) : "—") + '</div><div class="stat-note">подрядчик × KQ × ед. изм.</div></div></div></div></section>' +
+            renderKfoResults() +
           '</div>';
       }
 
@@ -445,23 +555,28 @@
       }
 
       function bindContentEvents() {
-        var kfoUrl = document.getElementById("kfo-url");
-        if (kfoUrl) {
-          kfoUrl.addEventListener("input", function () {
-            setKfoUrl(kfoUrl.value);
-            state.connection = { status: "inactive", checkedAt: null, message: "Изменённая ссылка ещё не проверена" };
-            state.configDirty = true;
-            applyConfigToChrome();
-            refreshConnectionElements();
-          });
-          kfoUrl.addEventListener("change", function () { checkKfoConnection(false); });
-        }
         var checkKfo = document.getElementById("check-kfo");
-        if (checkKfo) checkKfo.addEventListener("click", function () { checkKfoConnection(false); });
+        if (checkKfo) checkKfo.addEventListener("click", function () { checkKfoConnections(false); });
         var asOfDate = document.getElementById("as-of-date");
         if (asOfDate) asOfDate.addEventListener("change", function () { state.asOfDate = asOfDate.value || new Date().toISOString().slice(0, 10); });
+        var kqLevel = document.getElementById("kq-level");
+        if (kqLevel) kqLevel.addEventListener("change", function () { state.kqLevel = kqLevel.value === "kq1" ? "kq1" : "kq2"; });
+        var calculationMode = document.getElementById("calculation-mode");
+        if (calculationMode) calculationMode.addEventListener("change", function () { state.calculationMode = calculationMode.value === "with-regulations" ? "with-regulations" : "without-regulations"; });
         var refreshKfo = document.getElementById("refresh-kfo-data");
         if (refreshKfo) refreshKfo.addEventListener("click", refreshKfoData);
+        var addSource = document.getElementById("add-kfo-source");
+        if (addSource) addSource.addEventListener("click", addKfoSource);
+        document.querySelectorAll("[data-source-field]").forEach(function (node) {
+          node.addEventListener("change", function () { updateKfoSource(Number(node.getAttribute("data-source-index")), node.getAttribute("data-source-field"), node.value); });
+          if (node.tagName === "INPUT") node.addEventListener("input", function () { updateKfoSource(Number(node.getAttribute("data-source-index")), node.getAttribute("data-source-field"), node.value, true); });
+        });
+        document.querySelectorAll("[data-column-key]").forEach(function (node) {
+          node.addEventListener("input", function () { updateKfoColumn(Number(node.getAttribute("data-source-index")), node.getAttribute("data-column-key"), node.value); });
+        });
+        document.querySelectorAll("[data-remove-source]").forEach(function (node) {
+          node.addEventListener("click", function () { removeKfoSource(Number(node.getAttribute("data-remove-source"))); });
+        });
         var adminDownload = document.getElementById("admin-download");
         if (adminDownload) adminDownload.addEventListener("click", downloadConfig);
         var apply = document.getElementById("apply-settings");
@@ -479,8 +594,47 @@
         });
       }
 
-      function setKfoUrl(url) {
-        state.config.dataSources = [{ name: "БД КФО", url: String(url || "").trim() }];
+      function ensureEditableSources() {
+        state.config.dataSources = getKfoSources();
+        return state.config.dataSources;
+      }
+
+      function updateKfoSource(index, field, value, quiet) {
+        var sources = ensureEditableSources();
+        if (!sources[index]) return;
+        if (field === "enabled") sources[index][field] = value === "true";
+        else if (field === "headerSearchRows") sources[index][field] = Math.max(1, Math.min(Number(value) || 50, 500));
+        else sources[index][field] = String(value || "").trim();
+        if (field === "url") state.sourceConnections[sources[index].id] = { status: "inactive", checkedAt: null, message: "Изменённая ссылка ещё не проверена" };
+        state.configDirty = true;
+        applyConfigToChrome();
+        if (!quiet && (field === "enabled" || field === "kqLevel" || field === "calculationMode")) renderContent();
+      }
+
+      function updateKfoColumn(index, key, value) {
+        var sources = ensureEditableSources();
+        if (!sources[index]) return;
+        sources[index].columns[key] = String(value || "").trim().toUpperCase();
+        state.configDirty = true;
+        applyConfigToChrome();
+      }
+
+      function addKfoSource() {
+        var sources = ensureEditableSources();
+        var source = normalizeKfoSource({ id: "kfo-" + Date.now(), name: "БД КФО " + (sources.length + 1), url: "" }, sources.length);
+        sources.push(source);
+        state.configDirty = true;
+        applyConfigToChrome();
+        renderContent();
+      }
+
+      function removeKfoSource(index) {
+        var sources = ensureEditableSources();
+        var removed = sources.splice(index, 1)[0];
+        if (removed) delete state.sourceConnections[removed.id];
+        state.configDirty = true;
+        applyConfigToChrome();
+        renderContent();
       }
 
       function formatDateTime(value) {
@@ -496,14 +650,7 @@
       }
 
       function refreshConnectionElements() {
-        var badge = document.getElementById("kfo-status-badge");
-        if (badge) {
-          var active = state.connection.status === "active";
-          badge.className = "badge " + (active ? "green" : "warning");
-          badge.textContent = active ? "Активно" : "Нет подключения";
-        }
-        var summary = document.getElementById("connection-summary");
-        if (summary) summary.outerHTML = connectionSummary();
+        if (state.active === "data-upload") renderContent();
       }
 
       async function probeUrl(url) {
@@ -524,42 +671,337 @@
         }
       }
 
-      async function checkKfoConnection(quiet) {
-        var source = getKfoSource();
+      async function checkKfoSourceConnection(source) {
         if (!source.url) {
-          state.connection = { status: "inactive", checkedAt: new Date(), message: "Ссылка на БД КФО не указана" };
-          refreshConnectionElements();
-          if (!quiet) showToast("Нет подключения", "Укажите ссылку на БД КФО в режиме редактирования.");
+          state.sourceConnections[source.id] = { status: "inactive", checkedAt: new Date(), message: "Ссылка на БД КФО не указана" };
           return false;
         }
-        state.connection = { status: "checking", checkedAt: new Date(), message: "Проверяем доступность источника…" };
-        refreshConnectionElements();
+        state.sourceConnections[source.id] = { status: "checking", checkedAt: new Date(), message: "Проверяем доступность источника…" };
         try {
           await probeUrl(source.url);
-          state.connection = { status: "active", checkedAt: new Date(), message: "Файл БД КФО найден и доступен" };
-          refreshConnectionElements();
-          if (!quiet) showToast("Подключение активно", "БД КФО доступна. Время проверки: " + formatDateTime(state.connection.checkedAt));
+          state.sourceConnections[source.id] = { status: "active", checkedAt: new Date(), message: "Файл найден и доступен" };
           return true;
         } catch (error) {
           var message = error && error.name === "AbortError" ? "Превышено время ожидания ответа" : (error.message || "Файл не найден");
-          state.connection = { status: "inactive", checkedAt: new Date(), message: message };
-          refreshConnectionElements();
-          if (!quiet) showToast("Нет подключения", message);
+          state.sourceConnections[source.id] = { status: "error", checkedAt: new Date(), message: message };
           return false;
         }
+      }
+
+      async function checkKfoConnections(quiet) {
+        var sources = getKfoSources().filter(function (source) { return source.enabled; });
+        if (!sources.length) {
+          if (!quiet) showToast("Нет источников", "Добавьте хотя бы одну БД КФО в режиме редактирования.");
+          return false;
+        }
+        sources.forEach(function (source) { state.sourceConnections[source.id] = { status: "checking", checkedAt: new Date(), message: "Проверяем доступность источника…" }; });
+        refreshConnectionElements();
+        var results = await Promise.all(sources.map(checkKfoSourceConnection));
+        refreshConnectionElements();
+        var active = results.filter(Boolean).length;
+        state.connection = { status: active ? "active" : "inactive", checkedAt: new Date(), message: active + " из " + sources.length + " источников доступно" };
+        if (!quiet) showToast(active ? "Проверка завершена" : "Нет подключения", state.connection.message);
+        return active > 0;
       }
 
       async function refreshKfoData() {
         var dateInput = document.getElementById("as-of-date");
         if (dateInput) state.asOfDate = dateInput.value || state.asOfDate;
-        var connected = await checkKfoConnection(true);
-        if (!connected) {
-          showToast("Сведения не обновлены", "Нет подключения к БД КФО.");
-          return;
+        var levelInput = document.getElementById("kq-level");
+        if (levelInput) state.kqLevel = levelInput.value === "kq1" ? "kq1" : "kq2";
+        var modeInput = document.getElementById("calculation-mode");
+        if (modeInput) state.calculationMode = modeInput.value === "with-regulations" ? "with-regulations" : "without-regulations";
+        await loadKfoSources();
+      }
+
+      function columnLetterToIndex(value) {
+        var text = String(value || "").replace(/\$/g, "").trim().toUpperCase();
+        if (!/^[A-Z]+$/.test(text)) return -1;
+        var result = 0;
+        for (var index = 0; index < text.length; index += 1) result = result * 26 + text.charCodeAt(index) - 64;
+        return result - 1;
+      }
+
+      function readSheetCell(sheet, rowIndex, columnIndex) {
+        if (!sheet || rowIndex < 0 || columnIndex < 0) return "";
+        var dense = sheet["!data"];
+        var cell = dense ? ((dense[rowIndex] || [])[columnIndex]) : sheet[XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })];
+        return cell && cell.v != null ? cell.v : "";
+      }
+
+      function readSheetAddress(sheet, address) {
+        try {
+          var decoded = XLSX.utils.decode_cell(String(address || "A1"));
+          return readSheetCell(sheet, decoded.r, decoded.c);
+        } catch (error) {
+          return "";
+        }
+      }
+
+      function parseExcelDate(value) {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+        if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+          var parsed = XLSX.SSF && XLSX.SSF.parse_date_code ? XLSX.SSF.parse_date_code(value) : null;
+          if (parsed && parsed.y && parsed.m && parsed.d) return [parsed.y, String(parsed.m).padStart(2, "0"), String(parsed.d).padStart(2, "0")].join("-");
+        }
+        var text = String(value == null ? "" : value).trim();
+        var ru = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(text);
+        if (ru) return [ru[3], ru[2].padStart(2, "0"), ru[1].padStart(2, "0")].join("-");
+        var iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+        if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
+        var date = new Date(text);
+        return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+      }
+
+      function parseKfoNumber(value, fallback) {
+        if (typeof value === "number") return Number.isFinite(value) ? value : (fallback == null ? 0 : fallback);
+        var normalized = String(value == null ? "" : value).replace(/[\s\u00a0]/g, "").replace(",", ".");
+        if (!normalized) return fallback == null ? 0 : fallback;
+        var result = Number(normalized);
+        return Number.isFinite(result) ? result : (fallback == null ? 0 : fallback);
+      }
+
+      function resolveParserColumns(sheet, parser, sourceColumns, searchRows) {
+        var reference = XLSX.utils.decode_range(sheet["!ref"] || "A1:A1");
+        var fields = Object.keys(parser.fields || {});
+        var headerIndex = -1;
+        var resolved = {};
+        var maximumRows = Math.min(reference.e.r + 1, Math.max(1, Math.min(Number(searchRows) || parser.headerSearchRows || 50, 500)));
+        for (var rowIndex = 0; rowIndex < maximumRows; rowIndex += 1) {
+          var candidate = {};
+          fields.forEach(function (field) {
+            var aliases = (parser.fields[field].aliases || []).map(normalizeParserLabel);
+            for (var columnIndex = reference.s.c; columnIndex <= reference.e.c; columnIndex += 1) {
+              if (aliases.indexOf(normalizeParserLabel(readSheetCell(sheet, rowIndex, columnIndex))) >= 0) { candidate[field] = columnIndex; break; }
+            }
+          });
+          var ready = fields.filter(function (field) { return parser.fields[field].required; }).every(function (field) { return candidate[field] !== undefined; });
+          if (ready) { headerIndex = rowIndex; resolved = candidate; break; }
+        }
+        if (headerIndex < 0) throw new Error("не найдена строка заголовков обязательных полей");
+        fields.forEach(function (field) {
+          if (resolved[field] !== undefined) return;
+          var fallback = sourceColumns && sourceColumns[field] ? sourceColumns[field] : parser.fields[field].fallbackColumn;
+          var fallbackIndex = columnLetterToIndex(fallback);
+          if (fallbackIndex >= 0) resolved[field] = fallbackIndex;
+        });
+        return { headerIndex: headerIndex, columns: resolved, lastRow: reference.e.r };
+      }
+
+      function getWorkbookSheet(workbook, preferredName, aliases) {
+        var names = [preferredName].concat(aliases || []).filter(Boolean);
+        for (var index = 0; index < names.length; index += 1) {
+          var exact = workbook.SheetNames.find(function (name) { return normalizeParserLabel(name) === normalizeParserLabel(names[index]); });
+          if (exact) return { name: exact, sheet: workbook.Sheets[exact] };
+        }
+        return null;
+      }
+
+      function parseDkRules(workbook, source, parserConfig) {
+        var parser = parserConfig.parsers && parserConfig.parsers.dk;
+        if (!parser) return new Map();
+        var selected = getWorkbookSheet(workbook, source.dkSheetName, parser.sheetAliases);
+        if (!selected) return new Map();
+        var resolved = resolveParserColumns(selected.sheet, parser, null, parser.headerSearchRows);
+        var rules = new Map();
+        for (var rowIndex = resolved.headerIndex + 1; rowIndex <= resolved.lastRow; rowIndex += 1) {
+          var markCode = String(readSheetCell(selected.sheet, rowIndex, resolved.columns.markCode) || "").trim();
+          if (!markCode) continue;
+          var rule = {
+            markCode: markCode,
+            contractor: String(readSheetCell(selected.sheet, rowIndex, resolved.columns.contractor) || "").trim(),
+            contractNumber: String(readSheetCell(selected.sheet, rowIndex, resolved.columns.contractNumber) || "").trim(),
+            actualSmr: parseKfoNumber(readSheetCell(selected.sheet, rowIndex, resolved.columns.actualSmr), 1),
+            acceptedSk: parseKfoNumber(readSheetCell(selected.sheet, rowIndex, resolved.columns.acceptedSk), 1),
+            acceptedId: parseKfoNumber(readSheetCell(selected.sheet, rowIndex, resolved.columns.acceptedId), 1)
+          };
+          var key = normalizeParserLabel(markCode);
+          if (!rules.has(key)) rules.set(key, []);
+          rules.get(key).push(rule);
+        }
+        return rules;
+      }
+
+      function findDkRule(rules, markCode, contractor, contractNumber) {
+        var candidates = rules.get(normalizeParserLabel(markCode)) || [];
+        var contractorKey = normalizeParserLabel(contractor);
+        var contractKey = normalizeParserLabel(contractNumber);
+        var matches = candidates.map(function (rule) {
+          var ruleContractor = normalizeParserLabel(rule.contractor);
+          var ruleContract = normalizeParserLabel(rule.contractNumber);
+          if (ruleContractor && ruleContractor !== contractorKey) return null;
+          if (ruleContract && ruleContract !== contractKey) return null;
+          return { rule: rule, score: (ruleContractor ? 4 : 0) + (ruleContract ? 2 : 0) };
+        }).filter(Boolean).sort(function (a, b) { return b.score - a.score; });
+        return matches.length ? matches[0].rule : null;
+      }
+
+      function resolveKqName(erCode, level, kqCode, erName) {
+        var rule = state.aggregation.index && state.aggregation.index.get(normalizeParserLabel(erCode));
+        if (!rule) return normalizeParserLabel(erCode) === normalizeParserLabel(kqCode) ? (erName || kqCode) : kqCode;
+        var codeField = level === "kq1" ? "kq1Code" : "kq2Code";
+        var nameField = level === "kq1" ? "kq1Name" : "kq2Name";
+        return normalizeParserLabel(rule[codeField]) === normalizeParserLabel(kqCode) ? (rule[nameField] || kqCode) : kqCode;
+      }
+
+      function analyzeKqControlSheet(workbook) {
+        var selected = getWorkbookSheet(workbook, "KQ", ["KQ"]);
+        if (!selected) return { rows: 0, uniqueEr: 0, duplicates: 0 };
+        var reference = XLSX.utils.decode_range(selected.sheet["!ref"] || "A1:A1");
+        var seen = new Set();
+        var rows = 0;
+        var duplicates = 0;
+        for (var rowIndex = reference.s.r + 1; rowIndex <= reference.e.r; rowIndex += 1) {
+          var erCode = String(readSheetCell(selected.sheet, rowIndex, 0) || "").trim();
+          if (!erCode) continue;
+          rows += 1;
+          var key = normalizeParserLabel(erCode);
+          if (seen.has(key)) duplicates += 1; else seen.add(key);
+        }
+        return { rows: rows, uniqueEr: seen.size, duplicates: duplicates };
+      }
+
+      function parseKfoWorkbook(buffer, source, parserConfig) {
+        if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
+        var sheetSelection = [source.sheetName, source.dkSheetName, "KQ"].filter(Boolean);
+        var workbook = XLSX.read(buffer, { type: "array", dense: true, cellDates: true, sheets: sheetSelection });
+        var parser = parserConfig.parsers && parserConfig.parsers.kfo;
+        if (!parser) throw new Error("в JSON-конфигураторе отсутствует parsers.kfo");
+        var selected = getWorkbookSheet(workbook, source.sheetName, parser.sheetAliases);
+        if (!selected) throw new Error("лист «" + source.sheetName + "» не найден");
+        var resolved = resolveParserColumns(selected.sheet, parser, source.columns, source.headerSearchRows);
+        var dkRules = parseDkRules(workbook, source, parserConfig);
+        var level = source.kqLevel === "kq1" || source.kqLevel === "kq2" ? source.kqLevel : state.kqLevel;
+        var mode = source.calculationMode === "with-regulations" || source.calculationMode === "without-regulations" ? source.calculationMode : state.calculationMode;
+        var groups = new Map();
+        var diagnostics = { totalRows: 0, includedRows: 0, dateExcludedRows: 0, futureFactRows: 0, missingContractorRows: 0, missingKqRows: 0, missingRegulationRows: 0, regulationMatchedRows: 0, zeroVolumeRows: 0 };
+        var maximumRowDate = "";
+        for (var rowIndex = resolved.headerIndex + 1; rowIndex <= resolved.lastRow; rowIndex += 1) {
+          var get = function (field) { return resolved.columns[field] === undefined ? "" : readSheetCell(selected.sheet, rowIndex, resolved.columns[field]); };
+          var erCode = String(get("erCode") || "").trim();
+          var contractor = String(get("contractor") || "").trim();
+          if (!erCode && !contractor) continue;
+          diagnostics.totalRows += 1;
+          if (!erCode || !contractor) { diagnostics.missingContractorRows += 1; continue; }
+          var rowDate = parseExcelDate(get("rowDate"));
+          if (rowDate && (!maximumRowDate || rowDate > maximumRowDate)) maximumRowDate = rowDate;
+          if (state.asOfDate && rowDate && rowDate > state.asOfDate) { diagnostics.dateExcludedRows += 1; continue; }
+          var lastFactDate = parseExcelDate(get("lastFactDate"));
+          var actualSmr = parseKfoNumber(get("actualSmr"), 0);
+          if (state.asOfDate && lastFactDate && lastFactDate > state.asOfDate) { actualSmr = 0; diagnostics.futureFactRows += 1; }
+          var acceptedSk = parseKfoNumber(get("acceptedSk"), 0);
+          var acceptedId = parseKfoNumber(get("acceptedId"), 0);
+          if (actualSmr === 0 && acceptedSk === 0 && acceptedId === 0) { diagnostics.zeroVolumeRows += 1; continue; }
+          var codeField = level === "kq1" ? "kq1Code" : "kq2Code";
+          var coefficientField = level === "kq1" ? "kq1Coefficient" : "kq2Coefficient";
+          var kqCode = String(get(codeField) || "").trim();
+          var kqCoefficient = parseKfoNumber(get(coefficientField), 1);
+          if (!kqCode) { kqCode = erCode; kqCoefficient = 1; diagnostics.missingKqRows += 1; }
+          var rule = mode === "with-regulations" ? findDkRule(dkRules, String(get("markCode") || "").trim(), contractor, String(get("contractNumber") || "").trim()) : null;
+          if (mode === "with-regulations") {
+            if (rule) diagnostics.regulationMatchedRows += 1; else diagnostics.missingRegulationRows += 1;
+          }
+          var actualCalculated = actualSmr * kqCoefficient * (rule ? rule.actualSmr : 1);
+          var skCalculated = acceptedSk * kqCoefficient * (rule ? rule.acceptedSk : 1);
+          var idCalculated = acceptedId * kqCoefficient * (rule ? rule.acceptedId : 1);
+          var unit = String(get("unit") || "").trim() || "без ед. изм.";
+          var groupKey = [source.id, normalizeParserLabel(contractor), normalizeParserLabel(kqCode), normalizeParserLabel(unit), level, mode].join("||");
+          var group = groups.get(groupKey);
+          if (!group) {
+            group = { sourceId: source.id, sourceName: source.name, contractor: contractor, kqCode: kqCode, kqName: resolveKqName(erCode, level, kqCode, String(get("erName") || "").trim()), erName: String(get("erName") || "").trim(), unit: unit, level: level, mode: mode, rows: 0, regulationRows: 0, actualSmr: 0, acceptedSk: 0, acceptedId: 0, evaluatedVolume: mode === "with-regulations" ? 0 : null };
+            groups.set(groupKey, group);
+          }
+          group.rows += 1;
+          if (rule) group.regulationRows += 1;
+          group.actualSmr += actualCalculated;
+          group.acceptedSk += skCalculated;
+          group.acceptedId += idCalculated;
+          if (mode === "with-regulations") group.evaluatedVolume += actualCalculated + skCalculated + idCalculated;
+          diagnostics.includedRows += 1;
+        }
+        var updatedAt = parseExcelDate(readSheetAddress(selected.sheet, source.updatedAtCell || parser.updatedAtCell)) || maximumRowDate;
+        var outputGroups = Array.from(groups.values()).sort(function (a, b) { return a.contractor.localeCompare(b.contractor, "ru") || a.kqCode.localeCompare(b.kqCode, "ru") || a.unit.localeCompare(b.unit, "ru"); });
+        var coverageBase = diagnostics.regulationMatchedRows + diagnostics.missingRegulationRows;
+        return {
+          groups: outputGroups,
+          summary: { id: source.id, name: source.name, sheetName: selected.name, updatedAt: updatedAt, includedRows: diagnostics.includedRows, groupCount: outputGroups.length, regulationCoverage: coverageBase ? diagnostics.regulationMatchedRows / coverageBase * 100 : null, diagnostics: diagnostics, kqControl: analyzeKqControlSheet(workbook) }
+        };
+      }
+
+      async function fetchWorkbookBuffer(url) {
+        var parsed = new URL(url, location.href);
+        if (!/^https?:$/.test(parsed.protocol)) throw new Error("поддерживаются только HTTP- и HTTPS-ссылки");
+        var controller = new AbortController();
+        var timer = window.setTimeout(function () { controller.abort(); }, 120000);
+        try {
+          var response = await fetch(parsed.href, { cache: "no-store", credentials: "include", signal: controller.signal });
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          return await response.arrayBuffer();
+        } finally {
+          window.clearTimeout(timer);
+        }
+      }
+
+      function buildContractorSummaries(groups) {
+        var map = new Map();
+        groups.forEach(function (group) {
+          var key = normalizeParserLabel(group.contractor);
+          var entry = map.get(key);
+          if (!entry) { entry = { name: group.contractor, rows: 0, groups: 0, unitSet: new Set(), regulationRows: 0, regulatedBase: 0 }; map.set(key, entry); }
+          entry.rows += group.rows;
+          entry.groups += 1;
+          entry.unitSet.add(group.unit);
+          if (group.mode === "with-regulations") { entry.regulationRows += group.regulationRows; entry.regulatedBase += group.rows; }
+        });
+        return Array.from(map.values()).map(function (entry) {
+          return { name: entry.name, rows: entry.rows, groups: entry.groups, units: entry.unitSet.size, regulationCoverage: entry.regulatedBase ? entry.regulationRows / entry.regulatedBase * 100 : null };
+        }).sort(function (a, b) { return a.name.localeCompare(b.name, "ru"); });
+      }
+
+      async function loadKfoSources() {
+        var sources = getKfoSources().filter(function (source) { return source.enabled && source.url; });
+        if (!sources.length) {
+          state.kfo = { status: "error", groups: [], contractors: [], sourceSummaries: [], includedRows: 0, message: "Не указана ссылка ни на одну БД КФО" };
+          renderContent();
+          showToast("Сведения не обновлены", "Укажите ссылку SharePoint в режиме редактирования.");
+          return false;
+        }
+        state.kfo = { status: "loading", groups: [], contractors: [], sourceSummaries: [], includedRows: 0, message: "Читаем источники…" };
+        sources.forEach(function (source) { state.sourceConnections[source.id] = { status: "loading", checkedAt: new Date(), message: "Загружаем и разбираем Excel…" }; });
+        renderContent();
+        var parserConfig;
+        try {
+          parserConfig = await fetchParserConfiguration();
+        } catch (error) {
+          state.kfo.status = "error";
+          state.kfo.message = error.message || "Не удалось загрузить JSON-конфигуратор";
+          renderContent();
+          showToast("Ошибка конфигурации БД КФО", state.kfo.message);
+          return false;
+        }
+        var groups = [];
+        var summaries = [];
+        var errors = [];
+        for (var index = 0; index < sources.length; index += 1) {
+          var source = sources[index];
+          try {
+            var parsed = parseKfoWorkbook(await fetchWorkbookBuffer(source.url), source, parserConfig);
+            groups = groups.concat(parsed.groups);
+            summaries.push(parsed.summary);
+            state.sourceConnections[source.id] = { status: "active", checkedAt: new Date(), message: "Прочитано строк выполнения: " + parsed.summary.includedRows };
+          } catch (error) {
+            var message = error && error.name === "AbortError" ? "Превышено время загрузки" : (error.message || "Ошибка чтения Excel");
+            state.sourceConnections[source.id] = { status: "error", checkedAt: new Date(), message: message };
+            errors.push(source.name + ": " + message);
+          }
+          renderContent();
         }
         state.dataUpdatedAt = new Date();
+        state.kfo = { status: summaries.length ? "active" : "error", groups: groups, contractors: buildContractorSummaries(groups), sourceSummaries: summaries, includedRows: summaries.reduce(function (sum, entry) { return sum + entry.includedRows; }, 0), message: errors.length ? errors.join("; ") : "Сведения загружены" };
+        state.connection = { status: summaries.length ? "active" : "inactive", checkedAt: new Date(), message: summaries.length + " из " + sources.length + " источников обработано" };
         renderContent();
-        showToast("Источник проверен", "Подключение активно. Обработка сведений на " + formatDateShort(state.asOfDate) + " будет добавлена следующим этапом.");
+        showToast(summaries.length ? "Сведения БД КФО обновлены" : "Не удалось прочитать БД КФО", summaries.length ? ("Обработано строк: " + state.kfo.includedRows + ". Групп KQ: " + groups.length + "." + (errors.length ? " Есть ошибки отдельных источников." : "")) : errors.join("; "));
+        return summaries.length > 0;
       }
 
       async function checkConfigLocation() {
@@ -586,11 +1028,16 @@
 
       async function fetchParserConfiguration() {
         var url = state.config.parserConfigUrl || DEFAULT_CONFIG.parserConfigUrl;
+        var localPreview = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+        if (localPreview && url === DEFAULT_CONFIG.parserConfigUrl) url = "./parser-config.json";
         var response = await fetch(new URL(url, location.href).href, { cache: "no-store", credentials: "include" });
         if (!response.ok) throw new Error("JSON-конфигуратор: HTTP " + response.status);
         var config = await response.json();
         if (!config || config.application !== "nzp-calculator" || !config.parsers || !config.parsers.aggregation) {
           throw new Error("неверная структура JSON-конфигуратора");
+        }
+        if (!config.parsers.kfo || !config.parsers.dk || !config.kfoLogic) {
+          throw new Error("в конфигураторе не описаны parsers.kfo, parsers.dk и kfoLogic");
         }
         var aggregation = config.parsers.aggregation;
         if (!aggregation.fields || !Array.isArray(aggregation.recordRequiredFields)) {
@@ -807,17 +1254,22 @@
           if (!response.ok) throw new Error("HTTP " + response.status);
           var incoming = await response.json();
           if (!incoming || incoming.application !== "nzp-calculator") throw new Error("неверный формат файла");
-          state.config = Object.assign({}, DEFAULT_CONFIG, incoming, { export: Object.assign({}, DEFAULT_CONFIG.export, incoming.export || {}) });
+          state.config = Object.assign({}, DEFAULT_CONFIG, incoming, { export: Object.assign({}, DEFAULT_CONFIG.export, incoming.export || {}), calculation: Object.assign({}, DEFAULT_CONFIG.calculation, incoming.calculation || {}) });
           state.config.configUrl = incoming.configUrl || requestUrl.origin + requestUrl.pathname;
           if (!Array.isArray(state.config.dataSources) || !state.config.dataSources.length) state.config.dataSources = JSON.parse(JSON.stringify(DEFAULT_CONFIG.dataSources));
+          state.config.dataSources = getKfoSources();
+          state.kqLevel = state.config.calculation.defaultKqLevel === "kq1" ? "kq1" : "kq2";
+          state.calculationMode = state.config.calculation.defaultMode === "with-regulations" ? "with-regulations" : "without-regulations";
+          state.sourceConnections = {};
+          state.config.dataSources.forEach(function (source) { state.sourceConnections[source.id] = { status: "inactive", checkedAt: null, message: source.url ? "Источник ещё не проверен" : "Ссылка на БД КФО не указана" }; });
           localStorage.setItem(CONFIG_URL_KEY, state.config.configUrl);
           state.configLoaded = true;
           state.configDirty = false;
-          state.connection = { status: "inactive", checkedAt: null, message: getKfoSource().url ? "Источник ещё не проверен" : "Ссылка на БД КФО не указана" };
+          state.connection = { status: "inactive", checkedAt: null, message: getKfoSources().some(function (source) { return source.url; }) ? "Источники ещё не проверены" : "Ссылка на БД КФО не указана" };
           applyConfigToChrome();
           setConfigStatus("ok", "config.json подключён");
           setEditMode(Boolean(state.config.editMode), true);
-          if (getKfoSource().url) checkKfoConnection(true);
+          if (getKfoSources().some(function (source) { return source.url && source.enabled; })) checkKfoConnections(true);
           loadAggregation(true);
         } catch (error) {
           state.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
@@ -830,7 +1282,7 @@
       }
 
       function downloadConfig() {
-        var output = Object.assign({}, state.config, { editMode: false });
+        var output = Object.assign({}, state.config, { editMode: false, dataSources: getKfoSources(), calculation: { defaultKqLevel: state.kqLevel, defaultMode: state.calculationMode } });
         var blob = new Blob([JSON.stringify(output, null, 2) + "\n"], { type: "application/json;charset=utf-8" });
         var url = URL.createObjectURL(blob);
         var link = document.createElement("a");

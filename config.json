@@ -1,15 +1,44 @@
 {
   "application": "nzp-calculator",
-  "version": "0.4",
+  "version": "0.5",
   "title": "Отчёт по незавершённому строительству (НЗП)",
   "configUrl": "https://shotik83-netizen.github.io/NZP-Calc/config.json",
   "editMode": false,
   "dataSources": [
     {
+      "id": "kfo-main",
       "name": "БД КФО",
-      "url": ""
+      "url": "",
+      "enabled": true,
+      "sheetName": "КФО",
+      "dkSheetName": "ДК",
+      "headerSearchRows": 50,
+      "updatedAtCell": "AN1",
+      "kqLevel": "inherit",
+      "calculationMode": "inherit",
+      "columns": {
+        "rowDate": "B",
+        "markCode": "J",
+        "erCode": "S",
+        "erName": "U",
+        "unit": "V",
+        "contractor": "AK",
+        "contractNumber": "AL",
+        "actualSmr": "AO",
+        "lastFactDate": "AP",
+        "acceptedSk": "AR",
+        "acceptedId": "AZ",
+        "kq1Code": "BI",
+        "kq1Coefficient": "BJ",
+        "kq2Code": "BK",
+        "kq2Coefficient": "BL"
+      }
     }
   ],
+  "calculation": {
+    "defaultKqLevel": "kq2",
+    "defaultMode": "without-regulations"
+  },
   "coefficientBindings": {},
   "pricingBindings": {},
   "aggregationSource": {

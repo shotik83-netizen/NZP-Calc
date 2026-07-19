@@ -1,6 +1,6 @@
 {
   "application": "nzp-calculator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "sources": {
     "aggregation": {
       "name": "Справочник укрупнения",
@@ -9,6 +9,41 @@
     }
   },
   "parsers": {
+    "kfo": {
+      "sheetAliases": ["КФО"],
+      "headerSearchRows": 50,
+      "updatedAtCell": "AN1",
+      "fields": {
+        "rowDate": { "aliases": ["Дата внесения РД", "Дата"], "required": false, "fallbackColumn": "B" },
+        "markCode": { "aliases": ["Марка", "Марка код"], "required": false, "fallbackColumn": "J" },
+        "erCode": { "aliases": ["Шифр ЕР", "Код ЕР"], "required": true, "fallbackColumn": "S" },
+        "erName": { "aliases": ["Наименование ЕР"], "required": true, "fallbackColumn": "U" },
+        "unit": { "aliases": ["Ед. Изм.", "Ед. изм.", "Ед. изм", "UoM"], "required": true, "fallbackColumn": "V" },
+        "contractor": { "aliases": ["Подрядная организация", "Подрядчик", "Контрагент"], "required": true, "fallbackColumn": "AK" },
+        "contractNumber": { "aliases": ["№ Договора подряда", "Номер договора подряда"], "required": false, "fallbackColumn": "AL" },
+        "actualSmr": { "aliases": ["Факт СМР накопительно", "Факт СМР"], "required": true, "fallbackColumn": "AO" },
+        "lastFactDate": { "aliases": ["Дата последнего факта СМР"], "required": false, "fallbackColumn": "AP" },
+        "acceptedSk": { "aliases": ["Принято СК"], "required": true, "fallbackColumn": "AR" },
+        "acceptedId": { "aliases": ["Принято ИД"], "required": true, "fallbackColumn": "AZ" },
+        "kq1Code": { "aliases": ["KQ-1", "Код KQ-1"], "required": false, "fallbackColumn": "BI" },
+        "kq1Coefficient": { "aliases": ["Коэф-1", "Коэф. KQ-1"], "required": false, "fallbackColumn": "BJ" },
+        "kq2Code": { "aliases": ["KQ-2", "Код KQ-2"], "required": false, "fallbackColumn": "BK" },
+        "kq2Coefficient": { "aliases": ["Коэф-2", "Коэф. KQ-2"], "required": false, "fallbackColumn": "BL" }
+      },
+      "recordRequiredFields": ["erCode", "unit", "contractor"]
+    },
+    "dk": {
+      "sheetAliases": ["ДК"],
+      "headerSearchRows": 30,
+      "fields": {
+        "markCode": { "aliases": ["Марка код", "Марка"], "required": true, "fallbackColumn": "A" },
+        "contractor": { "aliases": ["Подрядная организация", "Подрядчик"], "required": false, "fallbackColumn": "B" },
+        "contractNumber": { "aliases": ["№ Договора подряда", "Номер договора подряда"], "required": false, "fallbackColumn": "C" },
+        "actualSmr": { "aliases": ["Факт СМР накопительно", "Факт СМР"], "required": true, "fallbackColumn": "E" },
+        "acceptedSk": { "aliases": ["Принято СК"], "required": true, "fallbackColumn": "G" },
+        "acceptedId": { "aliases": ["Архив ИД", "Принято ИД в архив"], "required": true, "fallbackColumn": "L" }
+      }
+    },
     "aggregation": {
       "headerSearchRows": 50,
       "fields": {
@@ -29,6 +64,24 @@
       "recordRequiredFields": ["erCode", "erName", "unit", "kq0Code", "kq1Code", "kq2Code"],
       "defaultStatus": "Действует"
     }
+  },
+  "kfoLogic": {
+    "dateFilter": {
+      "rowDateField": "rowDate",
+      "lastFactDateField": "lastFactDate",
+      "rowPolicy": "on-or-before",
+      "futureFactPolicy": "zero"
+    },
+    "stages": [
+      { "key": "actualSmr", "label": "Факт СМР накопительно", "regulationField": "actualSmr" },
+      { "key": "acceptedSk", "label": "Принято СК", "regulationField": "acceptedSk" },
+      { "key": "acceptedId", "label": "Принято ИД", "regulationField": "acceptedId" }
+    ],
+    "regulationMatchPriority": ["markCode+contractor+contractNumber", "markCode+contractor", "markCode"],
+    "missingKq": "keep-er",
+    "missingCoefficient": 1,
+    "missingRegulationCoefficient": 1,
+    "analysisOnlySheets": ["KQ"]
   },
   "aggregationLogic": {
     "matchField": "erCode",
