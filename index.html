@@ -436,12 +436,14 @@
         kqLevel: "kq2",
         calculationMode: "with-regulations",
         directorySearch: "",
+        aggregationSearch: "",
         directoryFilter: "all",
         dataUpdatedAt: null,
         kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
         regulations: { status: "inactive", rules: new Map(), message: "Источник регламентов не подключён" },
         aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, index: new Map(), message: "Справочник не загружен" }
       };
+      var aggregationSearchTimer = null;
 
       function icon(name, className) {
         return '<span class="' + (className || "") + '" aria-hidden="true">' + (ICONS[name] || ICONS.file) + '</span>';
@@ -764,12 +766,20 @@
 
       function renderAggregation(item) {
         var entries = state.aggregation.entries || [];
-        var source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
         var runtimeConfig = state.aggregation.parserConfig;
+        var aggregationQuery = normalizeParserLabel(state.aggregationSearch);
+        var filteredEntries = aggregationQuery ? entries.filter(function (entry) {
+          var searchableKq1 = runtimeConfig ? getEffectiveAggregationGroup("kq1", entry.kq1Code, entry.kq1Name, runtimeConfig).code : entry.kq1Code;
+          var searchableKq2 = runtimeConfig ? getEffectiveAggregationGroup("kq2", entry.kq2Code, entry.kq2Name, runtimeConfig).code : entry.kq2Code;
+          return normalizeParserLabel(searchableKq1).indexOf(aggregationQuery) >= 0 ||
+            normalizeParserLabel(searchableKq2).indexOf(aggregationQuery) >= 0 ||
+            normalizeParserLabel(entry.erCode).indexOf(aggregationQuery) >= 0;
+        }) : entries;
+        var source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
         var activeLevel = runtimeConfig && runtimeConfig.aggregationLogic ? runtimeConfig.aggregationLogic.activeLevel : "kq2";
         var priorityText = runtimeConfig && Array.isArray(runtimeConfig.sourcePriority) ? runtimeConfig.sourcePriority.slice().sort(function (a, b) { return b.priority - a.priority; }).map(function (entry) { return entry.source; }).join(" → ") : "kfo → contractPrice → aggregation";
         var hierarchy = new Map();
-        entries.forEach(function (entry) {
+        filteredEntries.forEach(function (entry) {
           var effectiveKq1 = runtimeConfig ? getEffectiveAggregationGroup("kq1", entry.kq1Code, entry.kq1Name, runtimeConfig) : { code: entry.kq1Code, name: entry.kq1Name, corrected: false };
           var effectiveKq2 = runtimeConfig ? getEffectiveAggregationGroup("kq2", entry.kq2Code, entry.kq2Name, runtimeConfig) : { code: entry.kq2Code, name: entry.kq2Name, corrected: false };
           var kq1Key = effectiveKq1.code || "Без KQ-1";
@@ -791,8 +801,9 @@
           }).join("");
           return '<details class="card" style="margin:12px 0"><summary style="cursor:pointer;padding:14px 16px"><span class="badge green">Уровень 1 · KQ-1</span> <strong>' + escapeHtml(kq1.code) + '</strong> — ' + escapeHtml(kq1.name) + (kq1.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' <span class="badge">KQ-2: ' + kq1.groups.size + '</span> <span class="badge">ЕР: ' + kq1.count + '</span></summary><div style="padding:0 12px 12px">' + kq2Rows + '</div></details>';
         }).join("");
+        var searchBlock = '<div class="field"><label for="aggregation-search">Поиск по шифрам</label><div class="form-actions"><input class="input" id="aggregation-search" type="search" placeholder="Введите KQ-1, KQ-2 или Шифр ЕР" value="' + escapeHtml(state.aggregationSearch) + '" />' + (state.aggregationSearch ? button("Очистить", "refresh", "", 'id="clear-aggregation-search"') : '') + '</div><p class="field-note">Поиск выполняется одновременно по кодам KQ-1, KQ-2 и единичных расценок.</p></div>';
         var body = entries.length
-          ? '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Код и наименование KQ-1 редактируются через aggregationLogic.groupCorrections.kq1 в JSON. Коэффициент существует только у строки ЕР для перехода к KQ-2; у KQ-1 дополнительного коэффициента нет.</div></div>' + groupedRows
+          ? searchBlock + '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Найдено ' + filteredEntries.length + ' из ' + entries.length + ' шифров ЕР.</div></div>' + (filteredEntries.length ? groupedRows : emptyState("Совпадений не найдено", "Измените запрос: поиск проверяет только коды KQ-1, KQ-2 и Шифр ЕР.", "book"))
           : emptyState("Справочник не загружен", state.aggregation.message, "book");
         return pageHead(item, button("Загрузить справочник", "upload", "", 'id="load-aggregation"')) +
           '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
@@ -880,6 +891,26 @@
         if (checkConfig) checkConfig.addEventListener("click", checkConfigLocation);
         var loadAggregationButton = document.getElementById("load-aggregation");
         if (loadAggregationButton) loadAggregationButton.addEventListener("click", function () { loadAggregation(false); });
+        var aggregationSearch = document.getElementById("aggregation-search");
+        if (aggregationSearch) aggregationSearch.addEventListener("input", function () {
+          state.aggregationSearch = aggregationSearch.value;
+          window.clearTimeout(aggregationSearchTimer);
+          aggregationSearchTimer = window.setTimeout(function () {
+            renderContent();
+            var nextSearch = document.getElementById("aggregation-search");
+            if (nextSearch) {
+              nextSearch.focus();
+              nextSearch.setSelectionRange(nextSearch.value.length, nextSearch.value.length);
+            }
+          }, 150);
+        });
+        var clearAggregationSearch = document.getElementById("clear-aggregation-search");
+        if (clearAggregationSearch) clearAggregationSearch.addEventListener("click", function () {
+          state.aggregationSearch = "";
+          renderContent();
+          var nextSearch = document.getElementById("aggregation-search");
+          if (nextSearch) nextSearch.focus();
+        });
         var checkParser = document.getElementById("check-parser-config");
         if (checkParser) checkParser.addEventListener("click", function () { checkParserConfig(false); });
         var applySources = document.getElementById("apply-source-settings");
