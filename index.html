@@ -746,7 +746,7 @@
     { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
     { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
     { id: "aggregation", label: "Справочник BOQ", icon: "book", description: "Объединение детальных видов работ в отчётные группы." },
-    { id: "report", label: "Отчёт по контрагентам", icon: "clipboard", description: "Сводные показатели НЗП и подготовка выгрузки в Excel." },
+    { id: "report", label: "Отчёт", icon: "clipboard", description: "Месячная динамика выполнения и ручной расчёт стоимости." },
     { id: "contractor-directory", label: "Справочник подрядчиков", icon: "users", description: "Акцепт новых наименований и объединение вариантов одного подрядчика без изменения первичных расчётов.", admin: true },
     { id: "admin", label: "Административные настройки", icon: "settings", description: "Источники данных, соответствия колонок и параметры экспорта.", admin: true }
   ];
@@ -825,8 +825,10 @@
     contractorSearch: "",
     dataUpdatedAt: null,
     kfoLoadGeneration: 0,
+    process: { visible: false, status: "idle", source: "", stage: "", percent: 0, processed: 0, startedAt: 0, message: "" },
     kqNameMap: { kq1: {}, kq2: {} },
     kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
+    kpi: { status: "inactive", groups: [], totalRows: 0, includedRows: 0, message: "Источник проверен; аналитика не загружена" },
     regulations: { status: "inactive", rules: new Map(), entries: [], sourceName: "", message: "Источник регламентов не подключён" },
     aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, parserDirty: false, index: new Map(), message: "Справочник не загружен" },
     pricing: {
@@ -839,6 +841,7 @@
         contract: "",
         rdc: "",
         sourceUrl: "",
+        sheetName: "Расценки",
         colCode: "A",
         colName: "B",
         colUnit: "C",
@@ -852,7 +855,8 @@
         contractorSearch: "",
         rateSearch: ""
       }
-    }
+    },
+    report: { contractor: "__ALL__", calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, message: "Расчёт не запускался" }
   };
 
   let aggregationSearchTimer = null;
@@ -1130,6 +1134,16 @@ function contractorNameStem(value) {
     return Object.keys(contractorData.contracts || {}).sort();
   }
 
+  function getKfoContracts(contractor) {
+    const key = normalizeParserLabel(contractor);
+    const contracts = new Set();
+    (state.kfo.rawContractors || []).forEach(function (entry) {
+      if (normalizeParserLabel(canonicalContractorName(entry.name)) !== key) return;
+      (entry.contracts || []).forEach(function (contract) { if (contract) contracts.add(contract); });
+    });
+    return Array.from(contracts).sort(function (a, b) { return a.localeCompare(b, "ru"); });
+  }
+
   function getContractorRDC(contractor, contract) {
     const data = state.pricing.data || {};
     const contractorData = data[contractor];
@@ -1395,11 +1409,12 @@ function contractorNameStem(value) {
     }
   }
 
-  function parsePricingWorkbook(buffer, columnsConfig) {
+  function parsePricingWorkbook(buffer, columnsConfig, sheetName) {
     if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
     const workbook = XLSX.read(buffer, { type: "array", dense: true, cellDates: true });
-    const selected = getWorkbookSheet(workbook, "Лист1", ["Sheet1", "Расценки", "Prices"]);
-    if (!selected) throw new Error("Лист с расценками не найден");
+    const requestedSheet = String(sheetName || "").trim();
+    const selected = requestedSheet ? getWorkbookSheet(workbook, requestedSheet, []) : getWorkbookSheet(workbook, "Лист1", ["Sheet1", "Расценки", "Prices"]);
+    if (!selected) throw new Error("Вкладка «" + (requestedSheet || "Лист1") + "» не найдена. Найдены вкладки: " + workbook.SheetNames.join(", "));
 
     const sheet = selected.sheet;
     const colMap = {};
@@ -1451,31 +1466,67 @@ function contractorNameStem(value) {
   // =====================================================================
   // 8. ПАРСИНГ РЕГЛАМЕНТОВ И KFO
   // =====================================================================
-  function resolveParserColumns(sheet, parser, sourceColumns, searchRows) {
+  function resolveParserColumns(sheet, parser, sourceColumns, searchRows, sheetName) {
     const reference = XLSX.utils.decode_range(sheet["!ref"] || "A1:A1");
     const fields = Object.keys(parser.fields || {});
     let headerIndex = -1;
     const resolved = {};
-    const maximumRows = Math.min(reference.e.r + 1, Math.max(1, Math.min(Number(searchRows) || parser.headerSearchRows || 50, 500)));
+    const maximumRows = reference.e.r + 1;
+    const requiredFields = fields.filter(function (field) { return parser.fields[field].required; });
+    const aliasIndex = new Map();
+    const mergedValues = new Map();
+    (sheet["!merges"] || []).forEach(function(merge) {
+      const value = readSheetCell(sheet, merge.s.r, merge.s.c);
+      const cellCount = (merge.e.r - merge.s.r + 1) * (merge.e.c - merge.s.c + 1);
+      if (!value || cellCount > 10000) return;
+      for (let row = merge.s.r; row <= merge.e.r; row += 1) {
+        for (let col = merge.s.c; col <= merge.e.c; col += 1) mergedValues.set(row + ":" + col, value);
+      }
+    });
+    const readHeaderCell = function(row, col) { return readSheetCell(sheet, row, col) || mergedValues.get(row + ":" + col) || ""; };
+    fields.forEach(function(field) {
+      (parser.fields[field].aliases || []).forEach(function(alias) {
+        const key = normalizeParserLabel(alias);
+        const list = aliasIndex.get(key) || [];
+        list.push(field);
+        aliasIndex.set(key, list);
+      });
+    });
+    let bestCandidate = { count: 0, fields: [] };
     for (let rowIndex = 0; rowIndex < maximumRows; rowIndex += 1) {
       const candidate = {};
-      fields.forEach(function (field) {
-        const aliases = (parser.fields[field].aliases || []).map(normalizeParserLabel);
-        for (let columnIndex = reference.s.c; columnIndex <= reference.e.c; columnIndex += 1) {
-          if (aliases.indexOf(normalizeParserLabel(readSheetCell(sheet, rowIndex, columnIndex))) >= 0) { candidate[field] = columnIndex; break; }
-        }
+      for (let columnIndex = reference.s.c; columnIndex <= reference.e.c; columnIndex += 1) {
+        const current = readHeaderCell(rowIndex, columnIndex);
+        const variants = [current];
+        if (rowIndex > 0) variants.push(readHeaderCell(rowIndex - 1, columnIndex) + " " + current);
+        if (rowIndex > 1) variants.push(readHeaderCell(rowIndex - 2, columnIndex) + " " + readHeaderCell(rowIndex - 1, columnIndex) + " " + current);
+        variants.forEach(function(value) {
+          const matches = aliasIndex.get(normalizeParserLabel(value)) || [];
+          matches.forEach(function(field) { if (candidate[field] === undefined) candidate[field] = columnIndex; });
+        });
+      }
+      const foundRequired = requiredFields.filter(function (field) { return candidate[field] !== undefined; });
+      if (foundRequired.length > bestCandidate.count) bestCandidate = { count: foundRequired.length, fields: foundRequired };
+      const minimumAliasMatches = Math.max(2, Math.ceil(requiredFields.length * 0.7));
+      const ready = foundRequired.length >= minimumAliasMatches && requiredFields.every(function (field) {
+        if (candidate[field] !== undefined) return true;
+        const fallback = sourceColumns && sourceColumns[field] ? sourceColumns[field] : parser.fields[field].fallbackColumn;
+        const fallbackIndex = columnLetterToIndex(fallback);
+        return fallbackIndex >= 0 && Boolean(normalizeParserLabel(readHeaderCell(rowIndex, fallbackIndex)));
       });
-      const ready = fields.filter(function (field) { return parser.fields[field].required; }).every(function (field) { return candidate[field] !== undefined; });
       if (ready) { headerIndex = rowIndex; Object.assign(resolved, candidate); break; }
     }
-    if (headerIndex < 0) throw new Error("не найдена строка заголовков обязательных полей");
+    if (headerIndex < 0) {
+      const missing = requiredFields.filter(function (field) { return bestCandidate.fields.indexOf(field) < 0; });
+      throw new Error("Вкладка «" + (sheetName || "не указана") + "»: не найдена строка заголовков. Отсутствуют обязательные поля: " + missing.join(", ") + ". Просмотрено строк: " + maximumRows + ". Проверьте названия заголовков, объединённые ячейки и aliases в parser-config.json.");
+    }
     fields.forEach(function (field) {
       if (resolved[field] !== undefined) return;
       const fallback = sourceColumns && sourceColumns[field] ? sourceColumns[field] : parser.fields[field].fallbackColumn;
       const fallbackIndex = columnLetterToIndex(fallback);
       if (fallbackIndex >= 0) resolved[field] = fallbackIndex;
     });
-    return { headerIndex: headerIndex, columns: resolved, lastRow: reference.e.r };
+    return { headerIndex: headerIndex, columns: resolved, lastRow: reference.e.r, diagnostics: { sheetName: sheetName || "", scannedRows: headerIndex + 1, headerRow: headerIndex + 1, requiredFields: requiredFields } };
   }
 
   function findRegulationRule(rules, markCode, contractor, contractNumber) {
@@ -1573,7 +1624,7 @@ function contractorNameStem(value) {
     const workbook = XLSX.read(buffer, { type: "array", dense: true, cellDates: true, sheets: [source.sheetName] });
     const selected = getWorkbookSheet(workbook, source.sheetName, parser.sheetAliases);
     if (!selected) throw new Error("лист «" + source.sheetName + "» не найден");
-    const resolved = resolveParserColumns(selected.sheet, parser, null, source.headerSearchRows);
+    const resolved = resolveParserColumns(selected.sheet, parser, null, source.headerSearchRows, selected.name);
     const rules = new Map();
     const entries = [];
     for (let rowIndex = resolved.headerIndex + 1; rowIndex <= resolved.lastRow; rowIndex += 1) {
@@ -1635,7 +1686,7 @@ function contractorNameStem(value) {
 
     const selected = getWorkbookSheet(workbook, source.sheetName, parser.sheetAliases);
     if (!selected) throw new Error("лист «" + source.sheetName + "» не найден");
-    const resolved = resolveParserColumns(selected.sheet, parser, source.columns, source.headerSearchRows);
+    const resolved = resolveParserColumns(selected.sheet, parser, source.columns, source.headerSearchRows, selected.name);
     const regulationRules = state.regulations.status === "active" && state.regulations.rules instanceof Map ? state.regulations.rules : new Map();
 
     const level = ["kq1", "kq2"].indexOf(source.kqLevel) >= 0 ? source.kqLevel : state.kqLevel;
@@ -1664,6 +1715,7 @@ function contractorNameStem(value) {
       const get = function (field) { return resolved.columns[field] === undefined ? "" : readSheetCell(selected.sheet, rowIndex, resolved.columns[field]); };
       const erCode = String(get("erCode") || "").trim();
       const contractor = String(get("contractor") || "").trim();
+      const contractNumber = String(get("contractNumber") || "").trim();
       if (!erCode && !contractor) continue;
       diagnostics.totalRows += 1;
 
@@ -1677,8 +1729,9 @@ function contractorNameStem(value) {
 
       if (contractor) {
         const detectedKey = normalizeParserLabel(contractor);
-        const detected = detectedContractors.get(detectedKey) || { name: contractor, rows: 0 };
+        const detected = detectedContractors.get(detectedKey) || { name: contractor, rows: 0, contracts: new Set() };
         detected.rows += 1;
+        if (contractNumber) detected.contracts.add(contractNumber);
         detectedContractors.set(detectedKey, detected);
       }
       if (!erCode || !contractor) { diagnostics.missingContractorRows += 1; continue; }
@@ -1714,7 +1767,7 @@ function contractorNameStem(value) {
 
       if (!kqCode) diagnostics.missingKqRows += 1;
 
-      const rule = findRegulationRule(regulationRules, String(get("markCode") || "").trim(), contractor, String(get("contractNumber") || "").trim());
+      const rule = findRegulationRule(regulationRules, String(get("markCode") || "").trim(), contractor, contractNumber);
       if (rule) diagnostics.regulationMatchedRows += 1; else diagnostics.missingRegulationRows += 1;
 
       const actualCalculated = actualSmr * effectiveKqCoeff;
@@ -1760,7 +1813,7 @@ function contractorNameStem(value) {
           kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient,
           rows: 0, regulationRows: 0,
           actualSmr: 0, acceptedSk: 0, acceptedId: 0,
-          evaluatedVolume: 0
+          evaluatedVolume: 0, monthly: {}
         };
         groups.set(groupKey, group);
       }
@@ -1771,6 +1824,8 @@ function contractorNameStem(value) {
       group.acceptedSk += skCalculated;
       group.acceptedId += idCalculated;
       group.evaluatedVolume += regulationEvaluation;
+      const monthKey = (rowDate || lastFactDate || "").slice(0, 7);
+      if (monthKey) group.monthly[monthKey] = (group.monthly[monthKey] || 0) + actualCalculated;
       diagnostics.includedRows += 1;
     }
 
@@ -1793,7 +1848,7 @@ function contractorNameStem(value) {
         totalRows: diagnostics.totalRows,
         includedRows: diagnostics.includedRows,
         groupCount: outputGroups.length,
-        contractors: Array.from(detectedContractors.values()),
+        contractors: Array.from(detectedContractors.values()).map(function (entry) { return { name: entry.name, rows: entry.rows, contracts: Array.from(entry.contracts).sort() }; }),
         regulationCoverage: coverageBase ? diagnostics.regulationMatchedRows / coverageBase * 100 : null,
         diagnostics: diagnostics,
         kqControl: analyzeKqControlSheet(workbook),
@@ -1817,6 +1872,37 @@ function contractorNameStem(value) {
     } finally {
       window.clearTimeout(timer);
     }
+  }
+
+  async function checkKfoSourceConnection(source) {
+    if (!source || !source.url) {
+      if (source) state.sourceConnections[source.id] = { status: "inactive", checkedAt: new Date(), message: "Ссылка на файл не указана" };
+      return false;
+    }
+    state.sourceConnections[source.id] = { status: "checking", checkedAt: new Date(), message: "Проверяем доступность файла…" };
+    const controller = new AbortController();
+    const timer = window.setTimeout(function() { controller.abort(); }, 20000);
+    try {
+      const response = await fetch(new URL(source.url, location.href).href, { method: "HEAD", cache: "no-store", credentials: "include", signal: controller.signal });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const length = Number(response.headers.get("content-length")) || 0;
+      state.sourceConnections[source.id] = { status: "active", checkedAt: new Date(), message: "Файл доступен" + (length ? "; размер " + formatNumber(length / 1048576, 1) + " МБ" : "") + ". Данные не загружены." };
+      return true;
+    } catch (error) {
+      state.sourceConnections[source.id] = { status: "error", checkedAt: new Date(), message: error.name === "AbortError" ? "Превышено время проверки файла" : (error.message || "Файл недоступен") };
+      return false;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  async function checkKfoConnections(quiet) {
+    const sources = getKfoSources().filter(function(source) { return source.enabled; });
+    const results = [];
+    for (let index = 0; index < sources.length; index += 1) results.push(await checkKfoSourceConnection(sources[index]));
+    if (state.configLoaded) renderContent();
+    if (!quiet) showToast(results.some(Boolean) ? "Проверка завершена" : "Источники недоступны", results.filter(Boolean).length + " из " + results.length + " файлов доступны. Данные не загружались.");
+    return results.some(Boolean);
   }
 
   async function fetchParserConfiguration() {
@@ -1860,13 +1946,44 @@ function contractorNameStem(value) {
       const parsed = parseRegulationsWorkbook(await fetchWorkbookBuffer(source.url), source, parserConfig);
       state.regulations = { status: "active", rules: parsed.rules, entries: parsed.entries, sourceName: source.name, sheetName: parsed.sheetName, message: "Регламенты загружены" };
       if (!quiet) showToast("Регламенты загружены", "Прочитано записей: " + formatNumber(parsed.entries.length, 0) + ".");
-      if (state.kfo.status === "active") await loadKfoSources();
+      if (state.kfo.status === "active" && !quiet) showToast("Требуется обновление БД КФО", "Регламенты изменились. Для пересчёта нажмите «Собрать сведения» в разделе БД КФО.");
       if (state.active === "coefficients") renderContent();
       return true;
     } catch (error) {
       state.regulations = { status: "error", rules: new Map(), entries: [], sourceName: source.name, message: error.message || "Не удалось прочитать регламенты" };
       if (!quiet) showToast("Регламенты не загружены", state.regulations.message);
       if (state.active === "coefficients") renderContent();
+      return false;
+    }
+  }
+
+  async function loadProjectKpis() {
+    const sources = getKfoSources().filter(function(source) { return source.enabled && source.url; });
+    if (!sources.length) { showToast("KPI недоступны", "Нет подключённого источника БД КФО."); return false; }
+    startProcess(sources.map(function(source) { return source.name; }).join(", "), "Загрузка БД КФО — KPI KQ-1");
+    state.kpi = { status: "loading", groups: [], totalRows: 0, includedRows: 0, message: "Загрузка KPI уровня KQ-1…" };
+    renderContent();
+    try {
+      const parserConfig = await fetchParserConfiguration();
+      const groups = [];
+      let totalRows = 0, includedRows = 0;
+      for (let index = 0; index < sources.length; index += 1) {
+        const source = Object.assign({}, sources[index], { kqLevel: "kq1" });
+        const parsed = await parseKfoWorkbook(await fetchWorkbookBuffer(source.url), source, parserConfig, []);
+        groups.push.apply(groups, parsed.groups);
+        totalRows += parsed.summary.totalRows;
+        includedRows += parsed.summary.includedRows;
+      }
+      state.kpi = { status: "active", groups: groups, totalRows: totalRows, includedRows: includedRows, message: "KPI KQ-1 сформированы" };
+      finishProcess("success", "Завершено", totalRows, "KPI уровня KQ-1 сформированы");
+      renderContent();
+      showToast("KPI сформированы", "Обработано строк: " + formatNumber(totalRows, 0));
+      return true;
+    } catch (error) {
+      state.kpi = { status: "error", groups: [], totalRows: 0, includedRows: 0, message: error.message || "Ошибка загрузки KPI" };
+      finishProcess("error", "Обработка данных", 0, state.kpi.message);
+      renderContent();
+      showToast("Ошибка KPI", state.kpi.message);
       return false;
     }
   }
@@ -1898,6 +2015,9 @@ async function loadKfoSources() {
         (selectedContractors.length === 1 && selectedContractors[0] === "__ALL__");
     const filterContractors = isAllSelected ? [] : selectedContractors;
 
+    startProcess(sources.map(function(source) { return source.name; }).join(", "), "Проверка файла");
+    renderContent();
+
     const indicator = document.getElementById('loading-indicator');
     const titleEl = document.getElementById('loading-title');
     const detailEl = document.getElementById('loading-detail');
@@ -1911,6 +2031,7 @@ async function loadKfoSources() {
     }
 
     function updateProgress(detail, percent) {
+        updateProcess(detail || "Обработка данных", percent, state.process.processed, "");
         if (detailEl) detailEl.textContent = detail || '';
         if (progressBar) {
             const p = Math.min(100, Math.max(0, percent || 0));
@@ -1956,6 +2077,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     } catch (error) {
         state.kfo.status = "error";
         state.kfo.message = error.message || "Не удалось загрузить JSON-конфигуратор";
+        finishProcess("error", "Поиск заголовков", 0, state.kfo.message);
         if (indicator) indicator.style.display = 'none';
         renderContent();
         showToast("Ошибка конфигурации БД КФО", state.kfo.message);
@@ -1964,10 +2086,6 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     state.aggregation.parserConfig = parserConfig;
     state.aggregation.parserVersion = parserConfig.version || state.aggregation.parserVersion || "";
-    if (!state.aggregation.index || !state.aggregation.index.size) {
-        try { await loadAggregation(true); } catch (_) { /* игнорируем */ }
-    }
-
     const allGroups = [];
     const summaries = [];
     const errors = [];
@@ -1992,6 +2110,7 @@ for (let idx = 0; idx < sources.length; idx++) {
                 parserConfig,
                 filterContractors,
                 function(processed, total) {
+                    state.process.processed = processed;
                     const sourceShare = total ? processed / total : 1;
                     const percent = 10 + (((i + sourceShare) / totalSources) * 80);
                     updateProgress(
@@ -2049,6 +2168,7 @@ for (let idx = 0; idx < sources.length; idx++) {
                     rows: 0, regulationRows: 0,
                     actualSmr: 0, acceptedSk: 0, acceptedId: 0,
                     evaluatedVolume: null,
+                    monthly: {},
                     rawContractors: []
                 });
                 merged.set(key, target);
@@ -2059,6 +2179,7 @@ for (let idx = 0; idx < sources.length; idx++) {
             target.acceptedSk += Number(entry.acceptedSk) || 0;
             target.acceptedId += Number(entry.acceptedId) || 0;
             if (entry.evaluatedVolume != null) target.evaluatedVolume = (target.evaluatedVolume || 0) + (Number(entry.evaluatedVolume) || 0);
+            Object.keys(entry.monthly || {}).forEach(function(month) { target.monthly[month] = (target.monthly[month] || 0) + (Number(entry.monthly[month]) || 0); });
             if (target.rawContractors.indexOf(entry.contractor) < 0) target.rawContractors.push(entry.contractor);
         });
         return Array.from(merged.values()).sort(function (a, b) {
@@ -2073,8 +2194,9 @@ for (let idx = 0; idx < sources.length; idx++) {
         (summaries || []).forEach(function (summary) {
             (summary.contractors || []).forEach(function (entry) {
                 const key = normalizeParserLabel(entry.name);
-                const current = combined.get(key) || { name: entry.name, rows: 0 };
+                const current = combined.get(key) || { name: entry.name, rows: 0, contracts: [] };
                 current.rows += Number(entry.rows) || 0;
+                (entry.contracts || []).forEach(function (contract) { if (current.contracts.indexOf(contract) < 0) current.contracts.push(contract); });
                 combined.set(key, current);
             });
         });
@@ -2133,6 +2255,7 @@ for (let idx = 0; idx < sources.length; idx++) {
             (filterContractors.length ? "; выбрано подрядчиков: " + filterContractors.length : "")
     };
 
+    finishProcess(errors.length ? "warning" : "success", "Завершено", state.kfo.totalRows, errors.length ? errors.join("; ") : "БД КФО успешно загружена");
     if (indicator) indicator.style.display = 'none';
     renderContent();
 
@@ -2151,6 +2274,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const source = cfg.aggregationSource || { name: "Справочник BOQ", url: "" };
     let previousParserConfig = state.aggregation.parserConfig;
     let previousParserDirty = state.aggregation.parserDirty;
+    startProcess(source.name || "Справочник BOQ", "Проверка файла");
     state.aggregation.status = "loading";
     try {
       const parserConfig = await fetchParserConfiguration();
@@ -2243,6 +2367,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         })(entries, parserConfig),
         message: "Справочник загружен"
       };
+      finishProcess("success", "Завершено", entries.length, "Облегчённый модуль BOQ загружен по требованию");
       renderContent();
       if (!quiet) showToast("Справочник BOQ загружен", "Прочитано " + entries.length + " строк ЕР.");
       return true;
@@ -2256,6 +2381,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         index: new Map(),
         message: error.message || "Ошибка чтения справочника"
       };
+      finishProcess("error", "Загрузка данных", 0, state.aggregation.message);
       renderContent();
       if (!quiet) showToast("Ошибка справочника BOQ", state.aggregation.message);
       return false;
@@ -2272,6 +2398,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       return false;
     }
 
+    startProcess("Источники расценок", "Загрузка расценок");
     state.pricing.status = "loading";
     if (state.active === "pricing") renderContent();
 
@@ -2290,7 +2417,7 @@ for (let idx = 0; idx < sources.length; idx++) {
           try {
             if (config.sourceUrl) {
               const buffer = await fetchWorkbookBuffer(config.sourceUrl);
-              const rates = parsePricingWorkbook(buffer, config.columns || { code: "A", name: "B", unit: "C", currency: "D", basePrice: "E" });
+              const rates = parsePricingWorkbook(buffer, config.columns || { code: "A", name: "B", unit: "C", currency: "D", basePrice: "E" }, config.sheetName);
 
               const indirectPercent = config.indirectPercent || 0;
               const multiplier = 1 + indirectPercent / 100;
@@ -2318,6 +2445,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     }
 
     state.pricing.status = loadedCount > 0 ? "active" : "error";
+    finishProcess(loadedCount > 0 ? (errorCount ? "warning" : "success") : "error", loadedCount > 0 ? "Завершено" : "Загрузка расценок", loadedCount, errorCount ? "Ошибок источников: " + errorCount : "Расценки загружены");
     if (state.active === "pricing") renderContent();
 
     if (!quiet) {
@@ -2397,12 +2525,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       renderContent();
 
       setTimeout(function() {
-        loadRegulations(true);
-        if (getKfoSources().some(s => s.url && s.enabled)) {
-          loadKfoSources();
-        }
-        loadAggregation(true);
-        loadPricingData(true);
+        checkKfoConnections(true);
       }, 100);
 
       return true;
@@ -2437,6 +2560,41 @@ for (let idx = 0; idx < sources.length; idx++) {
     `;
   }
 
+  function renderProcessIndicator() {
+    const process = state.process || {};
+    if (!process.visible) return "";
+    const colors = { running: "#2563eb", success: "#16a34a", warning: "#d97706", error: "#dc2626" };
+    const color = colors[process.status] || "#2563eb";
+    const elapsed = process.startedAt ? ((Date.now() - process.startedAt) / 1000).toFixed(1) + " с" : "—";
+    return '<section id="process-indicator" class="card" style="border-color:' + color + ';margin-bottom:16px"><div class="card-body"><div class="card-title-row"><strong style="color:' + color + '">' + escapeHtml(process.stage || "Обработка данных") + '</strong><span class="badge">' + formatNumber(process.percent || 0, 0) + '%</span></div><div class="result-note">Источник: ' + escapeHtml(process.source || "—") + ' · Обработано: ' + formatNumber(process.processed || 0, 0) + ' · Время: ' + elapsed + '</div><div style="height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px"><div style="height:100%;width:' + Math.max(0, Math.min(100, process.percent || 0)) + '%;background:' + color + '"></div></div>' + (process.message ? '<p class="result-note" style="color:' + color + '">' + escapeHtml(process.message) + '</p>' : '') + '</div></section>';
+  }
+
+  function startProcess(source, stage) {
+    state.process = { visible: true, status: "running", source: source || "", stage: stage || "Проверка файла", percent: 0, processed: 0, startedAt: Date.now(), message: "" };
+  }
+
+  function updateProcess(stage, percent, processed, message) {
+    state.process.stage = stage || state.process.stage;
+    state.process.percent = Math.max(0, Math.min(100, Number(percent) || 0));
+    state.process.processed = Number(processed) || 0;
+    state.process.message = message || "";
+    const title = document.getElementById("loading-title");
+    const detail = document.getElementById("loading-detail");
+    const bar = document.getElementById("loading-progress-bar");
+    if (title) title.textContent = state.process.stage;
+    if (detail) detail.textContent = state.process.source + " · " + formatNumber(state.process.processed, 0) + " записей";
+    if (bar) bar.style.width = state.process.percent + "%";
+  }
+
+  function finishProcess(status, stage, processed, message) {
+    state.process.status = status || "success";
+    state.process.stage = stage || (status === "error" ? "Ошибка" : "Завершено");
+    state.process.percent = status === "error" ? state.process.percent : 100;
+    state.process.processed = Number(processed) || state.process.processed || 0;
+    state.process.message = message || "";
+    state.process.visible = true;
+  }
+
   // =====================================================================
   // 12. ОСНОВНОЙ РЕНДЕРИНГ
   // =====================================================================
@@ -2462,7 +2620,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       "report": renderReport,
       "admin": renderAdmin
     };
-    document.getElementById("content").innerHTML = renderers[item.id](item);
+    document.getElementById("content").innerHTML = renderProcessIndicator() + renderers[item.id](item);
     bindContentEvents();
   }
 
@@ -2617,6 +2775,11 @@ for (let idx = 0; idx < sources.length; idx++) {
       ? button("Скачать JSON коэффициентов", "download", state.aggregation.parserDirty ? "btn-primary" : "", 'id="download-parser-config"')
       : "";
 
+    const kpi = state.kpi;
+    const kpiContractors = new Set((kpi.groups || []).map(function(group) { return normalizeParserLabel(group.contractor); })).size;
+    const kpiTypes = new Set((kpi.groups || []).map(function(group) { return normalizeParserLabel(group.kqCode); })).size;
+    const kpiBlock = '<section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Ключевые показатели проекта</h3><p class="card-desc">Независимая аналитика только уровня KQ-1. Проверка источника не запускает чтение данных.</p></div>' + button(kpi.status === "loading" ? "Загрузка…" : "Загрузить KPI KQ-1", "upload", "btn-primary", 'id="load-project-kpi" ' + (kpi.status === "loading" ? "disabled" : "")) + '</div></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpiContractors, 0) : "—") + '</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpi.totalRows, 0) : "—") + '</div><div class="stat-note">' + escapeHtml(kpi.message) + '</div></div><div class="stat"><div class="stat-label">Групп KQ-1</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpiTypes, 0) : "—") + '</div></div></div></div></section>';
+
     return pageHead(item, kfoActions) +
       '<div class="stack">' +
         directoryAlert +
@@ -2629,7 +2792,7 @@ for (let idx = 0; idx < sources.length; idx++) {
           '</div>' +
           '<div style="margin-top: 16px;">' + contractorSelectorHTML + '</div>' +
           '</div></section>' +
-        '<section class="card"><div class="card-header"><h3 class="card-title">Ключевые показатели</h3><p class="card-desc">Краткая оценка состава загруженных сведений без суммирования разных единиц измерения.</p></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(visibleContractors.length, 0) : "—") + '</div><div class="stat-note">с ненулевыми объёмами</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(kfo.totalRows, 0) : "—") + '</div><div class="stat-note">' + (kfo.status === "active" ? formatNumber(kfo.includedRows, 0) + ' с ненулевыми объёмами' : 'ожидается загрузка') + '</div></div><div class="stat"><div class="stat-label">Видов работ</div><div class="stat-value">' + (kfo.status === "active" ? formatNumber(workTypes, 0) : "—") + '</div><div class="stat-note">уникальные коды выбранного KQ</div></div></div></div></section>' +
+        kpiBlock +
         (function() {
           const groups = visibleGroups;
           if (kfo.status === "loading") return emptyState("Читаем БД КФО", "Большой файл .xlsb обрабатывается в браузере. Не закрывайте страницу.", "database");
@@ -2844,10 +3007,71 @@ for (let idx = 0; idx < sources.length; idx++) {
   // =====================================================================
   // 17. РЕНДЕР СТРАНИЦЫ "ОТЧЁТ"
   // =====================================================================
+  function findLoadedRatePrice(contractor, rateCode) {
+    const contractorData = state.pricing.data[contractor];
+    if (!contractorData) return null;
+    for (const contract of Object.values(contractorData.contracts || {})) {
+      for (const calculation of Object.values(contract.priceCalculations || {})) {
+        const rate = calculation.rates && calculation.rates[rateCode];
+        if (rate && Number.isFinite(Number(rate.totalPrice))) return Number(rate.totalPrice);
+      }
+    }
+    return null;
+  }
+
+  function reportReadiness() {
+    const kfoReady = state.kfo.status === "active" && state.kfo.groups.length > 0;
+    const pricingReady = state.pricing.status === "active" && Object.keys(state.pricing.data).length > 0;
+    const matched = kfoReady && pricingReady && state.kfo.groups.some(function(group) { return findLoadedRatePrice(group.contractor, group.kqCode) != null; });
+    return [
+      { label: "БД КФО загружена", ready: kfoReady },
+      { label: "Источники расценок загружены", ready: pricingReady },
+      { label: "Выполнено сопоставление данных", ready: matched },
+      { label: "Все обязательные проверки завершены", ready: kfoReady && pricingReady && matched }
+    ];
+  }
+
+  function calculateReport() {
+    const readiness = reportReadiness();
+    if (!readiness.every(function(item) { return item.ready; })) return false;
+    const rows = [];
+    const monthly = {};
+    const monthlyByContractor = {};
+    let total = 0;
+    state.kfo.groups.forEach(function(group) {
+      const price = findLoadedRatePrice(group.contractor, group.kqCode);
+      if (price == null) return;
+      const volume = Number(group.actualSmr) || 0;
+      const cost = volume * price;
+      rows.push({ contractor: group.contractor, code: group.kqCode, volume: volume, price: price, cost: cost });
+      total += cost;
+      Object.keys(group.monthly || {}).forEach(function(month) {
+        const monthCost = (Number(group.monthly[month]) || 0) * price;
+        monthly[month] = (monthly[month] || 0) + monthCost;
+        const contractorMonths = monthlyByContractor[group.contractor] = monthlyByContractor[group.contractor] || {};
+        contractorMonths[month] = (contractorMonths[month] || 0) + monthCost;
+      });
+    });
+    state.report = { contractor: state.report.contractor || "__ALL__", calculated: true, rows: rows, monthly: monthly, monthlyByContractor: monthlyByContractor, total: total, message: "Расчёт завершён: " + rows.length + " сопоставлений" };
+    return true;
+  }
+
   function renderReport(item) {
-    return pageHead(item, button("Экспортировать Excel", "download", "btn-primary", "disabled")) +
-      '<div class="stack"><div class="grid-3"><div class="stat"><div class="stat-label">Стоимость выполненных работ</div><div class="stat-value">0 ₽</div><div class="stat-note">по загруженным объёмам</div></div><div class="stat"><div class="stat-label">Принято к учёту</div><div class="stat-value">0 ₽</div><div class="stat-note">с учётом регламентов</div></div><div class="stat highlight"><div class="stat-label">Незавершённое производство</div><div class="stat-value">0 ₽</div><div class="stat-note">итоговая сумма НЗП</div></div></div>' +
-      '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Сводный отчёт</h3><span class="badge">0 контрагентов</span></div><p class="card-desc">Расчёт стоимости НЗП в разрезе контрагентов и групп работ.</p></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Контрагент</th><th>Группа работ</th><th class="num">Объём</th><th class="num">Стоимость</th><th class="num">НЗП</th></tr></thead><tbody><tr><td colspan="5">' + emptyState("Нет данных для отчёта", "Загрузите объёмы, регламенты и расценки — сводная таблица сформируется автоматически.", "clipboard") + '</td></tr></tbody></table></div></div></section></div>';
+    const readiness = reportReadiness();
+    const ready = readiness.every(function(entry) { return entry.ready; });
+    const contractors = Array.from(new Set((state.report.rows || []).map(function(row) { return row.contractor; }))).sort();
+    const selected = state.report.contractor || "__ALL__";
+    const filteredRows = (state.report.rows || []).filter(function(row) { return selected === "__ALL__" || row.contractor === selected; });
+    const total = filteredRows.reduce(function(sum, row) { return sum + row.cost; }, 0);
+    const selectedMonthly = selected === "__ALL__" ? (state.report.monthly || {}) : ((state.report.monthlyByContractor || {})[selected] || {});
+    const months = Object.keys(selectedMonthly).sort();
+    const values = months.map(function(month) { return selectedMonthly[month]; });
+    const max = Math.max.apply(null, values.concat([1]));
+    const points = values.map(function(value, index) { return (20 + index * (560 / Math.max(1, values.length - 1))) + ',' + (180 - value / max * 150); }).join(' ');
+    const chart = months.length ? '<svg viewBox="0 0 600 210" role="img" aria-label="Месячная динамика"><line x1="20" y1="180" x2="580" y2="180" stroke="#cbd5e1"/><polyline fill="none" stroke="#2563eb" stroke-width="4" points="' + points + '"/>' + months.map(function(month, i) { return '<text x="' + (20 + i * (560 / Math.max(1, months.length - 1))) + '" y="202" text-anchor="middle" font-size="10">' + escapeHtml(month) + '</text>'; }).join('') + '</svg>' : emptyState("Нет рассчитанной динамики", "Выполните ручной расчёт стоимости.", "clipboard");
+    const checklist = readiness.map(function(entry) { return '<li style="color:' + (entry.ready ? 'var(--success)' : 'var(--danger)') + '">' + (entry.ready ? '✓ ' : '✕ ') + escapeHtml(entry.label) + '</li>'; }).join('');
+    const rowsHtml = filteredRows.map(function(row) { return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml(row.code) + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td></tr>'; }).join('');
+    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack"><section class="card"><div class="card-header"><h3 class="card-title">Check List готовности</h3></div><div class="card-body"><ul>' + checklist + '</ul><p class="result-note">' + escapeHtml(state.report.message) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Месячная динамика выполнения</h3><select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__">Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select></div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Расценка</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="5">Нет рассчитанных данных</td></tr>') + '</tbody></table></div></div></section></div>';
   }
 
   // =====================================================================
@@ -2894,6 +3118,10 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     let addFormHTML = '';
     if (isEdit) {
+        const selectedAddContractor = addForm.contractor || '';
+        const contractOptions = getKfoContracts(selectedAddContractor).map(function(contract) {
+            return '<option value="' + escapeHtml(contract) + '"' + (contract === addForm.contract ? ' selected' : '') + '>' + escapeHtml(contract) + '</option>';
+        }).join('');
         const contractorOptions = allContractorNames.map(function(name) {
             const hasRates = state.pricing.data[name] &&
                            Object.keys(state.pricing.data[name].contracts || {}).length > 0;
@@ -2916,14 +3144,16 @@ for (let idx = 0; idx < sources.length; idx++) {
                     '</span>' +
                 '</div>' +
                 '<div class="field"><label>Договор</label>' +
-                    '<input class="input" id="add-contract" placeholder="Например: Д-123" value="' + escapeHtml(addForm.contract || '') + '" /></div>' +
+                    '<select class="input" id="add-contract"><option value="">— Выберите договор из БД КФО —</option>' + contractOptions + '</select></div>' +
                 '<div class="field"><label>РДЦ</label>' +
                     '<input class="input" id="add-rdc" placeholder="Например: РДЦ-1" value="' + escapeHtml(addForm.rdc || '') + '" /></div>' +
                 '<div>' + button("Добавить", "plus", "btn-primary", 'id="add-pricing-source"') + '</div>' +
             '</div>' +
             '<div class="form-details">' +
                 '<div class="field"><label>URL источника (Excel)</label>' +
-                    '<input class="input" id="add-source-url" placeholder="https://sp.sibur.local/..." value="' + escapeHtml(addForm.sourceUrl || '') + '" /></div>' +
+                    '<input class="input" id="add-source-url" placeholder="https://sp.sibur.local/..." value="' + escapeHtml(addForm.sourceUrl || '') + '" />' + button("Проверить файл", "check", "btn-ghost", 'id="check-pricing-file"') + '</div>' +
+                '<div class="field"><label>Наименование вкладки</label>' +
+                    '<input class="input" id="add-sheet-name" list="pricing-sheet-options" placeholder="Расценки" value="' + escapeHtml(addForm.sheetName || 'Расценки') + '" /><datalist id="pricing-sheet-options"></datalist></div>' +
                 '<div class="field"><label>Колонка: шифр ЕР</label>' +
                     '<input class="input" id="add-col-code" placeholder="A" value="' + escapeHtml(addForm.colCode || 'A') + '" style="text-transform:uppercase;" /></div>' +
                 '<div class="field"><label>Колонка: наименование</label>' +
@@ -3206,28 +3436,15 @@ for (let idx = 0; idx < sources.length; idx++) {
         '</div>';
     }).join('');
 
+    const primaryRate = selectedRates[0] || "";
+    const primaryControl = primaryRate
+      ? '<div class="banner"><div><strong>Основная сравниваемая расценка:</strong> ' + escapeHtml(primaryRate) + ' — ' + escapeHtml(getRateName(primaryRate)) + '</div>' + button("Удалить", "trash", "btn-danger", 'data-remove-primary-rate="' + escapeHtml(primaryRate) + '"') + '</div>'
+      : '';
     const comparisonHTML =
-        '<div class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">📈 Сравнительный анализ расценок</h3><span class="badge green">' + selectedContractors.length + ' подрядчиков · ' + selectedRates.length + ' расценок</span></div><p class="card-desc">Выберите подрядчиков (с договором и РДЦ) и Шифры ЕР для сравнения полных единичных расценок.</p></div><div class="card-body">' +
-        '<div class="comparison-section">' +
-            '<div class="comparison-left">' +
-                '<div class="comparison-title">👤 Подрядчики</div>' +
-                '<div class="search-input-wrap">' +
-                    '<input class="input" id="comparison-contractor-search" type="search" placeholder="Поиск подрядчика..." value="' + escapeHtml(comparison.contractorSearch) + '" style="min-height:30px;font-size:12px;" />' +
-                    '<div class="search-results' + (comparison.contractorSearch ? ' active' : '') + '" id="contractor-search-results">' + contractorSearchResults + '</div>' +
-                '</div>' +
-                '<div style="margin-top:8px;max-height:220px;overflow-y:auto;">' + selectedContractorsHTML + '</div>' +
-                '<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">' +
-                    '<div class="comparison-title">🔍 Единичные расценки</div>' +
-                    '<div class="search-input-wrap">' +
-                        '<input class="input" id="comparison-rate-search" type="search" placeholder="Поиск по наименованию или шифру..." value="' + escapeHtml(comparison.rateSearch) + '" style="min-height:30px;font-size:12px;" />' +
-                        '<div class="search-results' + (comparison.rateSearch ? ' active' : '') + '" id="rate-search-results">' + rateSearchResults + '</div>' +
-                    '</div>' +
-                    '<div style="margin-top:8px;max-height:150px;overflow-y:auto;">' + selectedRatesHTML + '</div>' +
-                '</div>' +
-            '</div>' +
-            '<div>' + comparisonTableHTML + '</div>' +
-        '</div>' +
-        '</div></div>';
+        '<div class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">📈 Сравнительный анализ расценок</h3><span class="badge green">' + selectedContractors.length + ' подрядчиков · ' + selectedRates.length + ' расценок</span></div><p class="card-desc">Состав сравнения формируется флажками в основном дереве расценок. Дополнительные фильтры удалены.</p></div><div class="card-body">' +
+        primaryControl +
+        '<div class="grid-2"><section><h4>Выбранные подрядчики</h4>' + (selectedContractorsHTML || '<p class="result-note">Нет выбранных подрядчиков.</p>') + '</section><section><h4>Выбранные расценки</h4>' + (selectedRatesHTML || '<p class="result-note">Нет выбранных расценок.</p>') + '</section></div>' +
+        '<div style="margin-top:12px">' + comparisonTableHTML + '</div></div></div>';
 
     const pricingBlock =
         '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">📊 Расценки</h3><span class="badge green">' + allContractorNames.length + ' подрядчиков · ' + allRates.length + ' расценок</span></div><p class="card-desc">Управление расценками: добавление источников, поиск и просмотр структуры.</p></div><div class="card-body">' +
@@ -3244,7 +3461,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         '<div class="pricing-tree">' + treeHTML + '</div>' +
         '</div></section>';
 
-    const actions = state.editMode ? button("Обновить расценки", "refresh", "", 'id="refresh-pricing"') : '';
+    const actions = button(state.pricing.status === "active" ? "Обновить расценки" : "Загрузить расценки", "refresh", "", 'id="refresh-pricing"');
     return pageHead(item, actions) +
     '<div class="stack">' +
         devBanner +
@@ -3338,6 +3555,12 @@ for (let idx = 0; idx < sources.length; idx++) {
       state.calculationMode = "with-regulations";
       loadKfoSources();
     });
+    document.getElementById("load-project-kpi")?.addEventListener("click", loadProjectKpis);
+    document.getElementById("calculate-report")?.addEventListener("click", function() {
+      if (calculateReport()) { renderContent(); showToast("Расчёт завершён", state.report.message); }
+      else showToast("Расчёт заблокирован", "Завершите обязательные этапы Check List.");
+    });
+    document.getElementById("report-contractor")?.addEventListener("change", function(e) { state.report.contractor = e.target.value; renderContent(); });
 
     // БД КФО - поиск подрядчиков
     const contractorSearch = document.getElementById("contractor-search");
@@ -3738,6 +3961,16 @@ for (let idx = 0; idx < sources.length; idx++) {
         renderContent();
       }
 
+      const primaryRemove = e.target.closest("[data-remove-primary-rate]");
+      if (primaryRemove && primaryRemove.closest("#content")) {
+        const rate = primaryRemove.getAttribute("data-remove-primary-rate");
+        state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(item) { return item !== rate; });
+        state.configDirty = true;
+        renderContent();
+        showToast("Основная расценка удалена", "Сравнение автоматически перестроено.");
+        return;
+      }
+
       const removeBtn = e.target.closest("[data-remove-contractor]");
       if (removeBtn && removeBtn.closest("#content")) {
         const name = removeBtn.getAttribute("data-remove-contractor");
@@ -3819,11 +4052,30 @@ for (let idx = 0; idx < sources.length; idx++) {
     });
 
     // Добавление источника расценок
+    document.getElementById("add-contractor")?.addEventListener("change", function(e) {
+      state.pricing.addForm.contractor = e.target.value;
+      state.pricing.addForm.contract = "";
+      renderContent();
+    });
+
+    document.getElementById("check-pricing-file")?.addEventListener("click", async function() {
+      const url = document.getElementById("add-source-url").value.trim();
+      if (!url) { showToast("Адрес не указан", "Укажите URL Excel-файла."); return; }
+      try {
+        const workbook = XLSX.read(await fetchWorkbookBuffer(url), { type: "array", bookSheets: true });
+        const names = workbook.SheetNames || [];
+        const list = document.getElementById("pricing-sheet-options");
+        if (list) list.innerHTML = names.map(function(name) { return '<option value="' + escapeHtml(name) + '"></option>'; }).join("");
+        showToast("Файл проверен", "Найдены вкладки: " + names.join(", "));
+      } catch (error) { showToast("Ошибка проверки файла", error.message); }
+    });
+
     document.getElementById("add-pricing-source")?.addEventListener("click", function() {
       const contractor = document.getElementById("add-contractor").value;
       const contract = document.getElementById("add-contract").value.trim();
       const rdc = document.getElementById("add-rdc").value.trim();
       const sourceUrl = document.getElementById("add-source-url").value.trim();
+      const sheetName = document.getElementById("add-sheet-name").value.trim();
       const colCode = document.getElementById("add-col-code").value.trim() || "A";
       const colName = document.getElementById("add-col-name").value.trim() || "B";
       const colUnit = document.getElementById("add-col-unit").value.trim() || "C";
@@ -3831,8 +4083,8 @@ for (let idx = 0; idx < sources.length; idx++) {
       const colBasePrice = document.getElementById("add-col-baseprice").value.trim() || "E";
       const indirectPercent = parseFloat(document.getElementById("add-indirect-percent").value) || 0;
 
-      if (!contractor || !contract || !rdc || !sourceUrl) {
-        showToast("Ошибка", "Заполните все обязательные поля (контрагент, договор, РДЦ, URL)");
+      if (!contractor || !contract || !rdc || !sourceUrl || !sheetName) {
+        showToast("Ошибка", "Заполните все обязательные поля (контрагент, договор, РДЦ, URL, вкладка)");
         return;
       }
 
@@ -3869,6 +4121,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       }
       state.config.pricingBindings[contractor][contract][rdc] = {
         sourceUrl: sourceUrl,
+        sheetName: sheetName,
         indirectPercent: indirectPercent,
         columns: {
           code: colCode.toUpperCase(),
@@ -3881,7 +4134,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
       try {
         fetchWorkbookBuffer(sourceUrl).then(function(buffer) {
-          const rates = parsePricingWorkbook(buffer, state.config.pricingBindings[contractor][contract][rdc].columns);
+          const rates = parsePricingWorkbook(buffer, state.config.pricingBindings[contractor][contract][rdc].columns, sheetName);
           const multiplier = 1 + indirectPercent / 100;
           Object.keys(rates).forEach(function(code) {
             rates[code].totalPrice = rates[code].basePrice * multiplier;
@@ -3895,6 +4148,7 @@ for (let idx = 0; idx < sources.length; idx++) {
           }
           state.pricing.data[contractor].contracts[contract].priceCalculations[rdc] = {
             sourceUrl: sourceUrl,
+            sheetName: sheetName,
             indirectPercent: indirectPercent,
             rates: rates,
             columns: state.config.pricingBindings[contractor][contract][rdc].columns
@@ -4136,6 +4390,9 @@ for (let idx = 0; idx < sources.length; idx++) {
         checkedAt: null,
         message: "Изменённая ссылка ещё не проверена"
       };
+      if (!quiet && sources[index].url) {
+        checkKfoSourceConnection(sources[index]).then(function() { renderContent(); });
+      }
     }
     state.configDirty = true;
     applyConfigToChrome();
