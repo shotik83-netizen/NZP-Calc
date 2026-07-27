@@ -2,7 +2,7 @@
   "application": "nzp-calculator",
   "version": "1.6",
   "title": "Отчёт по незавершённому строительству (НЗП)",
-  "configUrl": "https://shotik83-netizen.github.io/NZP-Calc/config.json",
+  "configUrl": "./config.json",
   "editMode": false,
   "dataSources": [
     {
@@ -55,36 +55,6 @@
     "storage": "shared-config",
     "entries": [
       {
-        "sourceName": "«Эста Коснтракшен»",
-        "canonicalName": "Эста Коснтракшен",
-        "status": "alias"
-      },
-      {
-        "sourceName": "«Эста Коснтракшен» (АКЗ)",
-        "canonicalName": "Эста Коснтракшен",
-        "status": "alias"
-      },
-      {
-        "sourceName": "Yamata",
-        "canonicalName": "Yamata",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "Yamata1",
-        "canonicalName": "Yamata",
-        "status": "alias"
-      },
-      {
-        "sourceName": "Альфа Инженеринг и Констракшн",
-        "canonicalName": "Альфа Инженеринг и Констракшн",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "Енер Холдинг",
-        "canonicalName": "Енер Холдинг",
-        "status": "canonical"
-      },
-      {
         "sourceName": "Не найден на плане",
         "canonicalName": "Не найден на плане",
         "status": "canonical"
@@ -95,114 +65,215 @@
         "status": "canonical"
       },
       {
-        "sourceName": "НОВА",
-        "canonicalName": "НОВА",
+        "sourceName": "Подрядчик 1",
+        "canonicalName": "Подрядчик 1",
         "status": "canonical"
       },
       {
-        "sourceName": "Омегапромэнерго",
-        "canonicalName": "Омегапромэнерго",
+        "sourceName": "Подрядчик 2",
+        "canonicalName": "Подрядчик 2",
         "status": "canonical"
       },
       {
-        "sourceName": "ООО «РСУ»",
-        "canonicalName": "ООО «РСУ»",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "ООО «СК «МАРТ»",
-        "canonicalName": "ООО «СК «МАРТ»",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "ООО Альфавестстрой",
-        "canonicalName": "ООО Альфавестстрой",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "ООО НП ЦМА",
-        "canonicalName": "ООО НП ЦМА",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "ООО ПСК-КАМА",
-        "canonicalName": "ООО ПСК-КАМА",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "Пондера_ИНДУСТРИ",
-        "canonicalName": "Пондера_ИНДУСТРИ",
-        "status": "canonical"
-      },
-      {
-        "sourceName": "Пондера_ИНДУСТРИ1",
-        "canonicalName": "Пондера_ИНДУСТРИ",
+        "sourceName": "Подрядчик 2 (АКЗ)",
+        "canonicalName": "Подрядчик 2",
         "status": "alias"
       },
       {
-        "sourceName": "РБР16",
-        "canonicalName": "РБР16",
+        "sourceName": "Подрядчик 3",
+        "canonicalName": "Подрядчик 3",
         "status": "canonical"
       },
       {
-        "sourceName": "СТМ",
-        "canonicalName": "СТМ",
+        "sourceName": "Подрядчик 4",
+        "canonicalName": "Подрядчик 4",
         "status": "canonical"
       },
       {
-        "sourceName": "СХМ",
-        "canonicalName": "СХМ",
+        "sourceName": "Подрядчик 5",
+        "canonicalName": "Подрядчик 5",
         "status": "canonical"
       },
       {
-        "sourceName": "ТАСКШЕРИНГ",
-        "canonicalName": "ТАСКШЕРИНГ",
+        "sourceName": "Подрядчик 6",
+        "canonicalName": "Подрядчик 6",
         "status": "canonical"
       },
       {
-        "sourceName": "Тек Строй",
-        "canonicalName": "Тек Строй",
+        "sourceName": "Подрядчик 7",
+        "canonicalName": "Подрядчик 7",
         "status": "canonical"
       },
       {
-        "sourceName": "ФИТ",
-        "canonicalName": "ФИТ",
+        "sourceName": "Подрядчик 8",
+        "canonicalName": "Подрядчик 8",
         "status": "canonical"
       },
       {
-        "sourceName": "ФИТ1",
-        "canonicalName": "ФИТ",
+        "sourceName": "Подрядчик 9",
+        "canonicalName": "Подрядчик 9",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 10",
+        "canonicalName": "Подрядчик 10",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 11",
+        "canonicalName": "Подрядчик 11",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 12",
+        "canonicalName": "Подрядчик 12",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 13",
+        "canonicalName": "Подрядчик 13",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 13_1",
+        "canonicalName": "Подрядчик 13",
         "status": "alias"
       },
       {
-        "sourceName": "ФИТ2",
-        "canonicalName": "ФИТ",
-        "status": "alias"
-      },
-      {
-        "sourceName": "Эста Коснтракшен",
-        "canonicalName": "Эста Коснтракшен",
+        "sourceName": "Подрядчик 14",
+        "canonicalName": "Подрядчик 14",
         "status": "canonical"
       },
       {
-        "sourceName": "Эста Констракшен1",
-        "canonicalName": "Эста Коснтракшен",
-        "status": "alias"
+        "sourceName": "Подрядчик 15",
+        "canonicalName": "Подрядчик 15",
+        "status": "canonical"
       },
       {
-        "sourceName": "ЮНИТРАК",
-        "canonicalName": "ЮНИТРАК",
+        "sourceName": "Подрядчик 16",
+        "canonicalName": "Подрядчик 16",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 17",
+        "canonicalName": "Подрядчик 17",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 18",
+        "canonicalName": "Подрядчик 18",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 19",
+        "canonicalName": "Подрядчик 19",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 20",
+        "canonicalName": "Подрядчик 20",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 21",
+        "canonicalName": "Подрядчик 21",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "Подрядчик 31",
+        "canonicalName": "Подрядчик 31",
         "status": "canonical"
       }
     ]
   },
   "coefficientBindings": {},
-  "pricingBindings": {},
+  "pricingBindings": {
+    "Подрядчик 1": {
+      "Дог. 001": {
+        "Имитационная РДЦ": {
+          "sourceUrl": "./pricing/pricing-01.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 0,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "Подрядчик 2": {
+      "Дог. 002": {
+        "Имитационная РДЦ": {
+          "sourceUrl": "./pricing/pricing-02.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 1.5,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "Подрядчик 3": {
+      "Дог. 003": {
+        "Имитационная РДЦ": {
+          "sourceUrl": "./pricing/pricing-03.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 3,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "Подрядчик 4": {
+      "Дог. 004": {
+        "Имитационная РДЦ": {
+          "sourceUrl": "./pricing/pricing-04.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 4.5,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "Подрядчик 5": {
+      "Дог. 005": {
+        "Имитационная РДЦ": {
+          "sourceUrl": "./pricing/pricing-05.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 6,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    }
+  },
   "aggregationSource": {
     "name": "Справочник укрупнения",
     "url": ""
   },
-  "parserConfigUrl": "https://shotik83-netizen.github.io/NZP-Calc/parser-config.json",
+  "parserConfigUrl": "./parser-config.json",
   "export": {
     "fileName": "Расчёт НЗП.xlsx",
     "sheetName": "НЗП"
