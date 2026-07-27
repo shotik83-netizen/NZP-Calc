@@ -71,9 +71,8 @@
     .sidebar-process { margin-top: auto; min-height: 0; padding: 12px; display: flex; justify-content: center; }
     .process-widget {
       width: 136px; min-height: 136px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-      padding: 12px; border: 1px solid rgba(211, 222, 216, .72); border-radius: 10px; background: rgba(255, 255, 255, .76);
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-      box-shadow: 0 6px 20px rgba(23, 49, 39, .08);
+      padding: 12px; border: 1px solid rgba(211, 222, 216, .5); border-radius: 10px; background: rgba(255, 255, 255, .38);
+      box-shadow: 0 4px 14px rgba(23, 49, 39, .05);
     }
     .process-widget-label { color: var(--muted-foreground); font-size: 10px; font-weight: 700; line-height: 1.25; text-align: center; }
     .process-ring {
@@ -105,11 +104,18 @@
     .kpi-details { margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fbfcfb; }
     .kpi-details > summary { cursor: pointer; padding: 11px 13px; color: var(--primary-strong); font-size: 12px; font-weight: 650; }
     .kpi-details[open] > summary { border-bottom: 1px solid var(--border); background: var(--primary-faint); }
-    .instruction-list { counter-reset: instruction-step; }
-    .instruction-step { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 14px; align-items: start; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
-    .instruction-number { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--primary); font-size: 15px; font-weight: 750; }
-    .instruction-title { margin: 1px 0 4px; font-size: 14px; font-weight: 700; }
-    .instruction-note { color: var(--muted-foreground); font-size: 12px; line-height: 1.55; }
+    .instruction-list { counter-reset: instruction-step; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .instruction-step { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+    .instruction-number { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--primary); font-size: 12px; font-weight: 750; }
+    .instruction-title { margin: 0 0 2px; font-size: 12px; font-weight: 700; }
+    .instruction-note { color: var(--muted-foreground); font-size: 10px; line-height: 1.4; }
+    .report-setup { display: grid; grid-template-columns: minmax(190px, .7fr) minmax(240px, 1fr); gap: 16px; align-items: end; }
+    .report-formula { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid rgba(40, 150, 114, .22); border-radius: 8px; background: var(--primary-faint); }
+    .report-formula-main { color: var(--primary-strong); font-size: 14px; font-weight: 750; text-align: center; }
+    .report-formula-parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .report-formula-part { padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: rgba(255, 255, 255, .7); font-size: 10px; line-height: 1.4; }
+    .report-formula-part strong { display: block; margin-bottom: 2px; font-size: 11px; }
+    .rate-missing { color: var(--warning); font-weight: 650; }
 
     .admin-group {
       margin-top: 12px;
@@ -394,6 +400,11 @@
     .contract-sync > summary::after { content: "Раскрыть"; color: var(--primary-strong); font-size: 10px; font-weight: 700; margin-left: auto; align-self: center; }
     .contract-sync[open] > summary::after { content: "Скрыть"; }
     .contract-sync[open] > summary { border-bottom: 1px solid var(--border); }
+    .regulation-source-card > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
+    .regulation-source-card > summary::-webkit-details-marker { display: none; }
+    .regulation-source-card > summary::after { content: "Настроить"; color: var(--primary-strong); font-size: 10px; font-weight: 700; }
+    .regulation-source-card[open] > summary::after { content: "Скрыть"; }
+    .regulation-source-card[open] > summary { border-bottom: 1px solid var(--border); }
     .pricing-node .node-header {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 8px; background: transparent;
@@ -645,6 +656,7 @@
         justify-content: center;
       }
       .comparison-section { grid-template-columns: 1fr; }
+      .report-setup { grid-template-columns: 1fr; }
       .field-grid { grid-template-columns: 1fr; }
       .add-form .form-row { grid-template-columns: 1fr 1fr; }
       .add-form .form-details { grid-template-columns: 1fr 1fr 1fr; }
@@ -673,6 +685,8 @@
       .source-overview-secondary, .source-date-origin { display: none; }
       .metric-strip { grid-template-columns: 1fr; }
       .readiness-grid { grid-template-columns: 1fr; }
+      .instruction-list { grid-template-columns: 1fr; }
+      .report-formula-parts { grid-template-columns: 1fr; }
       .contractor-item > summary { grid-template-columns: minmax(0, 1fr) 18px; }
       .contractor-metrics { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
       .app-footer { padding: 0 12px; }
@@ -780,7 +794,7 @@
   const MENU = [
     { id: "data-upload", label: "БД КФО", icon: "database", description: "Подключение базы КФО на SharePoint и получение сведений на выбранную дату." },
     { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
-    { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
+    { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к подрядчикам." },
     { id: "aggregation", label: "Справочник BOQ", icon: "stop", description: "Объединение детальных видов работ в отчётные группы.", admin: true },
     { id: "report", label: "Отчёт", icon: "clipboard", description: "Месячная динамика выполнения и ручной расчёт стоимости." },
     { id: "instructions", label: "Инструкция", icon: "info", description: "Краткий поэтапный порядок работы с приложением — от загрузки исходных данных до формирования отчёта." },
@@ -865,7 +879,7 @@
     kfoLoadGeneration: 0,
     process: { visible: false, status: "idle", source: "", stage: "", percent: 0, processed: 0, startedAt: 0, finishedAt: 0, message: "" },
     kqNameMap: { kq1: {}, kq2: {} },
-    kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
+    kfo: { status: "inactive", groups: [], reportGroups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
     kpi: { status: "inactive", groups: [], totalRows: 0, includedRows: 0, message: "Источник проверен; аналитика не загружена" },
     regulations: { status: "inactive", rules: new Map(), entries: [], sourceName: "", message: "Источник регламентов не подключён" },
     aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, parserDirty: false, index: new Map(), message: "Справочник не загружен" },
@@ -896,7 +910,7 @@
         selectedRates: []
       }
     },
-    report: { contractor: "__ALL__", calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, message: "Расчёт не запускался" }
+    report: { contractor: "__ALL__", level: "kq2", scope: "contractors", calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, message: "Расчёт не запускался" }
   };
 
   let aggregationSearchTimer = null;
@@ -1262,6 +1276,39 @@ function contractorNameStem(value) {
       }
     }
     return "—";
+  }
+
+  function pricingSourcesForRate(rateCode) {
+    const sources = [];
+    const seen = new Set();
+    Object.keys(state.pricing.data || {}).sort(function(a, b) { return a.localeCompare(b, "ru", { numeric: true }); }).forEach(function(contractor) {
+      const contracts = (state.pricing.data[contractor] && state.pricing.data[contractor].contracts) || {};
+      Object.keys(contracts).sort(function(a, b) { return a.localeCompare(b, "ru", { numeric: true }); }).forEach(function(contract) {
+        const calculations = contracts[contract].priceCalculations || {};
+        Object.keys(calculations).sort(function(a, b) { return a.localeCompare(b, "ru", { numeric: true }); }).forEach(function(priceCalculation) {
+          if (!calculations[priceCalculation].rates || !calculations[priceCalculation].rates[rateCode]) return;
+          const key = [contractor, contract, priceCalculation].map(normalizeParserLabel).join("||");
+          if (seen.has(key)) return;
+          seen.add(key);
+          sources.push({ name: contractor, contract: contract, priceCalculation: priceCalculation });
+        });
+      });
+    });
+    return sources;
+  }
+
+  function synchronizeComparisonSources() {
+    const sources = [];
+    const seen = new Set();
+    (state.pricing.comparison.selectedRates || []).forEach(function(rateCode) {
+      pricingSourcesForRate(rateCode).forEach(function(entry) {
+        const key = [entry.name, entry.contract, entry.priceCalculation].map(normalizeParserLabel).join("||");
+        if (seen.has(key)) return;
+        seen.add(key);
+        sources.push(entry);
+      });
+    });
+    state.pricing.comparison.selectedContractors = sources;
   }
 
   function getRateCurrency(rateCode) {
@@ -1823,6 +1870,8 @@ function contractorNameStem(value) {
       const actualCalculated = actualSmr * effectiveKqCoeff;
       const skCalculated = acceptedSk * effectiveKqCoeff;
       const idCalculated = acceptedId * effectiveKqCoeff;
+      const actualCalculatedKq1 = actualSmr * (kq1Code ? kq1Coefficient : 1);
+      const actualCalculatedKq2 = actualSmr * (kq2Code ? kq2Coefficient : 1);
       const regulationEvaluation = rule
         ? actualCalculated * regulationCoefficient(rule, "actualSmr") + skCalculated * regulationCoefficient(rule, "acceptedSk") + idCalculated * regulationCoefficient(rule, "acceptedId")
         : 0;
@@ -1846,7 +1895,7 @@ function contractorNameStem(value) {
         return (String(get("erName") || "").trim() && String(get("erName") || "").trim() !== effectiveKqCode) ? String(get("erName") || "").trim() : effectiveKqCode;
       })();
 
-      const groupKey = [source.id, normalizeParserLabel(contractor), normalizeParserLabel(effectiveKqCode), normalizeParserLabel(unit), level, mode].join("||");
+      const groupKey = [source.id, normalizeParserLabel(contractor), normalizeParserLabel(kq1Code || erCode), normalizeParserLabel(kq2Code || erCode), normalizeParserLabel(unit), mode].join("||");
 
       let group = groups.get(groupKey);
       if (!group) {
@@ -1863,7 +1912,8 @@ function contractorNameStem(value) {
           kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient,
           rows: 0, regulationRows: 0,
           actualSmr: 0, acceptedSk: 0, acceptedId: 0,
-          evaluatedVolume: 0, monthly: {}
+          actualSmrKq1: 0, actualSmrKq2: 0,
+          evaluatedVolume: 0, monthly: {}, monthlyKq1: {}, monthlyKq2: {}
         };
         groups.set(groupKey, group);
       }
@@ -1873,9 +1923,15 @@ function contractorNameStem(value) {
       group.actualSmr += actualCalculated;
       group.acceptedSk += skCalculated;
       group.acceptedId += idCalculated;
+      group.actualSmrKq1 += actualCalculatedKq1;
+      group.actualSmrKq2 += actualCalculatedKq2;
       group.evaluatedVolume += regulationEvaluation;
       const monthKey = (rowDate || lastFactDate || "").slice(0, 7);
-      if (monthKey) group.monthly[monthKey] = (group.monthly[monthKey] || 0) + actualCalculated;
+      if (monthKey) {
+        group.monthly[monthKey] = (group.monthly[monthKey] || 0) + actualCalculated;
+        group.monthlyKq1[monthKey] = (group.monthlyKq1[monthKey] || 0) + actualCalculatedKq1;
+        group.monthlyKq2[monthKey] = (group.monthlyKq2[monthKey] || 0) + actualCalculatedKq2;
+      }
       diagnostics.includedRows += 1;
     }
 
@@ -2074,6 +2130,7 @@ async function loadKfoSources() {
         state.kfo = {
             status: "error",
             groups: [],
+            reportGroups: [],
             contractors: [],
             rawContractors: [],
             sourceSummaries: [],
@@ -2100,6 +2157,7 @@ async function loadKfoSources() {
     state.kfo = {
         status: "loading",
         groups: [],
+        reportGroups: [],
         contractors: [],
         rawContractors: [],
         sourceSummaries: [],
@@ -2229,8 +2287,9 @@ for (let idx = 0; idx < sources.length; idx++) {
                     contractor: canonicalName,
                     rows: 0, regulationRows: 0,
                     actualSmr: 0, acceptedSk: 0, acceptedId: 0,
+                    actualSmrKq1: 0, actualSmrKq2: 0,
                     evaluatedVolume: null,
-                    monthly: {},
+                    monthly: {}, monthlyKq1: {}, monthlyKq2: {},
                     rawContractors: []
                 });
                 merged.set(key, target);
@@ -2240,13 +2299,48 @@ for (let idx = 0; idx < sources.length; idx++) {
             target.actualSmr += Number(entry.actualSmr) || 0;
             target.acceptedSk += Number(entry.acceptedSk) || 0;
             target.acceptedId += Number(entry.acceptedId) || 0;
+            target.actualSmrKq1 += Number(entry.actualSmrKq1) || 0;
+            target.actualSmrKq2 += Number(entry.actualSmrKq2) || 0;
             if (entry.evaluatedVolume != null) target.evaluatedVolume = (target.evaluatedVolume || 0) + (Number(entry.evaluatedVolume) || 0);
             Object.keys(entry.monthly || {}).forEach(function(month) { target.monthly[month] = (target.monthly[month] || 0) + (Number(entry.monthly[month]) || 0); });
+            Object.keys(entry.monthlyKq1 || {}).forEach(function(month) { target.monthlyKq1[month] = (target.monthlyKq1[month] || 0) + (Number(entry.monthlyKq1[month]) || 0); });
+            Object.keys(entry.monthlyKq2 || {}).forEach(function(month) { target.monthlyKq2[month] = (target.monthlyKq2[month] || 0) + (Number(entry.monthlyKq2[month]) || 0); });
             if (target.rawContractors.indexOf(entry.contractor) < 0) target.rawContractors.push(entry.contractor);
         });
         return Array.from(merged.values()).sort(function (a, b) {
             return a.contractor.localeCompare(b.contractor, "ru") ||
                 a.kqCode.localeCompare(b.kqCode, "ru") ||
+                a.unit.localeCompare(b.unit, "ru");
+        });
+    })();
+
+    const canonicalReportGroups = (function() {
+        const merged = new Map();
+        (allGroups || []).forEach(function(entry) {
+            const canonicalName = canonicalContractorName(entry.contractor);
+            const key = [normalizeParserLabel(canonicalName), normalizeParserLabel(entry.kq1Code || entry.kqCode), normalizeParserLabel(entry.kq2Code || entry.kqCode), normalizeParserLabel(entry.unit)].join("||");
+            let target = merged.get(key);
+            if (!target) {
+                target = Object.assign({}, entry, {
+                    contractor: canonicalName,
+                    rows: 0,
+                    actualSmrKq1: 0,
+                    actualSmrKq2: 0,
+                    monthlyKq1: {},
+                    monthlyKq2: {}
+                });
+                merged.set(key, target);
+            }
+            target.rows += Number(entry.rows) || 0;
+            target.actualSmrKq1 += Number(entry.actualSmrKq1) || 0;
+            target.actualSmrKq2 += Number(entry.actualSmrKq2) || 0;
+            Object.keys(entry.monthlyKq1 || {}).forEach(function(month) { target.monthlyKq1[month] = (target.monthlyKq1[month] || 0) + (Number(entry.monthlyKq1[month]) || 0); });
+            Object.keys(entry.monthlyKq2 || {}).forEach(function(month) { target.monthlyKq2[month] = (target.monthlyKq2[month] || 0) + (Number(entry.monthlyKq2[month]) || 0); });
+        });
+        return Array.from(merged.values()).sort(function(a, b) {
+            return a.contractor.localeCompare(b.contractor, "ru") ||
+                String(a.kq1Code || "").localeCompare(String(b.kq1Code || ""), "ru") ||
+                String(a.kq2Code || "").localeCompare(String(b.kq2Code || ""), "ru") ||
                 a.unit.localeCompare(b.unit, "ru");
         });
     })();
@@ -2302,7 +2396,8 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     state.kfo = {
         status: summaries.length ? "active" : "error",
-        groups: allGroups,
+        groups: canonicalGroups,
+        reportGroups: canonicalReportGroups,
         contractors: contractorSummaries,
         rawContractors: combinedContractors,
         sourceSummaries: summaries,
@@ -2320,6 +2415,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         message: summaries.length + " из " + sources.length + " источников обработано" +
             (filterContractors.length ? "; выбрано подрядчиков: " + filterContractors.length : "")
     };
+    state.report.message = summaries.length ? "Сведения БД КФО загружены — выполните расчёт стоимости" : "Нет данных для формирования отчёта";
 
     finishProcess(errors.length ? "warning" : "success", "Завершено", state.kfo.totalRows, errors.length ? errors.join("; ") : "БД КФО успешно загружена");
     renderContent();
@@ -2504,6 +2600,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     state.pricing.status = "loading";
     state.pricing.message = "Читаем настроенные источники расценок…";
     state.pricing.data = {};
+    state.pricing.comparison = { selectedContractors: [], selectedRates: [] };
     if (state.active === "pricing") renderContent();
 
     let loadedCount = 0;
@@ -2628,6 +2725,8 @@ for (let idx = 0; idx < sources.length; idx++) {
       state.configDirty = false;
       state.kqLevel = ["kq1", "kq2"].indexOf(merged.calculation.defaultKqLevel) >= 0 ? merged.calculation.defaultKqLevel : "kq2";
       state.calculationMode = "with-regulations";
+      state.report.level = state.kqLevel;
+      state.report.scope = "contractors";
 
       state.sourceConnections = {};
       (state.config.dataSources || []).forEach(function (source) {
@@ -2768,14 +2867,14 @@ for (let idx = 0; idx < sources.length; idx++) {
 
   function renderInstructions(item) {
     const steps = [
-      ["Проверьте источник БД КФО", "Откройте раздел «БД КФО» и убедитесь, что актуальный файл подключён. Источники меняются только в режиме редактирования."],
-      ["Задайте параметры среза", "Выберите дату сведений, уровень расчёта KQ и нужных подрядчиков."],
-      ["Соберите сведения", "Нажмите «Собрать сведения». Приложение одновременно рассчитает рабочие данные и сводные показатели проекта уровня KQ-1."],
-      ["Проверьте регламенты", "В разделе «Регламенты» загрузите коэффициенты и убедитесь, что они покрывают выбранные виды работ."],
-      ["Загрузите расценки", "В разделе «Расценки» загрузите источники, привязанные к подрядчику, договору и РДЦ в config.json."],
-      ["Сопоставьте выполнение и расценки", "В разделе «Расценки» раскройте синхронизацию договоров и проверьте, что каждому подрядчику и договору назначен источник, а шифры расценок совпадают с KQ из БД КФО."],
-      ["Проверьте готовность", "Откройте «Отчёт». В карточке сопоставления должно быть указано, что все группы с ненулевым выполнением обеспечены расценками; при ошибке перейдите обратно в «Расценки»."],
-      ["Сформируйте результат", "Нажмите «Рассчитать стоимость», проверьте итог и выгрузите отчёт в Excel."]
+      ["Источник БД", "Проверьте актуальность файла КФО."],
+      ["Параметры", "Выберите дату, уровень KQ и подрядчиков."],
+      ["Сбор сведений", "Нажмите «Собрать сведения» — одновременно сформируются рабочие данные и KPI KQ-1."],
+      ["Регламенты", "Загрузите коэффициенты и при необходимости раскройте нужную группу."],
+      ["Расценки", "Загрузите источники по подрядчикам, договорам и РДЦ."],
+      ["Сопоставление", "Проверьте договоры и совпадение шифров; отсутствующая расценка даст стоимость 0."],
+      ["Вид отчёта", "Выберите расчёт по подрядчикам на KQ-1/KQ-2 либо свод проекта на KQ-1."],
+      ["Расчёт", "Нажмите «Рассчитать стоимость» и проверьте строки без расценок."]
     ];
     return pageHead(item, "") + '<div class="stack instruction-list">' + steps.map(function(step, index) {
       return '<section class="instruction-step"><div class="instruction-number">' + (index + 1) + '</div><div><div class="instruction-title">' + escapeHtml(step[0]) + '</div><div class="instruction-note">' + escapeHtml(step[1]) + '</div></div></section>';
@@ -3019,7 +3118,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       return '<tr data-directory-status="' + status + '" data-directory-search="' + escapeHtml(normalizeParserLabel(row.sourceName + " " + (entry ? entry.canonicalName : ""))) + '"><td class="directory-source">' + escapeHtml(row.sourceName) + '</td><td class="directory-status">' + kfoStatus + '</td><td class="num">' + (row.detected ? formatNumber(row.rows, 0) : "—") + '</td><td class="directory-status"><span class="badge ' + statusClass + '">' + statusLabel + '</span></td><td class="directory-canonical">' + canonicalCell + '</td></tr>';
     }).join("");
 
-    const locked = state.editMode ? "" : '<div class="banner warning">' + icon("lock") + '<div>Для акцепта включите <strong>режим редактирования</strong>. Изменения сохраняются в общем config.json и не зависят от браузера конкретного пользователя.</div></div>';
+    const locked = state.editMode ? "" : '<div class="banner warning">' + icon("lock") + '<div>Для акцепта включите <strong>режим редактирования</strong>. Изменения действуют только в текущей вкладке; для постоянного использования скачайте обновлённый config.json.</div></div>';
     const warning = pending.length
       ? '<div class="banner warning">' + icon("info") + '<div><strong>Новых подрядчиков: ' + formatNumber(pending.length, 0) + '.</strong> Для каждого выберите существующее каноническое наименование либо отметьте исходное наименование как каноническое.</div></div>'
       : '<div class="banner">' + icon("check") + '<div>Все подрядчики текущей БД КФО акцептованы. Расчёт выполняется по исходным строкам, а объединение применяется после расчёта.</div></div>';
@@ -3054,7 +3153,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const statusLabel = regulations.status === "active" ? "Подключено" : regulations.status === "loading" ? "Загрузка…" : regulations.status === "error" ? "Ошибка" : "Нет источника";
     const sourceLink = source.url ? '<a href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(source.name || "Регламенты КФО") + ' ↗</a>' : "Ссылка не указана";
 
-    const editor = '<section class="card editable-card edit-only block"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источник регламентов</h3><span class="badge green">config.json</span></div><p class="card-desc">Источник задаётся отдельно от БД КФО и читается по правилам parsers.dk JSON-конфигуратора.</p></div><div class="card-body"><div class="field-grid"><div class="field"><label for="regulations-source-name">Наименование</label><input class="input" id="regulations-source-name" value="' + escapeHtml(source.name) + '" /></div><div class="field field-wide"><label for="regulations-source-url">Ссылка на документ с вкладкой ДК</label><input class="input" id="regulations-source-url" type="url" value="' + escapeHtml(source.url) + '" /></div><div class="field"><label for="regulations-source-sheet">Вкладка</label><input class="input" id="regulations-source-sheet" value="' + escapeHtml(source.sheetName) + '" /></div><div class="field"><label for="regulations-default-smr">Без вида работ: Факт СМР</label><input class="input" id="regulations-default-smr" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.actualSmr) + '" /></div><div class="field"><label for="regulations-default-sk">Без вида работ: Принято СК</label><input class="input" id="regulations-default-sk" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedSk) + '" /></div><div class="field"><label for="regulations-default-id">Без вида работ: Принято ИД</label><input class="input" id="regulations-default-id" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedId) + '" /></div></div></div><div class="card-footer">' + button("Применить источник", "check", "btn-primary", 'id="apply-regulations-source"') + '</div></section>';
+    const editor = '<details class="card editable-card edit-only block regulation-source-card"><summary class="card-header"><div><h3 class="card-title">Источник регламентов</h3><p class="card-desc">' + escapeHtml(source.name || "Регламенты КФО") + ' · вкладка ' + escapeHtml(source.sheetName || "ДК") + '</p></div><span class="badge green">config.json</span></summary><div class="card-body"><div class="field-grid"><div class="field"><label for="regulations-source-name">Наименование</label><input class="input" id="regulations-source-name" value="' + escapeHtml(source.name) + '" /></div><div class="field field-wide"><label for="regulations-source-url">Ссылка на документ с вкладкой ДК</label><input class="input" id="regulations-source-url" type="url" value="' + escapeHtml(source.url) + '" /></div><div class="field"><label for="regulations-source-sheet">Вкладка</label><input class="input" id="regulations-source-sheet" value="' + escapeHtml(source.sheetName) + '" /></div><div class="field"><label for="regulations-default-smr">Без вида работ: Факт СМР</label><input class="input" id="regulations-default-smr" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.actualSmr) + '" /></div><div class="field"><label for="regulations-default-sk">Без вида работ: Принято СК</label><input class="input" id="regulations-default-sk" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedSk) + '" /></div><div class="field"><label for="regulations-default-id">Без вида работ: Принято ИД</label><input class="input" id="regulations-default-id" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedId) + '" /></div></div></div><div class="card-footer">' + button("Применить источник", "check", "btn-primary", 'id="apply-regulations-source"') + '</div></details>';
 
     let matrix = "";
     if (regulations.status === "loading") {
@@ -3067,7 +3166,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         const rows = group.entries.map(function (entry) {
           return '<tr><td><strong>' + escapeHtml(entry.markCode) + '</strong></td><td>' + escapeHtml(entry.contractNumber || "—") + '</td><td class="num">' + formatNumber(entry.actualSmr * 100, 0) + '%</td><td class="num">' + formatNumber(entry.acceptedSk * 100, 0) + '%</td><td class="num">' + formatNumber(entry.acceptedId * 100, 0) + '%</td><td><a href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">Открыть регламент ↗</a></td></tr>';
         }).join("");
-        return '<details class="contractor-item"' + (group.common ? " open" : "") + '><summary><span class="contractor-name">' + escapeHtml(group.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(group.entries.length, 0) + '</strong> правил</span><span class="badge ' + (group.common ? "" : "green") + '">' + (group.common ? "Для остальных подрядчиков" : "Особые коэффициенты") + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Вид работ</th><th>Договор</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th>Документ</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></details>';
+        return '<details class="contractor-item"><summary><span class="contractor-name">' + escapeHtml(group.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(group.entries.length, 0) + '</strong> правил</span><span class="badge ' + (group.common ? "" : "green") + '">' + (group.common ? "Для остальных подрядчиков" : "Особые коэффициенты") + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Вид работ</th><th>Договор</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th>Документ</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></details>';
       }).join("") + '</div>';
     }
 
@@ -3183,7 +3282,9 @@ for (let idx = 0; idx < sources.length; idx++) {
   // =====================================================================
   function invalidateReport(message) {
     const selectedContractor = state.report && state.report.contractor ? state.report.contractor : "__ALL__";
-    state.report = { contractor: selectedContractor, calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, calculatedAt: null, matchedGroups: 0, unmatchedGroups: 0, message: message || "Требуется ручной расчёт стоимости" };
+    const selectedLevel = state.report && ["kq1", "kq2"].indexOf(state.report.level) >= 0 ? state.report.level : state.kqLevel;
+    const selectedScope = state.report && state.report.scope === "project" ? "project" : "contractors";
+    state.report = { contractor: selectedContractor, level: selectedLevel, scope: selectedScope, calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, calculatedAt: null, matchedGroups: 0, unmatchedGroups: 0, message: message || "Требуется ручной расчёт стоимости" };
   }
 
   function buildLoadedRateIndex() {
@@ -3209,36 +3310,72 @@ for (let idx = 0; idx < sources.length; idx++) {
     return rateIndex.get(normalizeParserLabel(contractor) + "||" + normalizeParserLabel(rateCode)) || null;
   }
 
+  function reportLevelValues(group, level) {
+    const isKq1 = level === "kq1";
+    const code = String((isKq1 ? group.kq1Code : group.kq2Code) || group.kqCode || "Без шифра").trim();
+    const map = state.kqNameMap && state.kqNameMap[level] ? state.kqNameMap[level] : {};
+    const mappedName = map[normalizeParserLabel(code)];
+    const volumeField = isKq1 ? group.actualSmrKq1 : group.actualSmrKq2;
+    const monthlyField = isKq1 ? group.monthlyKq1 : group.monthlyKq2;
+    const volume = volumeField != null ? Number(volumeField) || 0 : Number(group.actualSmr) || 0;
+    return {
+      code: code,
+      name: mappedName || ((group.level === level && group.kqName) ? group.kqName : code),
+      volume: volume,
+      monthly: monthlyField && Object.keys(monthlyField).length ? monthlyField : (group.monthly || {})
+    };
+  }
+
+  function findReportRate(rateIndex, group) {
+    const candidates = [group.kq2Code, group.kq1Code, group.kqCode].filter(Boolean);
+    const checked = new Set();
+    for (let index = 0; index < candidates.length; index += 1) {
+      const code = String(candidates[index]).trim();
+      const normalized = normalizeParserLabel(code);
+      if (!normalized || checked.has(normalized)) continue;
+      checked.add(normalized);
+      const rate = findLoadedRate(rateIndex, group.contractor, code);
+      if (rate) return Object.assign({ code: code }, rate);
+    }
+    return null;
+  }
+
   function reportReadiness() {
     const kfoReady = state.kfo.status === "active" && state.kfo.groups.length > 0;
     const pricingReady = state.pricing.status === "active" && Object.keys(state.pricing.data).length > 0;
     const rateIndex = pricingReady ? buildLoadedRateIndex() : new Map();
-    const requiredGroups = kfoReady ? state.kfo.groups.filter(function(group) { return Math.abs(Number(group.actualSmr) || 0) > 0; }) : [];
-    const matchedGroups = requiredGroups.filter(function(group) { return findLoadedRate(rateIndex, group.contractor, group.kqCode); }).length;
+    const selectedLevel = state.report.scope === "project" ? "kq1" : (state.report.level || state.kqLevel || "kq2");
+    const sourceGroups = kfoReady ? ((state.kfo.reportGroups && state.kfo.reportGroups.length) ? state.kfo.reportGroups : state.kfo.groups) : [];
+    const requiredGroups = sourceGroups.filter(function(group) { return Math.abs(reportLevelValues(group, selectedLevel).volume) > 0; });
+    const matchedGroups = requiredGroups.filter(function(group) { return Boolean(findReportRate(rateIndex, group)); }).length;
     const unmatchedGroups = Math.max(0, requiredGroups.length - matchedGroups);
     const matchingReady = requiredGroups.length > 0 && unmatchedGroups === 0;
     const sourceCount = Array.from(rateIndex.values()).length;
-    const complete = kfoReady && pricingReady && matchingReady;
     return {
       rateIndex: rateIndex,
+      canCalculate: kfoReady,
+      level: selectedLevel,
       stats: { requiredGroups: requiredGroups.length, matchedGroups: matchedGroups, unmatchedGroups: unmatchedGroups, rateCount: sourceCount },
       items: [
-        { label: "БД КФО загружена", ready: kfoReady, detail: kfoReady ? formatNumber(state.kfo.totalRows, 0) + " строк" : state.kfo.message },
-        { label: "Источники расценок загружены", ready: pricingReady, detail: pricingReady ? formatNumber(sourceCount, 0) + " доступных расценок" : "Загрузите настроенные источники" },
-        { label: "Сопоставление выполнения и расценок", ready: matchingReady, detail: matchingReady ? "Все " + formatNumber(requiredGroups.length, 0) + " групп обеспечены расценками" : "Откройте «Расценки»: проверьте договоры, источники и совпадение шифров KQ. Сопоставлено " + formatNumber(matchedGroups, 0) + " из " + formatNumber(requiredGroups.length, 0) + " групп" },
-        { label: "Все обязательные проверки завершены", ready: complete, detail: complete ? "Расчёт разрешён" : "Расчёт заблокирован" }
+        { label: "БД КФО загружена", ready: kfoReady, required: true, detail: kfoReady ? formatNumber(state.kfo.totalRows, 0) + " строк" : state.kfo.message },
+        { label: "Источники расценок", ready: pricingReady, required: false, detail: pricingReady ? formatNumber(sourceCount, 0) + " доступных единичных расценок" : "Не загружены — стоимость позиций будет равна 0" },
+        { label: "Сопоставление объёмов и расценок", ready: matchingReady, required: false, detail: matchingReady ? "Все " + formatNumber(requiredGroups.length, 0) + " групп обеспечены расценками" : "Без расценки: " + formatNumber(unmatchedGroups, 0) + " из " + formatNumber(requiredGroups.length, 0) + " групп; они останутся в отчёте со стоимостью 0" },
+        { label: "Режим формирования", ready: kfoReady, required: true, detail: state.report.scope === "project" ? "Проект в целом · KQ-1" : "По подрядчикам · " + selectedLevel.toUpperCase().replace("KQ", "KQ-") }
       ]
     };
   }
 
   async function calculateReport() {
     const readiness = reportReadiness();
-    if (!readiness.items.every(function(item) { return item.ready; })) return false;
-    const rows = [];
+    if (!readiness.canCalculate) return false;
+    const rowMap = new Map();
     const monthly = {};
     const monthlyByContractor = {};
-    const groups = state.kfo.groups || [];
-    let total = 0;
+    const groups = (state.kfo.reportGroups && state.kfo.reportGroups.length) ? state.kfo.reportGroups : (state.kfo.groups || []);
+    const level = readiness.level;
+    const projectScope = state.report.scope === "project";
+    let matchedGroups = 0;
+    let unmatchedGroups = 0;
     for (let index = 0; index < groups.length; index += 1) {
       if (index % 2000 === 0) {
         updateProcess("Формирование отчета", 30 + Math.round(index / Math.max(1, groups.length) * 60), index, "Интегрируем выполнение и расценки");
@@ -3248,25 +3385,56 @@ for (let idx = 0; idx < sources.length; idx++) {
         });
       }
       const group = groups[index];
-      const volume = Number(group.actualSmr) || 0;
+      const values = reportLevelValues(group, level);
+      const volume = Number(values.volume) || 0;
       if (!volume) continue;
-      const rate = findLoadedRate(readiness.rateIndex, group.contractor, group.kqCode);
-      if (!rate) continue;
-      const cost = volume * rate.price;
-      rows.push({ contractor: group.contractor, code: group.kqCode, unit: group.unit || "", volume: volume, price: rate.price, cost: cost, contract: rate.contract, calculation: rate.calculation });
-      total += cost;
-      Object.keys(group.monthly || {}).forEach(function(month) {
-        const monthCost = (Number(group.monthly[month]) || 0) * rate.price;
+      const rate = findReportRate(readiness.rateIndex, group);
+      const price = rate ? Number(rate.price) || 0 : 0;
+      const cost = volume * price;
+      if (rate) matchedGroups += 1; else unmatchedGroups += 1;
+      const contractor = projectScope ? "Проект в целом" : group.contractor;
+      const rowKey = [normalizeParserLabel(contractor), normalizeParserLabel(values.code), normalizeParserLabel(group.unit)].join("||");
+      let row = rowMap.get(rowKey);
+      if (!row) {
+        row = { contractor: contractor, level: level, code: values.code, name: values.name, unit: group.unit || "", volume: 0, price: 0, cost: 0, matchedVolume: 0, missingVolume: 0, matchedParts: 0, missingParts: 0, rateCodes: new Set(), contracts: new Set() };
+        rowMap.set(rowKey, row);
+      }
+      row.volume += volume;
+      row.cost += cost;
+      if (rate) {
+        row.matchedVolume += volume;
+        row.matchedParts += 1;
+        row.rateCodes.add(rate.code);
+        if (rate.contract) row.contracts.add(rate.contract);
+      } else {
+        row.missingVolume += volume;
+        row.missingParts += 1;
+      }
+      Object.keys(values.monthly || {}).forEach(function(month) {
+        const monthCost = (Number(values.monthly[month]) || 0) * price;
         monthly[month] = (monthly[month] || 0) + monthCost;
-        const contractorMonths = monthlyByContractor[group.contractor] = monthlyByContractor[group.contractor] || {};
+        const contractorMonths = monthlyByContractor[contractor] = monthlyByContractor[contractor] || {};
         contractorMonths[month] = (contractorMonths[month] || 0) + monthCost;
       });
     }
+    const rows = Array.from(rowMap.values()).map(function(row) {
+      row.price = row.volume ? row.cost / row.volume : 0;
+      row.rateStatus = row.missingParts ? (row.matchedParts ? "Частично" : "Нет расценки") : "Расценка найдена";
+      row.rateCode = Array.from(row.rateCodes).sort().join(", ");
+      row.contract = Array.from(row.contracts).sort().join(", ");
+      delete row.rateCodes;
+      delete row.contracts;
+      return row;
+    }).sort(function(a, b) {
+      return a.contractor.localeCompare(b.contractor, "ru", { numeric: true }) || a.code.localeCompare(b.code, "ru", { numeric: true }) || a.unit.localeCompare(b.unit, "ru");
+    });
+    const total = rows.reduce(function(sum, row) { return sum + row.cost; }, 0);
+    const rowsWithoutRates = rows.filter(function(row) { return row.missingParts > 0; }).length;
     state.report = {
-      contractor: state.report.contractor || "__ALL__", calculated: true, rows: rows, monthly: monthly,
+      contractor: projectScope ? "__ALL__" : (state.report.contractor || "__ALL__"), level: level, scope: state.report.scope, calculated: true, rows: rows, monthly: monthly,
       monthlyByContractor: monthlyByContractor, total: total, calculatedAt: new Date(),
-      matchedGroups: readiness.stats.matchedGroups, unmatchedGroups: readiness.stats.unmatchedGroups,
-      message: "Расчёт завершён: " + rows.length + " сопоставлений; итоговая стоимость " + formatNumber(total, 2) + " ₽"
+      matchedGroups: matchedGroups, unmatchedGroups: unmatchedGroups,
+      message: "Расчёт завершён: " + rows.length + " позиций; без полной расценки — " + rowsWithoutRates + "; итоговая стоимость " + formatNumber(total, 2) + " ₽"
     };
     return true;
   }
@@ -3274,9 +3442,10 @@ for (let idx = 0; idx < sources.length; idx++) {
   function renderMonthlyReportChart(selected, contractors) {
     if (!state.report.calculated) return emptyState("Нет рассчитанной динамики", "Выполните ручной расчёт стоимости.", "clipboard");
     const palette = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#0891b2", "#db2777", "#4f46e5", "#65a30d", "#ea580c"];
-    const seriesNames = selected === "__ALL__" ? contractors.slice() : [selected];
+    const projectScope = state.report.scope === "project";
+    const seriesNames = projectScope ? ["Проект в целом"] : (selected === "__ALL__" ? contractors.slice() : [selected]);
     const series = seriesNames.map(function(name, index) {
-      return { name: name, color: palette[index % palette.length], values: (state.report.monthlyByContractor || {})[name] || {} };
+      return { name: name, color: palette[index % palette.length], values: projectScope ? (state.report.monthly || {}) : ((state.report.monthlyByContractor || {})[name] || {}) };
     }).filter(function(entry) { return Object.keys(entry.values).length > 0; });
     const monthSet = new Set();
     series.forEach(function(entry) { Object.keys(entry.values).forEach(function(month) { monthSet.add(month); }); });
@@ -3313,24 +3482,33 @@ for (let idx = 0; idx < sources.length; idx++) {
 
   function renderReport(item) {
     const readiness = reportReadiness();
-    const ready = readiness.items.every(function(entry) { return entry.ready; });
+    const ready = readiness.canCalculate;
+    const projectScope = state.report.scope === "project";
+    const selectedLevel = projectScope ? "kq1" : (state.report.level || state.kqLevel || "kq2");
     const contractors = Array.from(new Set((state.report.rows || []).map(function(row) { return row.contractor; }))).sort(function(a, b) { return a.localeCompare(b, "ru"); });
     let selected = state.report.contractor || "__ALL__";
     if (selected !== "__ALL__" && contractors.indexOf(selected) < 0) selected = "__ALL__";
-    const filteredRows = (state.report.rows || []).filter(function(row) { return selected === "__ALL__" || row.contractor === selected; });
+    const filteredRows = (state.report.rows || []).filter(function(row) { return projectScope || selected === "__ALL__" || row.contractor === selected; });
     const total = filteredRows.reduce(function(sum, row) { return sum + row.cost; }, 0);
     const chart = renderMonthlyReportChart(selected, contractors);
     const readyCount = readiness.items.filter(function(entry) { return entry.ready; }).length;
-    const checklist = readiness.items.map(function(entry) { return '<div class="readiness-item ' + (entry.ready ? 'ready' : 'pending') + '"><div class="readiness-icon">' + icon(entry.ready ? "check" : "info") + '</div><div><div class="readiness-label">' + escapeHtml(entry.label) + '</div><div class="readiness-detail">' + escapeHtml(entry.detail || (entry.ready ? "Этап выполнен" : "Требуется действие")) + '</div></div></div>'; }).join('');
-    const missing = readiness.items.filter(function(entry) { return !entry.ready; }).map(function(entry) { return entry.label; });
-    const matchingMissing = readiness.items[2] && !readiness.items[2].ready;
-    const blocked = missing.length ? '<div class="banner warning"><div><strong>Расчёт недоступен.</strong> Незавершённые этапы: ' + escapeHtml(missing.join("; ")) + '.</div>' + (matchingMissing ? button("Открыть расценки", "calculator", "banner-action", 'id="open-pricing-from-report"') : '') + '</div>' : '';
+    const checklist = readiness.items.map(function(entry) { return '<div class="readiness-item ' + (entry.ready ? 'ready' : 'pending') + '"><div class="readiness-icon">' + icon(entry.ready ? "check" : "info") + '</div><div><div class="readiness-label">' + escapeHtml(entry.label) + (entry.required ? '' : ' <span class="muted">· необязательно</span>') + '</div><div class="readiness-detail">' + escapeHtml(entry.detail || (entry.ready ? "Этап выполнен" : "Требуется действие")) + '</div></div></div>'; }).join('');
+    const missingRequired = readiness.items.filter(function(entry) { return entry.required && !entry.ready; }).map(function(entry) { return entry.label; });
+    const blocked = missingRequired.length ? '<div class="banner warning"><div><strong>Сначала загрузите БД КФО.</strong> Без объёмов сформировать строки отчёта невозможно.</div></div>' : '';
+    const pricingWarning = ready && readiness.stats.unmatchedGroups > 0 ? '<div class="banner warning"><div><strong>Отсутствующие расценки не блокируют отчёт.</strong> Для ' + formatNumber(readiness.stats.unmatchedGroups, 0) + ' из ' + formatNumber(readiness.stats.requiredGroups, 0) + ' групп стоимость будет равна 0.</div>' + button("Открыть расценки", "calculator", "banner-action", 'id="open-pricing-from-report"') + '</div>' : '';
     const previewLimit = 500;
     const previewRows = filteredRows.slice(0, previewLimit);
-    const rowsHtml = previewRows.map(function(row) { return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml(row.code) + '</td><td>' + escapeHtml(row.unit || "—") + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td></tr>'; }).join('');
+    const rowsHtml = previewRows.map(function(row) {
+      const missingClass = row.missingParts > 0 ? ' class="rate-missing"' : '';
+      return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml((row.level || selectedLevel).toUpperCase().replace("KQ", "KQ-")) + '</td><td><strong>' + escapeHtml(row.code) + '</strong></td><td>' + escapeHtml(row.name || row.code) + '</td><td>' + escapeHtml(row.unit || "—") + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td><td' + missingClass + '>' + escapeHtml(row.rateStatus) + '</td></tr>';
+    }).join('');
     const previewNote = filteredRows.length > previewLimit ? '<p class="result-note">Для сохранения производительности показаны первые ' + previewLimit + ' из ' + formatNumber(filteredRows.length, 0) + ' строк. Итог рассчитан по всем строкам.</p>' : '';
     const calculatedNote = state.report.calculatedAt ? ' · ' + new Date(state.report.calculatedAt).toLocaleString("ru-RU") : '';
-    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack report-stack"><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Готовность расчёта</h3><p class="card-desc">Проверка обязательных источников перед формированием отчёта.</p></div><span class="badge ' + (ready ? 'green' : 'warning') + '">' + readyCount + ' из ' + readiness.items.length + '</span></div></div><div class="card-body report-readiness-content"><div class="readiness-summary"><strong>' + (ready ? 'Все этапы готовы' : 'Требуется завершить подготовку') + '</strong><span class="badge ' + (ready ? 'green' : 'warning') + '">' + (ready ? 'Можно рассчитывать' : 'Расчёт заблокирован') + '</span></div>' + blocked + '<div class="readiness-grid">' + checklist + '</div><p class="result-note">' + escapeHtml(state.report.message) + escapeHtml(calculatedNote) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Месячная динамика выполнения</h3><p class="card-desc">Стоимость выполнения по интегрированным расценкам. В режиме «Все подрядчики» каждый подрядчик показан отдельной линией.</p></div><select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__"' + (selected === "__ALL__" ? ' selected' : '') + '>Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select></div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body">' + previewNote + '<div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Расценка</th><th>Ед.</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="6">Нет рассчитанных данных</td></tr>') + '</tbody></table></div></div></section></div>';
+    const scopeOptions = '<option value="contractors"' + (!projectScope ? ' selected' : '') + '>По подрядчикам</option><option value="project"' + (projectScope ? ' selected' : '') + '>Проект в целом · KQ-1</option>';
+    const levelOptions = '<option value="kq1"' + (selectedLevel === "kq1" ? ' selected' : '') + '>KQ-1</option><option value="kq2"' + (selectedLevel === "kq2" ? ' selected' : '') + '>KQ-2</option>';
+    const reportSetup = '<section class="card"><div class="card-header"><div><h3 class="card-title">Логика расчёта</h3><p class="card-desc">Параметры представления и фактическая формула оценки.</p></div></div><div class="card-body report-setup"><div class="field-grid"><div class="field"><label for="report-scope">Представление</label><select class="input" id="report-scope">' + scopeOptions + '</select></div><div class="field"><label for="report-level">Уровень видов работ</label><select class="input" id="report-level"' + (projectScope ? ' disabled' : '') + '>' + levelOptions + '</select></div></div><div class="report-formula"><div class="report-formula-main">Стоимость = Объём КФО × коэффициент KQ × единичная расценка</div><div class="report-formula-parts"><div class="report-formula-part"><strong>1. Объём КФО</strong>Факт СМР из рабочей БД на выбранную дату.</div><div class="report-formula-part"><strong>2. Коэффициент KQ</strong>Коэффициент выбранного уровня KQ-1 или KQ-2 из БД и конфигуратора.</div><div class="report-formula-part"><strong>3. Единичная расценка</strong>Цена подрядчика из источника расценок; если цена не найдена, применяется 0.</div></div><div class="result-note">Для свода по проекту стоимость сначала рассчитывается по каждому подрядчику и единичной расценке, затем суммируется по виду работ KQ-1.</div></div></div></section>';
+    const contractorFilter = projectScope ? '' : '<select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__"' + (selected === "__ALL__" ? ' selected' : '') + '>Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select>';
+    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack report-stack">' + reportSetup + '<section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Готовность расчёта</h3><p class="card-desc">БД КФО обязательна; расценки повышают полноту оценки, но не блокируют формирование.</p></div><span class="badge ' + (ready ? 'green' : 'warning') + '">' + readyCount + ' из ' + readiness.items.length + '</span></div></div><div class="card-body report-readiness-content"><div class="readiness-summary"><strong>' + (ready ? 'Данные готовы к формированию' : 'Требуется загрузить объёмы') + '</strong><span class="badge ' + (ready ? 'green' : 'warning') + '">' + (ready ? 'Можно рассчитывать' : 'Нет данных КФО') + '</span></div>' + blocked + pricingWarning + '<div class="readiness-grid">' + checklist + '</div><p class="result-note">' + escapeHtml(state.report.message) + escapeHtml(calculatedNote) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Месячная динамика выполнения</h3><p class="card-desc">Стоимость выполнения с нулевыми значениями для объёмов без расценки.</p></div>' + contractorFilter + '</div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт по оценке</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body">' + previewNote + '<div class="table-wrap"><table><thead><tr><th>' + (projectScope ? 'Область' : 'Подрядчик') + '</th><th>Уровень</th><th>Вид работ</th><th>Наименование</th><th>Ед.</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th><th>Расценка</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="9">Нажмите «Рассчитать стоимость», чтобы сформировать отчёт.</td></tr>') + '</tbody></table></div></div></section></div>';
   }
 
   // =====================================================================
@@ -3406,11 +3584,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         }).join('');
         const addContractReady = addContractList.indexOf(addForm.contract) >= 0;
         const contractorOptions = allContractorNames.map(function(name) {
-            const hasRates = state.pricing.data[name] &&
-                           Object.keys(state.pricing.data[name].contracts || {}).length > 0;
-            return '<option value="' + escapeHtml(name) + '"' + (name === selectedAddContractor ? ' selected' : '') + '>' +
-                   escapeHtml(name) + (hasRates ? ' ✓' : '') +
-                   '</option>';
+            return '<option value="' + escapeHtml(name) + '"' + (name === selectedAddContractor ? ' selected' : '') + '>' + escapeHtml(name) + '</option>';
         }).join('');
         const availableSheets = Array.isArray(addForm.availableSheets) ? addForm.availableSheets : [];
         const sheetOptions = availableSheets.map(function(name) { return '<option value="' + escapeHtml(name) + '"></option>'; }).join('');
@@ -3421,15 +3595,11 @@ for (let idx = 0; idx < sources.length; idx++) {
         addFormHTML = '<div class="add-form">' +
             '<div class="form-title">➕ Добавление источника расценок</div>' +
             '<div class="form-row">' +
-                '<div class="field"><label>Контрагент</label>' +
+                '<div class="field"><label>Подрядчик</label>' +
                     '<select class="input" id="add-contractor">' +
                         '<option value="">— Выберите из справочника —</option>' +
                         contractorOptions +
                     '</select>' +
-                    '<span style="font-size:9px;color:var(--muted-foreground);">' +
-                        'Подрядчиков в справочнике: ' + allContractorNames.length +
-                        ' (✓ - есть расценки)' +
-                    '</span>' +
                 '</div>' +
                 '<div class="field"><label>Договор</label>' +
                     '<select class="input" id="add-contract"' + (selectedAddContractor && contractOptions ? '' : ' disabled') + '><option value="">— Выберите договор из БД КФО —</option>' + contractOptions + '</select>' +
@@ -3663,7 +3833,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
         comparisonTableHTML = '<div class="comparison-table-wrap"><table class="comparison-table"><thead><tr>' + headers + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     } else {
-        comparisonTableHTML = '<div class="empty" style="min-height:120px;"><div class="empty-title" style="font-size:12px;">Выберите подрядчиков и расценки для сравнения</div><div class="empty-note">Используйте поиск слева для добавления элементов</div></div>';
+        comparisonTableHTML = '<div class="empty" style="min-height:120px;"><div class="empty-title" style="font-size:12px;">Выберите расценку для сравнения</div><div class="empty-note">Установите флажок у нужного шифра в дереве расценок — в таблицу попадёт этот шифр по всем доступным подрядчикам.</div></div>';
     }
 
     const comparisonHTML =
@@ -3694,7 +3864,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         comparisonHTML +
         '<div class="banner" style="background:var(--muted);border-color:var(--border);">' +
             icon("info") +
-            '<div><strong>Источники расценок.</strong> Для загрузки реальных данных добавьте источники в режиме редактирования. Список подрядчиков формируется из справочника подрядчиков.</div>' +
+            '<div><strong>Источники расценок.</strong> Привязки подрядчиков, договоров и файлов читаются из config.json. Изменения в режиме редактирования действуют до обновления страницы, если не скачать новый конфиг.</div>' +
         '</div>' +
     '</div>';
   }
@@ -3735,16 +3905,27 @@ for (let idx = 0; idx < sources.length; idx++) {
     document.getElementById("load-project-kpi")?.addEventListener("click", loadProjectKpis);
     document.getElementById("calculate-report")?.addEventListener("click", async function() {
       startProcess("Интегрированные данные", "Формирование отчета");
-      updateProcess("Формирование отчета", 25, 0, "Проверяем готовность обязательных источников");
+      updateProcess("Формирование отчета", 25, 0, "Проверяем наличие объёмов КФО");
       if (await calculateReport()) {
         finishProcess("success", "Завершено", state.report.rows.length, state.report.message);
         renderContent();
         showToast("Расчёт завершён", state.report.message);
       } else {
-        finishProcess("warning", "Формирование отчета", 0, "Расчёт заблокирован: завершите обязательные этапы Check List");
+        finishProcess("warning", "Формирование отчета", 0, "Сначала загрузите сведения БД КФО");
         renderContent();
-        showToast("Расчёт заблокирован", "Завершите обязательные этапы Check List.");
+        showToast("Нет данных для расчёта", "Сначала нажмите «Собрать сведения» в разделе «БД КФО».");
       }
+    });
+    document.getElementById("report-scope")?.addEventListener("change", function(e) {
+      state.report.scope = e.target.value === "project" ? "project" : "contractors";
+      if (state.report.scope === "project") state.report.level = "kq1";
+      invalidateReport("Изменены параметры представления — выполните расчёт заново");
+      renderContent();
+    });
+    document.getElementById("report-level")?.addEventListener("change", function(e) {
+      state.report.level = e.target.value === "kq1" ? "kq1" : "kq2";
+      invalidateReport("Изменён уровень KQ — выполните расчёт заново");
+      renderContent();
     });
     document.getElementById("report-contractor")?.addEventListener("change", function(e) { state.report.contractor = e.target.value; renderContent(); });
 
@@ -4035,36 +4216,15 @@ for (let idx = 0; idx < sources.length; idx++) {
       const checkbox = e.target.closest("[data-rate-check]");
       if (checkbox && checkbox.closest("#content")) {
         const rateCode = checkbox.getAttribute("data-rate-check");
-        const contractor = checkbox.getAttribute("data-contractor");
-        const contract = checkbox.getAttribute("data-contract");
-        const rdc = checkbox.getAttribute("data-rdc");
 
         if (checkbox.checked) {
           if (!state.pricing.comparison.selectedRates.includes(rateCode)) {
             state.pricing.comparison.selectedRates.push(rateCode);
           }
-          if (contractor) {
-            const exists = state.pricing.comparison.selectedContractors.some(function(entry) {
-              return entry.name === contractor && entry.contract === contract && entry.priceCalculation === rdc;
-            });
-            if (!exists) {
-              state.pricing.comparison.selectedContractors.push({
-                name: contractor,
-                contract: contract,
-                priceCalculation: rdc
-              });
-              state.configDirty = true;
-            }
-          }
         } else {
-          state.pricing.comparison.selectedContractors = state.pricing.comparison.selectedContractors.filter(function(entry) {
-            return !(entry.name === contractor && entry.contract === contract && entry.priceCalculation === rdc);
-          });
-          if (!state.pricing.comparison.selectedContractors.length) {
-            state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(r) { return r !== rateCode; });
-          }
-          state.configDirty = true;
+          state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(r) { return r !== rateCode; });
         }
+        synchronizeComparisonSources();
         renderContent();
       }
     });
@@ -4079,7 +4239,6 @@ for (let idx = 0; idx < sources.length; idx++) {
         state.pricing.comparison.selectedContractors = state.pricing.comparison.selectedContractors.filter(function(entry) {
           return !(entry.name === name && entry.contract === contract && entry.priceCalculation === rdc);
         });
-        state.configDirty = true;
         renderContent();
       });
     });
@@ -4089,7 +4248,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         e.stopPropagation();
         const rate = removeRateBtn.getAttribute("data-remove-rate");
         state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(r) { return r !== rate; });
-        state.configDirty = true;
+        synchronizeComparisonSources();
         renderContent();
       });
     });
@@ -4261,7 +4420,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       const indirectPercent = parseFloat(state.pricing.addForm.indirectPercent) || 0;
 
       if (!contractor || !contract || !rdc || !sourceUrl || !sheetName) {
-        showToast("Ошибка", "Заполните все обязательные поля (контрагент, договор, РДЦ, URL, вкладка)");
+        showToast("Ошибка", "Заполните все обязательные поля (подрядчик, договор, РДЦ, URL, вкладка)");
         return;
       }
       const kfoContracts = getKfoContracts(contractor);
