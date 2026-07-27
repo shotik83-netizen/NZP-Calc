@@ -667,27 +667,7 @@
       <nav class="nav-list" id="nav-list"></nav>
     </aside>
     <main class="content-scroll" id="main-scroll">
-      <div class="content" id="content" aria-live="polite">
-<!-- Индикатор загрузки -->
-<div id="loading-indicator" style="display: none; padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dce4e0;">
-    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
-        <div style="width: 40px; height: 40px; border: 4px solid #e0e0e0; border-top: 4px solid #289672; border-radius: 50%; animation: spin 1s linear infinite; flex-shrink: 0;"></div>
-        <div style="flex: 1; min-width: 200px;">
-            <div id="loading-title" style="font-weight: 600; color: #17201c; font-size: 14px;">Загрузка данных...</div>
-            <div id="loading-detail" style="font-size: 12px; color: #68736e; margin: 4px 0 8px;">Обработка источников</div>
-            <div style="width: 100%; height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden;">
-                <div id="loading-progress-bar" style="width: 0%; height: 100%; background: #289672; transition: width 0.3s ease; border-radius: 3px;"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-</style></div>
+      <div class="content" id="content" aria-live="polite"></div>
     </main>
   </div>
 
@@ -825,7 +805,7 @@
     contractorSearch: "",
     dataUpdatedAt: null,
     kfoLoadGeneration: 0,
-    process: { visible: false, status: "idle", source: "", stage: "", percent: 0, processed: 0, startedAt: 0, message: "" },
+    process: { visible: false, status: "idle", source: "", stage: "", percent: 0, processed: 0, startedAt: 0, finishedAt: 0, message: "" },
     kqNameMap: { kq1: {}, kq2: {} },
     kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
     kpi: { status: "inactive", groups: [], totalRows: 0, includedRows: 0, message: "Источник проверен; аналитика не загружена" },
@@ -1898,10 +1878,22 @@ function contractorNameStem(value) {
 
   async function checkKfoConnections(quiet) {
     const sources = getKfoSources().filter(function(source) { return source.enabled; });
+    startProcess("Источники БД КФО", "Проверка файла");
+    if (!sources.length) {
+      finishProcess("error", "Проверка файла", 0, "Нет включённых источников БД КФО");
+      if (state.configLoaded) renderContent();
+      if (!quiet) showToast("Источники не настроены", "Добавьте и включите источник БД КФО.");
+      return false;
+    }
     const results = [];
-    for (let index = 0; index < sources.length; index += 1) results.push(await checkKfoSourceConnection(sources[index]));
+    for (let index = 0; index < sources.length; index += 1) {
+      updateProcess("Проверка файла", Math.round(index / sources.length * 100), index, sources[index].name || sources[index].url);
+      results.push(await checkKfoSourceConnection(sources[index]));
+    }
+    const available = results.filter(Boolean).length;
+    finishProcess(available === sources.length ? "success" : (available ? "warning" : "error"), "Завершено", sources.length, available + " из " + sources.length + " файлов доступны. Данные не загружались.");
     if (state.configLoaded) renderContent();
-    if (!quiet) showToast(results.some(Boolean) ? "Проверка завершена" : "Источники недоступны", results.filter(Boolean).length + " из " + results.length + " файлов доступны. Данные не загружались.");
+    if (!quiet) showToast(results.some(Boolean) ? "Проверка завершена" : "Источники недоступны", available + " из " + results.length + " файлов доступны. Данные не загружались.");
     return results.some(Boolean);
   }
 
@@ -2016,27 +2008,9 @@ async function loadKfoSources() {
     const filterContractors = isAllSelected ? [] : selectedContractors;
 
     startProcess(sources.map(function(source) { return source.name; }).join(", "), "Проверка файла");
-    renderContent();
 
-    const indicator = document.getElementById('loading-indicator');
-    const titleEl = document.getElementById('loading-title');
-    const detailEl = document.getElementById('loading-detail');
-    const progressBar = document.getElementById('loading-progress-bar');
-
-    if (indicator) {
-        indicator.style.display = 'block';
-        if (titleEl) titleEl.textContent = 'Загрузка БД КФО...';
-        if (detailEl) detailEl.textContent = 'Подготовка...';
-        if (progressBar) progressBar.style.width = '0%';
-    }
-
-    function updateProgress(detail, percent) {
-        updateProcess(detail || "Обработка данных", percent, state.process.processed, "");
-        if (detailEl) detailEl.textContent = detail || '';
-        if (progressBar) {
-            const p = Math.min(100, Math.max(0, percent || 0));
-            progressBar.style.width = p + '%';
-        }
+    function updateProgress(stage, detail, percent, processed) {
+        updateProcess(stage || "Обработка данных", percent, processed == null ? state.process.processed : processed, detail || "");
     }
 
     state.kfo = {
@@ -2078,7 +2052,6 @@ for (let idx = 0; idx < sources.length; idx++) {
         state.kfo.status = "error";
         state.kfo.message = error.message || "Не удалось загрузить JSON-конфигуратор";
         finishProcess("error", "Поиск заголовков", 0, state.kfo.message);
-        if (indicator) indicator.style.display = 'none';
         renderContent();
         showToast("Ошибка конфигурации БД КФО", state.kfo.message);
         return false;
@@ -2091,15 +2064,17 @@ for (let idx = 0; idx < sources.length; idx++) {
     const errors = [];
     const totalSources = sources.length;
 
-    updateProgress('Конфигурация загружена', 10);
+    updateProgress("Проверка файла", "Конфигурация загружена", 10, 0);
 
     for (let i = 0; i < sources.length; i += 1) {
         const source = sources[i];
         try {
             const progress = 10 + ((i / totalSources) * 80);
             updateProgress(
-                `Загрузка: ${source.name} (${i + 1}/${totalSources})`,
-                progress
+                "Загрузка БД КФО",
+                `${source.name} (${i + 1}/${totalSources})`,
+                progress,
+                state.process.processed
             );
 
             const workbookBuffer = await fetchWorkbookBuffer(source.url);
@@ -2110,12 +2085,13 @@ for (let idx = 0; idx < sources.length; idx++) {
                 parserConfig,
                 filterContractors,
                 function(processed, total) {
-                    state.process.processed = processed;
                     const sourceShare = total ? processed / total : 1;
                     const percent = 10 + (((i + sourceShare) / totalSources) * 80);
                     updateProgress(
-                        `Обработка: ${source.name} — ${formatNumber(processed, 0)} из ${formatNumber(total, 0)} строк`,
-                        percent
+                        "Обработка данных",
+                        `${source.name} — ${formatNumber(processed, 0)} из ${formatNumber(total, 0)} строк`,
+                        percent,
+                        processed
                     );
                 },
                 function() { return loadGeneration !== state.kfoLoadGeneration; }
@@ -2136,8 +2112,10 @@ for (let idx = 0; idx < sources.length; idx++) {
 
             const afterProgress = 10 + (((i + 1) / totalSources) * 80);
             updateProgress(
+                "Обработка данных",
                 `Обработано: ${source.name} (${i + 1}/${totalSources})`,
-                afterProgress
+                afterProgress,
+                parsed.summary.totalRows
             );
 
         } catch (error) {
@@ -2153,7 +2131,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     if (loadGeneration !== state.kfoLoadGeneration) return false;
     state.dataUpdatedAt = new Date();
-    updateProgress('Формирование итоговых данных...', 95);
+    updateProgress("Обработка данных", "Формирование итоговых данных", 95, summaries.reduce(function(sum, entry) { return sum + entry.totalRows; }, 0));
 
     const canonicalGroups = (function() {
         const merged = new Map();
@@ -2256,7 +2234,6 @@ for (let idx = 0; idx < sources.length; idx++) {
     };
 
     finishProcess(errors.length ? "warning" : "success", "Завершено", state.kfo.totalRows, errors.length ? errors.join("; ") : "БД КФО успешно загружена");
-    if (indicator) indicator.style.display = 'none';
     renderContent();
 
     const filterMsg = filterContractors.length ? " (отфильтровано по " + filterContractors.length + " подрядчикам)" : "";
@@ -2269,6 +2246,85 @@ for (let idx = 0; idx < sources.length; idx++) {
     return summaries.length > 0;
 }
 
+  async function parseAggregationWorkbook(buffer, parser, onProgress) {
+    if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
+    const workbook = XLSX.read(buffer, { type: "array", dense: true });
+    const fieldNames = Object.keys(parser.fields || {});
+    const requiredFields = fieldNames.filter(function(field) { return parser.fields[field].required; });
+    const searchRows = Math.max(1, Math.min(Number(parser.headerSearchRows) || 50, 500));
+    let lastHeaderError = "";
+
+    for (let sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex += 1) {
+      const sheetName = workbook.SheetNames[sheetIndex];
+      const sheet = workbook.Sheets[sheetName];
+      const reference = XLSX.utils.decode_range(sheet["!ref"] || "A1:A1");
+      let headerIndex = -1;
+      let columns = {};
+      if (onProgress) onProgress("Поиск заголовков", 40 + Math.round((sheetIndex + 1) / Math.max(1, workbook.SheetNames.length) * 10), 0, "Лист: " + sheetName);
+
+      for (let rowIndex = reference.s.r; rowIndex <= Math.min(reference.e.r, reference.s.r + searchRows - 1); rowIndex += 1) {
+        const candidate = {};
+        for (let columnIndex = reference.s.c; columnIndex <= reference.e.c; columnIndex += 1) {
+          const value = normalizeParserLabel(readSheetCell(sheet, rowIndex, columnIndex));
+          if (!value) continue;
+          fieldNames.forEach(function(field) {
+            if (candidate[field] !== undefined) return;
+            const aliases = (parser.fields[field] && parser.fields[field].aliases) || [];
+            if (aliases.some(function(alias) { return normalizeParserLabel(alias) === value; })) candidate[field] = columnIndex;
+          });
+        }
+        if (requiredFields.every(function(field) { return candidate[field] !== undefined; })) {
+          headerIndex = rowIndex;
+          columns = candidate;
+          break;
+        }
+      }
+
+      if (headerIndex < 0) {
+        lastHeaderError = "Лист «" + sheetName + "»: обязательные заголовки не найдены в первых " + searchRows + " строках";
+        continue;
+      }
+
+      const entries = [];
+      const totalRows = Math.max(0, reference.e.r - headerIndex);
+      for (let rowIndex = headerIndex + 1; rowIndex <= reference.e.r; rowIndex += 1) {
+        const processedRows = rowIndex - headerIndex;
+        if (processedRows % 2000 === 0) {
+          if (onProgress) onProgress("Обработка данных", 50 + Math.round(processedRows / Math.max(1, totalRows) * 40), entries.length, "Формируем облегчённый индекс BOQ");
+          await new Promise(function(resolve) {
+            if (typeof requestAnimationFrame === "function") requestAnimationFrame(function() { resolve(); });
+            else setTimeout(resolve, 0);
+          });
+        }
+        const getValue = function(field) { return columns[field] === undefined ? "" : readSheetCell(sheet, rowIndex, columns[field]); };
+        const complete = parser.recordRequiredFields.every(function(field) { return String(getValue(field) == null ? "" : getValue(field)).trim(); });
+        if (!complete) continue;
+        const numeric = function(field) {
+          const value = Number(String(getValue(field)).replace(/\s/g, "").replace(",", "."));
+          return Number.isFinite(value) ? value : null;
+        };
+        const entry = {
+          erCode: String(getValue("erCode")).trim(),
+          erName: String(getValue("erName")).trim(),
+          unit: String(getValue("unit")).trim(),
+          kq1Code: String(getValue("kq1Code")).trim(),
+          kq1Name: String(getValue("kq1Name")).trim(),
+          kq1Coefficient: numeric("kq1Coefficient"),
+          kq2Code: String(getValue("kq2Code")).trim(),
+          kq2Name: String(getValue("kq2Name")).trim(),
+          kq2Coefficient: numeric("kq2Coefficient"),
+          status: String(getValue("status") || parser.defaultStatus || "Действует").trim()
+        };
+        const defaultCoefficient = Number(parser.missingCoefficient) || 1;
+        ["kq1Coefficient", "kq2Coefficient"].forEach(function(field) { if (entry[field] === null) entry[field] = defaultCoefficient; });
+        entries.push(entry);
+      }
+      if (entries.length) return entries;
+      lastHeaderError = "Лист «" + sheetName + "»: таблица найдена, но полных записей BOQ нет";
+    }
+    throw new Error(lastHeaderError || "В Excel не найдена таблица, соответствующая JSON-конфигуратору");
+  }
+
   async function loadAggregation(quiet) {
     const cfg = state.config || {};
     const source = cfg.aggregationSource || { name: "Справочник BOQ", url: "" };
@@ -2278,65 +2334,16 @@ for (let idx = 0; idx < sources.length; idx++) {
     state.aggregation.status = "loading";
     try {
       const parserConfig = await fetchParserConfiguration();
+      updateProcess("Проверка файла", 10, 0, "Конфигурация источника проверена");
       const configuredSource = parserConfig.sources.aggregation.url || source.url;
+      state.process.source = configuredSource || source.name || "Справочник BOQ";
       const response = await fetch(new URL(configuredSource, parserConfig._sourceUrl).href, { cache: "no-store", credentials: "include" });
       if (!response.ok) throw new Error("Справочник Excel: HTTP " + response.status);
-      const entries = (function(buffer, parser) {
-        if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
-        const workbook = XLSX.read(buffer, { type: "array" });
-        const fieldNames = Object.keys(parser.fields || {});
-        const searchRows = Math.max(1, Math.min(Number(parser.headerSearchRows) || 50, 500));
-        for (let sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex += 1) {
-          const sheet = workbook.Sheets[workbook.SheetNames[sheetIndex]];
-          const data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false });
-          let headerIndex = -1;
-          let columns = {};
-          for (let rowIndex = 0; rowIndex < Math.min(data.length, searchRows); rowIndex += 1) {
-            const row = data[rowIndex] || [];
-            columns = {};
-            fieldNames.forEach(function (field) {
-              const aliases = (parser.fields[field] && parser.fields[field].aliases) || [];
-              const idx = row.findIndex(function (cell) {
-                return aliases.some(function (alias) { return normalizeParserLabel(alias) === normalizeParserLabel(cell); });
-              });
-              if (idx >= 0) columns[field] = idx;
-            });
-            const headersReady = fieldNames.filter(function (field) { return parser.fields[field].required; }).every(function (field) { return columns[field] !== undefined; });
-            if (headersReady) { headerIndex = rowIndex; break; }
-          }
-          if (headerIndex < 0) continue;
-          const entries = [];
-          for (let dataIndex = headerIndex + 1; dataIndex < data.length; dataIndex += 1) {
-            const sourceRow = data[dataIndex] || [];
-            const getValue = function (field) { return columns[field] === undefined ? "" : sourceRow[columns[field]]; };
-            const complete = parser.recordRequiredFields.every(function (field) { return String(getValue(field) == null ? "" : getValue(field)).trim(); });
-            if (!complete) continue;
-            const numeric = function (field) {
-              const value = Number(String(getValue(field)).replace(/\s/g, "").replace(",", "."));
-              return Number.isFinite(value) ? value : null;
-            };
-            const entry = {
-              erCode: String(getValue("erCode")).trim(),
-              erName: String(getValue("erName")).trim(),
-              unit: String(getValue("unit")).trim(),
-              kq1Code: String(getValue("kq1Code")).trim(),
-              kq1Name: String(getValue("kq1Name")).trim(),
-              kq1Coefficient: numeric("kq1Coefficient"),
-              kq2Code: String(getValue("kq2Code")).trim(),
-              kq2Name: String(getValue("kq2Name")).trim(),
-              kq2Coefficient: numeric("kq2Coefficient"),
-              status: String(getValue("status") || parser.defaultStatus || "Действует").trim()
-            };
-            const defaultCoefficient = Number(parser.missingCoefficient) || 1;
-            ["kq1Coefficient", "kq2Coefficient"].forEach(function (field) {
-              if (entry[field] === null) entry[field] = defaultCoefficient;
-            });
-            entries.push(entry);
-          }
-          if (entries.length) return entries;
-        }
-        throw new Error("в Excel не найдена таблица, соответствующая JSON-конфигуратору");
-      })(await response.arrayBuffer(), parserConfig.parsers.aggregation);
+      updateProcess("Чтение данных", 25, 0, "Файл получен, читаем Excel");
+      const aggregationBuffer = await response.arrayBuffer();
+      updateProcess("Поиск заголовков", 40, 0, "Ищем таблицу BOQ по обязательным полям");
+      const entries = await parseAggregationWorkbook(aggregationBuffer, parserConfig.parsers.aggregation, updateProcess);
+      updateProcess("Обработка данных", 95, entries.length, "Формируем индекс для поиска по требованию");
       previousParserConfig = state.aggregation.parserConfig;
       previousParserDirty = state.aggregation.parserDirty;
       if (previousParserDirty && previousParserConfig) {
@@ -2398,6 +2405,11 @@ for (let idx = 0; idx < sources.length; idx++) {
       return false;
     }
 
+    const pricingSourcesTotal = Object.values(bindings).reduce(function(contractorTotal, contracts) {
+      return contractorTotal + Object.values(contracts || {}).reduce(function(contractTotal, rdcs) {
+        return contractTotal + Object.keys(rdcs || {}).length;
+      }, 0);
+    }, 0);
     startProcess("Источники расценок", "Загрузка расценок");
     state.pricing.status = "loading";
     if (state.active === "pricing") renderContent();
@@ -2414,6 +2426,7 @@ for (let idx = 0; idx < sources.length; idx++) {
           state.pricing.data[contractor].contracts[contract] = { priceCalculations: {} };
         }
         for (const [rdc, config] of Object.entries(rdcs)) {
+          updateProcess("Загрузка расценок", Math.round((loadedCount + errorCount) / Math.max(1, pricingSourcesTotal) * 90), loadedCount + errorCount, contractor + " · " + contract + " · " + rdc);
           try {
             if (config.sourceUrl) {
               const buffer = await fetchWorkbookBuffer(config.sourceUrl);
@@ -2565,12 +2578,39 @@ for (let idx = 0; idx < sources.length; idx++) {
     if (!process.visible) return "";
     const colors = { running: "#2563eb", success: "#16a34a", warning: "#d97706", error: "#dc2626" };
     const color = colors[process.status] || "#2563eb";
-    const elapsed = process.startedAt ? ((Date.now() - process.startedAt) / 1000).toFixed(1) + " с" : "—";
-    return '<section id="process-indicator" class="card" style="border-color:' + color + ';margin-bottom:16px"><div class="card-body"><div class="card-title-row"><strong style="color:' + color + '">' + escapeHtml(process.stage || "Обработка данных") + '</strong><span class="badge">' + formatNumber(process.percent || 0, 0) + '%</span></div><div class="result-note">Источник: ' + escapeHtml(process.source || "—") + ' · Обработано: ' + formatNumber(process.processed || 0, 0) + ' · Время: ' + elapsed + '</div><div style="height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px"><div style="height:100%;width:' + Math.max(0, Math.min(100, process.percent || 0)) + '%;background:' + color + '"></div></div>' + (process.message ? '<p class="result-note" style="color:' + color + '">' + escapeHtml(process.message) + '</p>' : '') + '</div></section>';
+    const elapsedEnd = process.finishedAt || Date.now();
+    const elapsed = process.startedAt ? ((elapsedEnd - process.startedAt) / 1000).toFixed(1) + " с" : "—";
+    const closeButton = process.status === "running" ? "" : '<button class="btn btn-ghost" type="button" id="close-process-indicator">Закрыть</button>';
+    return '<section id="process-indicator" class="card" aria-live="polite" style="border-color:' + color + ';margin-bottom:16px"><div class="card-body"><div class="card-title-row"><strong id="process-stage" style="color:' + color + '">' + escapeHtml(process.stage || "Обработка данных") + '</strong><div style="display:flex;align-items:center;gap:8px"><span class="badge" id="process-percent">' + formatNumber(process.percent || 0, 0) + '%</span>' + closeButton + '</div></div><div class="result-note"><span id="process-source">Источник: ' + escapeHtml(process.source || "—") + '</span> · <span id="process-processed">Обработано: ' + formatNumber(process.processed || 0, 0) + '</span> · <span id="process-elapsed">Время: ' + elapsed + '</span></div><div style="height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px"><div id="process-progress-bar" style="height:100%;width:' + Math.max(0, Math.min(100, process.percent || 0)) + '%;background:' + color + ';transition:width .2s ease"></div></div><p id="process-message" class="result-note" style="color:' + color + ';' + (process.message ? '' : 'display:none') + '">' + escapeHtml(process.message || '') + '</p></div></section>';
   }
 
   function startProcess(source, stage) {
-    state.process = { visible: true, status: "running", source: source || "", stage: stage || "Проверка файла", percent: 0, processed: 0, startedAt: Date.now(), message: "" };
+    state.process = { visible: true, status: "running", source: source || "", stage: stage || "Проверка файла", percent: 0, processed: 0, startedAt: Date.now(), finishedAt: 0, message: "" };
+    if (state.configLoaded) renderContent();
+  }
+
+  function refreshProcessIndicator() {
+    const process = state.process || {};
+    const colors = { running: "#2563eb", success: "#16a34a", warning: "#d97706", error: "#dc2626" };
+    const color = colors[process.status] || "#2563eb";
+    const card = document.getElementById("process-indicator");
+    if (!card) return;
+    const stage = document.getElementById("process-stage");
+    const source = document.getElementById("process-source");
+    const processed = document.getElementById("process-processed");
+    const elapsed = document.getElementById("process-elapsed");
+    const percent = document.getElementById("process-percent");
+    const bar = document.getElementById("process-progress-bar");
+    const message = document.getElementById("process-message");
+    const elapsedEnd = process.finishedAt || Date.now();
+    card.style.borderColor = color;
+    if (stage) { stage.textContent = process.stage || "Обработка данных"; stage.style.color = color; }
+    if (source) source.textContent = "Источник: " + (process.source || "—");
+    if (processed) processed.textContent = "Обработано: " + formatNumber(process.processed || 0, 0);
+    if (elapsed) elapsed.textContent = "Время: " + (process.startedAt ? ((elapsedEnd - process.startedAt) / 1000).toFixed(1) + " с" : "—");
+    if (percent) percent.textContent = formatNumber(process.percent || 0, 0) + "%";
+    if (bar) { bar.style.width = process.percent + "%"; bar.style.background = color; }
+    if (message) { message.textContent = process.message || ""; message.style.color = color; message.style.display = process.message ? "" : "none"; }
   }
 
   function updateProcess(stage, percent, processed, message) {
@@ -2578,12 +2618,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     state.process.percent = Math.max(0, Math.min(100, Number(percent) || 0));
     state.process.processed = Number(processed) || 0;
     state.process.message = message || "";
-    const title = document.getElementById("loading-title");
-    const detail = document.getElementById("loading-detail");
-    const bar = document.getElementById("loading-progress-bar");
-    if (title) title.textContent = state.process.stage;
-    if (detail) detail.textContent = state.process.source + " · " + formatNumber(state.process.processed, 0) + " записей";
-    if (bar) bar.style.width = state.process.percent + "%";
+    refreshProcessIndicator();
   }
 
   function finishProcess(status, stage, processed, message) {
@@ -2593,6 +2628,8 @@ for (let idx = 0; idx < sources.length; idx++) {
     state.process.processed = Number(processed) || state.process.processed || 0;
     state.process.message = message || "";
     state.process.visible = true;
+    state.process.finishedAt = Date.now();
+    refreshProcessIndicator();
   }
 
   // =====================================================================
@@ -3000,7 +3037,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const aggregationActions = button("Загрузить справочник BOQ", "upload", "", 'id="load-aggregation"') + (state.editMode && runtimeConfig ? button("Скачать JSON", "download", state.aggregation.parserDirty ? "btn-primary" : "", 'id="download-parser-config"') : "");
 
     return pageHead(item, aggregationActions) +
-      '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
+      '<div class="stack"><div class="banner">' + icon("info") + '<div>Облегчённый модуль BOQ не загружается автоматически. Excel читается только по нажатию кнопки и по правилам внешнего JSON-конфигуратора.</div></div>' +
       '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение справочника BOQ</h3><span class="badge ' + (entries.length ? "green" : "warning") + '">' + (entries.length ? entries.length + " записей" : "Нет данных") + '</span></div><p class="card-desc">Источник из JSON: ' + escapeHtml((runtimeConfig && runtimeConfig.sources && runtimeConfig.sources.aggregation.url) || source.url || "не задан") + '<br>Конфигуратор: ' + escapeHtml(state.config.parserConfigUrl || "не задан") + (state.aggregation.parserVersion ? ' (версия ' + escapeHtml(state.aggregation.parserVersion) + ')' : '') + '<br>Активный уровень: ' + escapeHtml(activeLevel.toUpperCase()) + '; приоритет: ' + escapeHtml(priorityText) + '</p></div><div class="card-body">' + body + '</div></section></div>';
   }
 
@@ -3479,6 +3516,11 @@ for (let idx = 0; idx < sources.length; idx++) {
   // 20. ОБРАБОТЧИКИ СОБЫТИЙ
   // =====================================================================
   function bindContentEvents() {
+    document.getElementById("close-process-indicator")?.addEventListener("click", function() {
+      state.process.visible = false;
+      renderContent();
+    });
+
     // Навигация
     document.querySelectorAll("[data-section]").forEach(function(btn) {
       btn.addEventListener("click", function() {
@@ -3557,8 +3599,17 @@ for (let idx = 0; idx < sources.length; idx++) {
     });
     document.getElementById("load-project-kpi")?.addEventListener("click", loadProjectKpis);
     document.getElementById("calculate-report")?.addEventListener("click", function() {
-      if (calculateReport()) { renderContent(); showToast("Расчёт завершён", state.report.message); }
-      else showToast("Расчёт заблокирован", "Завершите обязательные этапы Check List.");
+      startProcess("Интегрированные данные", "Формирование отчета");
+      updateProcess("Формирование отчета", 25, 0, "Проверяем готовность обязательных источников");
+      if (calculateReport()) {
+        finishProcess("success", "Завершено", state.report.rows.length, state.report.message);
+        renderContent();
+        showToast("Расчёт завершён", state.report.message);
+      } else {
+        finishProcess("warning", "Формирование отчета", 0, "Расчёт заблокирован: завершите обязательные этапы Check List");
+        renderContent();
+        showToast("Расчёт заблокирован", "Завершите обязательные этапы Check List.");
+      }
     });
     document.getElementById("report-contractor")?.addEventListener("change", function(e) { state.report.contractor = e.target.value; renderContent(); });
 
