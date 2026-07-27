@@ -1990,6 +1990,7 @@ function contractorNameStem(value) {
 
 async function loadKfoSources() {
     const loadGeneration = ++state.kfoLoadGeneration;
+    invalidateReport("БД КФО обновляется — требуется повторный расчёт стоимости");
     const sources = getKfoSources().filter(function (source) {
         return source.enabled && source.url;
     });
@@ -2409,6 +2410,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
   async function loadPricingData(quiet) {
     const bindings = state.config && state.config.pricingBindings ? state.config.pricingBindings : {};
+    invalidateReport("Источники расценок обновляются — требуется повторный расчёт стоимости");
     if (!Object.keys(bindings).length) {
       state.pricing.status = "inactive";
       state.pricing.data = {};
@@ -3058,71 +3060,154 @@ for (let idx = 0; idx < sources.length; idx++) {
   // =====================================================================
   // 17. РЕНДЕР СТРАНИЦЫ "ОТЧЁТ"
   // =====================================================================
-  function findLoadedRatePrice(contractor, rateCode) {
-    const contractorData = state.pricing.data[contractor];
-    if (!contractorData) return null;
-    for (const contract of Object.values(contractorData.contracts || {})) {
-      for (const calculation of Object.values(contract.priceCalculations || {})) {
-        const rate = calculation.rates && calculation.rates[rateCode];
-        if (rate && Number.isFinite(Number(rate.totalPrice))) return Number(rate.totalPrice);
-      }
-    }
-    return null;
+  function invalidateReport(message) {
+    const selectedContractor = state.report && state.report.contractor ? state.report.contractor : "__ALL__";
+    state.report = { contractor: selectedContractor, calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, calculatedAt: null, matchedGroups: 0, unmatchedGroups: 0, message: message || "Требуется ручной расчёт стоимости" };
+  }
+
+  function buildLoadedRateIndex() {
+    const index = new Map();
+    Object.keys(state.pricing.data || {}).sort().forEach(function(contractor) {
+      const contracts = (state.pricing.data[contractor] && state.pricing.data[contractor].contracts) || {};
+      Object.keys(contracts).sort().forEach(function(contractName) {
+        const calculations = contracts[contractName].priceCalculations || {};
+        Object.keys(calculations).sort().forEach(function(calculationName) {
+          const rates = calculations[calculationName].rates || {};
+          Object.keys(rates).forEach(function(code) {
+            const price = Number(rates[code].totalPrice);
+            const key = normalizeParserLabel(contractor) + "||" + normalizeParserLabel(code);
+            if (!index.has(key) && Number.isFinite(price)) index.set(key, { price: price, contract: contractName, calculation: calculationName });
+          });
+        });
+      });
+    });
+    return index;
+  }
+
+  function findLoadedRate(rateIndex, contractor, rateCode) {
+    return rateIndex.get(normalizeParserLabel(contractor) + "||" + normalizeParserLabel(rateCode)) || null;
   }
 
   function reportReadiness() {
     const kfoReady = state.kfo.status === "active" && state.kfo.groups.length > 0;
     const pricingReady = state.pricing.status === "active" && Object.keys(state.pricing.data).length > 0;
-    const matched = kfoReady && pricingReady && state.kfo.groups.some(function(group) { return findLoadedRatePrice(group.contractor, group.kqCode) != null; });
-    return [
-      { label: "БД КФО загружена", ready: kfoReady },
-      { label: "Источники расценок загружены", ready: pricingReady },
-      { label: "Выполнено сопоставление данных", ready: matched },
-      { label: "Все обязательные проверки завершены", ready: kfoReady && pricingReady && matched }
-    ];
+    const rateIndex = pricingReady ? buildLoadedRateIndex() : new Map();
+    const requiredGroups = kfoReady ? state.kfo.groups.filter(function(group) { return Math.abs(Number(group.actualSmr) || 0) > 0; }) : [];
+    const matchedGroups = requiredGroups.filter(function(group) { return findLoadedRate(rateIndex, group.contractor, group.kqCode); }).length;
+    const unmatchedGroups = Math.max(0, requiredGroups.length - matchedGroups);
+    const matchingReady = requiredGroups.length > 0 && unmatchedGroups === 0;
+    const sourceCount = Array.from(rateIndex.values()).length;
+    const complete = kfoReady && pricingReady && matchingReady;
+    return {
+      rateIndex: rateIndex,
+      stats: { requiredGroups: requiredGroups.length, matchedGroups: matchedGroups, unmatchedGroups: unmatchedGroups, rateCount: sourceCount },
+      items: [
+        { label: "БД КФО загружена", ready: kfoReady, detail: kfoReady ? formatNumber(state.kfo.totalRows, 0) + " строк" : state.kfo.message },
+        { label: "Источники расценок загружены", ready: pricingReady, detail: pricingReady ? formatNumber(sourceCount, 0) + " доступных расценок" : "Загрузите настроенные источники" },
+        { label: "Выполнено сопоставление данных", ready: matchingReady, detail: formatNumber(matchedGroups, 0) + " из " + formatNumber(requiredGroups.length, 0) + " групп с ненулевым выполнением" },
+        { label: "Все обязательные проверки завершены", ready: complete, detail: complete ? "Расчёт разрешён" : "Расчёт заблокирован" }
+      ]
+    };
   }
 
-  function calculateReport() {
+  async function calculateReport() {
     const readiness = reportReadiness();
-    if (!readiness.every(function(item) { return item.ready; })) return false;
+    if (!readiness.items.every(function(item) { return item.ready; })) return false;
     const rows = [];
     const monthly = {};
     const monthlyByContractor = {};
+    const groups = state.kfo.groups || [];
     let total = 0;
-    state.kfo.groups.forEach(function(group) {
-      const price = findLoadedRatePrice(group.contractor, group.kqCode);
-      if (price == null) return;
+    for (let index = 0; index < groups.length; index += 1) {
+      if (index % 2000 === 0) {
+        updateProcess("Формирование отчета", 30 + Math.round(index / Math.max(1, groups.length) * 60), index, "Интегрируем выполнение и расценки");
+        await new Promise(function(resolve) {
+          if (typeof requestAnimationFrame === "function") requestAnimationFrame(function() { resolve(); });
+          else setTimeout(resolve, 0);
+        });
+      }
+      const group = groups[index];
       const volume = Number(group.actualSmr) || 0;
-      const cost = volume * price;
-      rows.push({ contractor: group.contractor, code: group.kqCode, volume: volume, price: price, cost: cost });
+      if (!volume) continue;
+      const rate = findLoadedRate(readiness.rateIndex, group.contractor, group.kqCode);
+      if (!rate) continue;
+      const cost = volume * rate.price;
+      rows.push({ contractor: group.contractor, code: group.kqCode, unit: group.unit || "", volume: volume, price: rate.price, cost: cost, contract: rate.contract, calculation: rate.calculation });
       total += cost;
       Object.keys(group.monthly || {}).forEach(function(month) {
-        const monthCost = (Number(group.monthly[month]) || 0) * price;
+        const monthCost = (Number(group.monthly[month]) || 0) * rate.price;
         monthly[month] = (monthly[month] || 0) + monthCost;
         const contractorMonths = monthlyByContractor[group.contractor] = monthlyByContractor[group.contractor] || {};
         contractorMonths[month] = (contractorMonths[month] || 0) + monthCost;
       });
-    });
-    state.report = { contractor: state.report.contractor || "__ALL__", calculated: true, rows: rows, monthly: monthly, monthlyByContractor: monthlyByContractor, total: total, message: "Расчёт завершён: " + rows.length + " сопоставлений" };
+    }
+    state.report = {
+      contractor: state.report.contractor || "__ALL__", calculated: true, rows: rows, monthly: monthly,
+      monthlyByContractor: monthlyByContractor, total: total, calculatedAt: new Date(),
+      matchedGroups: readiness.stats.matchedGroups, unmatchedGroups: readiness.stats.unmatchedGroups,
+      message: "Расчёт завершён: " + rows.length + " сопоставлений; итоговая стоимость " + formatNumber(total, 2) + " ₽"
+    };
     return true;
+  }
+
+  function renderMonthlyReportChart(selected, contractors) {
+    if (!state.report.calculated) return emptyState("Нет рассчитанной динамики", "Выполните ручной расчёт стоимости.", "clipboard");
+    const palette = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#0891b2", "#db2777", "#4f46e5", "#65a30d", "#ea580c"];
+    const seriesNames = selected === "__ALL__" ? contractors.slice() : [selected];
+    const series = seriesNames.map(function(name, index) {
+      return { name: name, color: palette[index % palette.length], values: (state.report.monthlyByContractor || {})[name] || {} };
+    }).filter(function(entry) { return Object.keys(entry.values).length > 0; });
+    const monthSet = new Set();
+    series.forEach(function(entry) { Object.keys(entry.values).forEach(function(month) { monthSet.add(month); }); });
+    const months = Array.from(monthSet).sort();
+    if (!months.length || !series.length) return emptyState("Нет месячной динамики", "В сопоставленных данных отсутствуют даты выполнения.", "clipboard");
+    const allValues = [];
+    series.forEach(function(entry) { months.forEach(function(month) { allValues.push(Number(entry.values[month]) || 0); }); });
+    const maximum = Math.max.apply(null, allValues.concat([1]));
+    const left = 70, right = 680, top = 20, bottom = 210;
+    const x = function(index) { return months.length === 1 ? (left + right) / 2 : left + index * ((right - left) / (months.length - 1)); };
+    const y = function(value) { return bottom - (Number(value) || 0) / maximum * (bottom - top); };
+    const grid = [0, 0.25, 0.5, 0.75, 1].map(function(ratio) {
+      const gridY = bottom - ratio * (bottom - top);
+      return '<line x1="' + left + '" y1="' + gridY + '" x2="' + right + '" y2="' + gridY + '" stroke="#e2e8f0"/><text x="' + (left - 8) + '" y="' + (gridY + 4) + '" text-anchor="end" font-size="9" fill="#64748b">' + escapeHtml(formatNumber(maximum * ratio, 0)) + '</text>';
+    }).join("");
+    const lines = series.map(function(entry) {
+      const points = months.map(function(month, index) { return x(index) + "," + y(entry.values[month] || 0); }).join(" ");
+      const circles = months.map(function(month, index) {
+        const value = Number(entry.values[month]) || 0;
+        return '<circle cx="' + x(index) + '" cy="' + y(value) + '" r="3" fill="' + entry.color + '"><title>' + escapeHtml(entry.name + " · " + month + ": " + formatNumber(value, 2) + " ₽") + '</title></circle>';
+      }).join("");
+      return '<polyline fill="none" stroke="' + entry.color + '" stroke-width="2.5" points="' + points + '"/>' + circles;
+    }).join("");
+    const labels = months.map(function(month, index) { return '<text x="' + x(index) + '" y="230" text-anchor="middle" font-size="9" fill="#475569">' + escapeHtml(month) + '</text>'; }).join("");
+    const legendRows = Math.ceil(series.length / 3);
+    const legend = series.map(function(entry, index) {
+      const column = index % 3, row = Math.floor(index / 3);
+      const legendX = 70 + column * 210, legendY = 255 + row * 18;
+      return '<line x1="' + legendX + '" y1="' + legendY + '" x2="' + (legendX + 18) + '" y2="' + legendY + '" stroke="' + entry.color + '" stroke-width="3"/><text x="' + (legendX + 24) + '" y="' + (legendY + 4) + '" font-size="9" fill="#334155">' + escapeHtml(entry.name) + '</text>';
+    }).join("");
+    const height = 260 + legendRows * 18;
+    return '<svg viewBox="0 0 720 ' + height + '" role="img" aria-label="Месячная динамика стоимости выполнения по интегрированным расценкам" style="width:100%;min-height:280px">' + grid + '<line x1="' + left + '" y1="' + bottom + '" x2="' + right + '" y2="' + bottom + '" stroke="#94a3b8"/>' + lines + labels + legend + '</svg>';
   }
 
   function renderReport(item) {
     const readiness = reportReadiness();
-    const ready = readiness.every(function(entry) { return entry.ready; });
-    const contractors = Array.from(new Set((state.report.rows || []).map(function(row) { return row.contractor; }))).sort();
-    const selected = state.report.contractor || "__ALL__";
+    const ready = readiness.items.every(function(entry) { return entry.ready; });
+    const contractors = Array.from(new Set((state.report.rows || []).map(function(row) { return row.contractor; }))).sort(function(a, b) { return a.localeCompare(b, "ru"); });
+    let selected = state.report.contractor || "__ALL__";
+    if (selected !== "__ALL__" && contractors.indexOf(selected) < 0) selected = "__ALL__";
     const filteredRows = (state.report.rows || []).filter(function(row) { return selected === "__ALL__" || row.contractor === selected; });
     const total = filteredRows.reduce(function(sum, row) { return sum + row.cost; }, 0);
-    const selectedMonthly = selected === "__ALL__" ? (state.report.monthly || {}) : ((state.report.monthlyByContractor || {})[selected] || {});
-    const months = Object.keys(selectedMonthly).sort();
-    const values = months.map(function(month) { return selectedMonthly[month]; });
-    const max = Math.max.apply(null, values.concat([1]));
-    const points = values.map(function(value, index) { return (20 + index * (560 / Math.max(1, values.length - 1))) + ',' + (180 - value / max * 150); }).join(' ');
-    const chart = months.length ? '<svg viewBox="0 0 600 210" role="img" aria-label="Месячная динамика"><line x1="20" y1="180" x2="580" y2="180" stroke="#cbd5e1"/><polyline fill="none" stroke="#2563eb" stroke-width="4" points="' + points + '"/>' + months.map(function(month, i) { return '<text x="' + (20 + i * (560 / Math.max(1, months.length - 1))) + '" y="202" text-anchor="middle" font-size="10">' + escapeHtml(month) + '</text>'; }).join('') + '</svg>' : emptyState("Нет рассчитанной динамики", "Выполните ручной расчёт стоимости.", "clipboard");
-    const checklist = readiness.map(function(entry) { return '<li style="color:' + (entry.ready ? 'var(--success)' : 'var(--danger)') + '">' + (entry.ready ? '✓ ' : '✕ ') + escapeHtml(entry.label) + '</li>'; }).join('');
-    const rowsHtml = filteredRows.map(function(row) { return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml(row.code) + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td></tr>'; }).join('');
-    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack"><section class="card"><div class="card-header"><h3 class="card-title">Check List готовности</h3></div><div class="card-body"><ul>' + checklist + '</ul><p class="result-note">' + escapeHtml(state.report.message) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Месячная динамика выполнения</h3><select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__">Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select></div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Расценка</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="5">Нет рассчитанных данных</td></tr>') + '</tbody></table></div></div></section></div>';
+    const chart = renderMonthlyReportChart(selected, contractors);
+    const checklist = readiness.items.map(function(entry) { return '<li style="color:' + (entry.ready ? 'var(--success)' : 'var(--danger)') + '">' + (entry.ready ? '✓ ' : '✕ ') + escapeHtml(entry.label) + '<span class="muted"> — ' + escapeHtml(entry.detail || "") + '</span></li>'; }).join('');
+    const missing = readiness.items.filter(function(entry) { return !entry.ready; }).map(function(entry) { return entry.label; });
+    const blocked = missing.length ? '<div class="banner warning"><div><strong>Расчёт недоступен.</strong> Незавершённые этапы: ' + escapeHtml(missing.join("; ")) + '.</div></div>' : '';
+    const previewLimit = 500;
+    const previewRows = filteredRows.slice(0, previewLimit);
+    const rowsHtml = previewRows.map(function(row) { return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml(row.code) + '</td><td>' + escapeHtml(row.unit || "—") + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td></tr>'; }).join('');
+    const previewNote = filteredRows.length > previewLimit ? '<p class="result-note">Для сохранения производительности показаны первые ' + previewLimit + ' из ' + formatNumber(filteredRows.length, 0) + ' строк. Итог рассчитан по всем строкам.</p>' : '';
+    const calculatedNote = state.report.calculatedAt ? ' · ' + new Date(state.report.calculatedAt).toLocaleString("ru-RU") : '';
+    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack"><section class="card"><div class="card-header"><h3 class="card-title">Check List готовности</h3></div><div class="card-body">' + blocked + '<ul>' + checklist + '</ul><p class="result-note">' + escapeHtml(state.report.message) + escapeHtml(calculatedNote) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Месячная динамика выполнения</h3><p class="card-desc">Стоимость выполнения по интегрированным расценкам. В режиме «Все подрядчики» каждый подрядчик показан отдельной линией.</p></div><select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__"' + (selected === "__ALL__" ? ' selected' : '') + '>Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select></div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body">' + previewNote + '<div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Расценка</th><th>Ед.</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="6">Нет рассчитанных данных</td></tr>') + '</tbody></table></div></div></section></div>';
   }
 
   // =====================================================================
@@ -3540,10 +3625,10 @@ for (let idx = 0; idx < sources.length; idx++) {
       loadKfoSources();
     });
     document.getElementById("load-project-kpi")?.addEventListener("click", loadProjectKpis);
-    document.getElementById("calculate-report")?.addEventListener("click", function() {
+    document.getElementById("calculate-report")?.addEventListener("click", async function() {
       startProcess("Интегрированные данные", "Формирование отчета");
       updateProcess("Формирование отчета", 25, 0, "Проверяем готовность обязательных источников");
-      if (calculateReport()) {
+      if (await calculateReport()) {
         finishProcess("success", "Завершено", state.report.rows.length, state.report.message);
         renderContent();
         showToast("Расчёт завершён", state.report.message);
@@ -3954,6 +4039,7 @@ for (let idx = 0; idx < sources.length; idx++) {
             Object.keys(runtime.rates || {}).forEach(function(code) { runtime.rates[code].totalPrice = runtime.rates[code].basePrice * (1 + val / 100); });
           }
           if (binding) binding.indirectPercent = val;
+          invalidateReport("Процент косвенных затрат изменён — требуется повторный расчёт стоимости");
           state.configDirty = true;
           showToast("Обновлено", "Новый % косвенных: " + val + "%");
           renderContent();
@@ -3976,6 +4062,8 @@ for (let idx = 0; idx < sources.length; idx++) {
             state.pricing.data[contractor].contracts[contract].priceCalculations[rdc].sourceUrl = url;
             const binding = state.config.pricingBindings && state.config.pricingBindings[contractor] && state.config.pricingBindings[contractor][contract] && state.config.pricingBindings[contractor][contract][rdc];
             if (binding) binding.sourceUrl = url;
+            state.pricing.status = "inactive";
+            invalidateReport("Источник расценок изменён — загрузите расценки и повторите расчёт стоимости");
             state.configDirty = true;
             showToast("URL обновлён", "Путь к файлу изменён.");
           }
@@ -3998,6 +4086,8 @@ for (let idx = 0; idx < sources.length; idx++) {
       }
       runtime.sheetName = sheetName;
       binding.sheetName = sheetName;
+      state.pricing.status = "inactive";
+      invalidateReport("Вкладка источника изменена — загрузите расценки и повторите расчёт стоимости");
       state.configDirty = true;
       showToast("Вкладка обновлена", "При следующей загрузке будет прочитана только вкладка «" + sheetName + "».");
     });
@@ -4134,6 +4224,7 @@ for (let idx = 0; idx < sources.length; idx++) {
           sourceUrl: sourceUrl, sheetName: sheetName, indirectPercent: indirectPercent, rates: rates, columns: columns
         };
         state.pricing.status = "active";
+        invalidateReport("Источник расценок добавлен — требуется ручной расчёт стоимости");
         state.configDirty = true;
         finishProcess("success", "Завершено", Object.keys(rates).length, "Источник расценок загружен из вкладки «" + sheetName + "»");
         renderContent();
