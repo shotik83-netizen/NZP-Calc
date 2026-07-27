@@ -112,7 +112,7 @@
     .report-setup { display: grid; grid-template-columns: minmax(190px, .7fr) minmax(240px, 1fr); gap: 16px; align-items: end; }
     .report-formula { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid rgba(40, 150, 114, .22); border-radius: 8px; background: var(--primary-faint); }
     .report-formula-main { color: var(--primary-strong); font-size: 14px; font-weight: 750; text-align: center; }
-    .report-formula-parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .report-formula-parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
     .report-formula-part { padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; background: rgba(255, 255, 255, .7); font-size: 10px; line-height: 1.4; }
     .report-formula-part strong { display: block; margin-bottom: 2px; font-size: 11px; }
     .rate-missing { color: var(--warning); font-weight: 650; }
@@ -910,7 +910,7 @@
         selectedRates: []
       }
     },
-    report: { contractor: "__ALL__", level: "kq2", scope: "contractors", calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, message: "Расчёт не запускался" }
+    report: { contractor: "__ALL__", level: "kq2", scope: "contractors", calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, regulationTotal: 0, message: "Расчёт не запускался" }
   };
 
   let aggregationSearchTimer = null;
@@ -1010,6 +1010,18 @@
     if (normalizedLabelCache.size >= MAX_NORMALIZED_LABEL_CACHE) normalizedLabelCache.clear();
     normalizedLabelCache.set(source, normalized);
     return normalized;
+  }
+
+  function normalizeWorkCode(value) {
+    return normalizeParserLabel(value).replace(/[.．。]/g, "").replace(/\s+/g, "");
+  }
+
+  function canonicalWorkCode(value) {
+    return String(value == null ? "" : value).trim().replace(/[.．。]/g, "").replace(/\s+/g, " ");
+  }
+
+  function formatMillions(value, precision) {
+    return formatNumber((Number(value) || 0) / 1000000, precision == null ? 3 : precision) + " млн ₽";
   }
 
   // =====================================================================
@@ -1628,7 +1640,7 @@ function contractorNameStem(value) {
 
   function findRegulationRule(rules, markCode, contractor, contractNumber) {
     const normalizedMark = normalizeParserLabel(markCode);
-    const candidates = rules.get(normalizedMark) || (normalizedMark ? [] : (rules.get("") || []));
+    const candidates = rules.get(normalizedMark) || (rules.get("") || []);
     const contractorKey = normalizeParserLabel(canonicalContractorName(contractor));
     const contractKey = normalizeParserLabel(contractNumber);
     const matches = candidates.map(function (rule) {
@@ -1771,12 +1783,12 @@ function contractorNameStem(value) {
       for (let i = 1; i < kqData.length; i++) {
         const row = kqData[i];
         if (!row || row.length < 6) continue;
-        const kq1Code = String(row[1] || "").trim();
+        const kq1Code = canonicalWorkCode(row[1]);
         const kq1Name = String(row[2] || "").trim();
-        const kq2Code = String(row[4] || "").trim();
+        const kq2Code = canonicalWorkCode(row[4]);
         const kq2Name = String(row[5] || "").trim();
-        if (kq1Code) kqNameMap.kq1[normalizeParserLabel(kq1Code)] = kq1Name || kq1Code;
-        if (kq2Code) kqNameMap.kq2[normalizeParserLabel(kq2Code)] = kq2Name || kq2Code;
+        if (kq1Code) kqNameMap.kq1[normalizeWorkCode(kq1Code)] = kq1Name || kq1Code;
+        if (kq2Code) kqNameMap.kq2[normalizeWorkCode(kq2Code)] = kq2Name || kq2Code;
       }
     }
     state.kqNameMap = kqNameMap;
@@ -1810,7 +1822,7 @@ function contractorNameStem(value) {
         });
       }
       const get = function (field) { return resolved.columns[field] === undefined ? "" : readSheetCell(selected.sheet, rowIndex, resolved.columns[field]); };
-      const erCode = String(get("erCode") || "").trim();
+      const erCode = canonicalWorkCode(get("erCode"));
       const contractor = String(get("contractor") || "").trim();
       const contractNumber = String(get("contractNumber") || "").trim();
       if (!erCode && !contractor) continue;
@@ -1848,8 +1860,8 @@ function contractorNameStem(value) {
       const codeField = level === "kq1" ? "kq1Code" : "kq2Code";
       const coefficientField = level === "kq1" ? "kq1Coefficient" : "kq2Coefficient";
 
-      let kq1Code = String(get("kq1Code") || "").trim();
-      let kq2Code = String(get("kq2Code") || "").trim();
+      let kq1Code = canonicalWorkCode(get("kq1Code"));
+      let kq2Code = canonicalWorkCode(get("kq2Code"));
       let kq1Coefficient = parseKfoNumber(get("kq1Coefficient"), 1);
       let kq2Coefficient = parseKfoNumber(get("kq2Coefficient"), 1);
 
@@ -1873,7 +1885,7 @@ function contractorNameStem(value) {
       const actualCalculatedKq1 = actualSmr * (kq1Code ? kq1Coefficient : 1);
       const actualCalculatedKq2 = actualSmr * (kq2Code ? kq2Coefficient : 1);
       const regulationEvaluation = rule
-        ? actualCalculated * regulationCoefficient(rule, "actualSmr") + skCalculated * regulationCoefficient(rule, "acceptedSk") + idCalculated * regulationCoefficient(rule, "acceptedId")
+        ? actualSmr * regulationCoefficient(rule, "actualSmr") + acceptedSk * regulationCoefficient(rule, "acceptedSk") + acceptedId * regulationCoefficient(rule, "acceptedId")
         : 0;
 
       const unit = String(get("unit") || "").trim() || "без ед. изм.";
@@ -1881,27 +1893,29 @@ function contractorNameStem(value) {
       const kqName = (function() {
         const mapKey = level === "kq1" ? "kq1" : (level === "kq2" ? "kq2" : null);
         if (mapKey && state.kqNameMap && state.kqNameMap[mapKey]) {
-          const name = state.kqNameMap[mapKey][normalizeParserLabel(effectiveKqCode)];
+          const name = state.kqNameMap[mapKey][normalizeWorkCode(effectiveKqCode)];
           if (name && name !== effectiveKqCode) return name;
         }
-        const rule = state.aggregation.index && state.aggregation.index.get(normalizeParserLabel(erCode));
+        const rule = state.aggregation.index && state.aggregation.index.get(normalizeWorkCode(erCode));
         if (rule) {
           const codeField = level === "kq1" ? "kq1Code" : "kq2Code";
           const nameField = level === "kq1" ? "kq1Name" : "kq2Name";
-          if (normalizeParserLabel(rule[codeField]) === normalizeParserLabel(effectiveKqCode)) {
+          if (normalizeWorkCode(rule[codeField]) === normalizeWorkCode(effectiveKqCode)) {
             return rule[nameField] || effectiveKqCode;
           }
         }
         return (String(get("erName") || "").trim() && String(get("erName") || "").trim() !== effectiveKqCode) ? String(get("erName") || "").trim() : effectiveKqCode;
       })();
 
-      const groupKey = [source.id, normalizeParserLabel(contractor), normalizeParserLabel(kq1Code || erCode), normalizeParserLabel(kq2Code || erCode), normalizeParserLabel(unit), mode].join("||");
+      const groupKey = [source.id, normalizeParserLabel(contractor), normalizeParserLabel(contractNumber), normalizeWorkCode(erCode), normalizeWorkCode(kq1Code || erCode), normalizeWorkCode(kq2Code || erCode), normalizeParserLabel(unit), mode].join("||");
 
       let group = groups.get(groupKey);
       if (!group) {
         group = {
           sourceId: source.id, sourceName: source.name,
           contractor: contractor,
+          contractNumber: contractNumber,
+          erCode: erCode,
           kqCode: effectiveKqCode,
           kqName: kqName,
           erName: String(get("erName") || "").trim(),
@@ -1912,8 +1926,9 @@ function contractorNameStem(value) {
           kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient,
           rows: 0, regulationRows: 0,
           actualSmr: 0, acceptedSk: 0, acceptedId: 0,
+          rawActualSmr: 0, rawAcceptedSk: 0, rawAcceptedId: 0,
           actualSmrKq1: 0, actualSmrKq2: 0,
-          evaluatedVolume: 0, monthly: {}, monthlyKq1: {}, monthlyKq2: {}
+          evaluatedVolume: 0, monthly: {}, monthlyRaw: {}, monthlyKq1: {}, monthlyKq2: {}
         };
         groups.set(groupKey, group);
       }
@@ -1923,12 +1938,16 @@ function contractorNameStem(value) {
       group.actualSmr += actualCalculated;
       group.acceptedSk += skCalculated;
       group.acceptedId += idCalculated;
+      group.rawActualSmr += actualSmr;
+      group.rawAcceptedSk += acceptedSk;
+      group.rawAcceptedId += acceptedId;
       group.actualSmrKq1 += actualCalculatedKq1;
       group.actualSmrKq2 += actualCalculatedKq2;
       group.evaluatedVolume += regulationEvaluation;
       const monthKey = (rowDate || lastFactDate || "").slice(0, 7);
       if (monthKey) {
         group.monthly[monthKey] = (group.monthly[monthKey] || 0) + actualCalculated;
+        group.monthlyRaw[monthKey] = (group.monthlyRaw[monthKey] || 0) + actualSmr;
         group.monthlyKq1[monthKey] = (group.monthlyKq1[monthKey] || 0) + actualCalculatedKq1;
         group.monthlyKq2[monthKey] = (group.monthlyKq2[monthKey] || 0) + actualCalculatedKq2;
       }
@@ -2280,7 +2299,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         const directory = contractorDirectoryIndex();
         (allGroups || []).forEach(function (entry) {
             const canonicalName = canonicalContractorName(entry.contractor);
-            const key = [normalizeParserLabel(canonicalName), normalizeParserLabel(entry.kqCode), normalizeParserLabel(entry.unit), entry.level || "", entry.mode || ""].join("||");
+            const key = [normalizeParserLabel(canonicalName), normalizeWorkCode(entry.kqCode), normalizeParserLabel(entry.unit), entry.level || "", entry.mode || ""].join("||");
             let target = merged.get(key);
             if (!target) {
                 target = Object.assign({}, entry, {
@@ -2318,22 +2337,34 @@ for (let idx = 0; idx < sources.length; idx++) {
         const merged = new Map();
         (allGroups || []).forEach(function(entry) {
             const canonicalName = canonicalContractorName(entry.contractor);
-            const key = [normalizeParserLabel(canonicalName), normalizeParserLabel(entry.kq1Code || entry.kqCode), normalizeParserLabel(entry.kq2Code || entry.kqCode), normalizeParserLabel(entry.unit)].join("||");
+            const key = [normalizeParserLabel(canonicalName), normalizeParserLabel(entry.contractNumber), normalizeWorkCode(entry.erCode), normalizeWorkCode(entry.kq1Code || entry.kqCode), normalizeWorkCode(entry.kq2Code || entry.kqCode), normalizeParserLabel(entry.unit)].join("||");
             let target = merged.get(key);
             if (!target) {
                 target = Object.assign({}, entry, {
                     contractor: canonicalName,
                     rows: 0,
+                    regulationRows: 0,
+                    rawActualSmr: 0,
+                    rawAcceptedSk: 0,
+                    rawAcceptedId: 0,
+                    evaluatedVolume: 0,
                     actualSmrKq1: 0,
                     actualSmrKq2: 0,
+                    monthlyRaw: {},
                     monthlyKq1: {},
                     monthlyKq2: {}
                 });
                 merged.set(key, target);
             }
             target.rows += Number(entry.rows) || 0;
+            target.regulationRows += Number(entry.regulationRows) || 0;
+            target.rawActualSmr += Number(entry.rawActualSmr) || 0;
+            target.rawAcceptedSk += Number(entry.rawAcceptedSk) || 0;
+            target.rawAcceptedId += Number(entry.rawAcceptedId) || 0;
+            target.evaluatedVolume += Number(entry.evaluatedVolume) || 0;
             target.actualSmrKq1 += Number(entry.actualSmrKq1) || 0;
             target.actualSmrKq2 += Number(entry.actualSmrKq2) || 0;
+            Object.keys(entry.monthlyRaw || {}).forEach(function(month) { target.monthlyRaw[month] = (target.monthlyRaw[month] || 0) + (Number(entry.monthlyRaw[month]) || 0); });
             Object.keys(entry.monthlyKq1 || {}).forEach(function(month) { target.monthlyKq1[month] = (target.monthlyKq1[month] || 0) + (Number(entry.monthlyKq1[month]) || 0); });
             Object.keys(entry.monthlyKq2 || {}).forEach(function(month) { target.monthlyKq2[month] = (target.monthlyKq2[month] || 0) + (Number(entry.monthlyKq2[month]) || 0); });
         });
@@ -2488,13 +2519,13 @@ for (let idx = 0; idx < sources.length; idx++) {
           return Number.isFinite(value) ? value : null;
         };
         const entry = {
-          erCode: String(getValue("erCode")).trim(),
+          erCode: canonicalWorkCode(getValue("erCode")),
           erName: String(getValue("erName")).trim(),
           unit: String(getValue("unit")).trim(),
-          kq1Code: String(getValue("kq1Code")).trim(),
+          kq1Code: canonicalWorkCode(getValue("kq1Code")),
           kq1Name: String(getValue("kq1Name")).trim(),
           kq1Coefficient: numeric("kq1Coefficient"),
-          kq2Code: String(getValue("kq2Code")).trim(),
+          kq2Code: canonicalWorkCode(getValue("kq2Code")),
           kq2Name: String(getValue("kq2Name")).trim(),
           kq2Coefficient: numeric("kq2Coefficient"),
           status: String(getValue("status") || parser.defaultStatus || "Действует").trim()
@@ -2551,7 +2582,7 @@ for (let idx = 0; idx < sources.length; idx++) {
           const index = new Map();
           entries.forEach(function (entry) {
             if (excluded.indexOf(normalizeParserLabel(entry.status)) >= 0) return;
-            const key = normalizeParserLabel(entry[matchField]);
+            const key = normalizeWorkCode(entry[matchField]);
             if (key && !index.has(key)) index.set(key, entry);
           });
           return index;
@@ -3284,7 +3315,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const selectedContractor = state.report && state.report.contractor ? state.report.contractor : "__ALL__";
     const selectedLevel = state.report && ["kq1", "kq2"].indexOf(state.report.level) >= 0 ? state.report.level : state.kqLevel;
     const selectedScope = state.report && state.report.scope === "project" ? "project" : "contractors";
-    state.report = { contractor: selectedContractor, level: selectedLevel, scope: selectedScope, calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, calculatedAt: null, matchedGroups: 0, unmatchedGroups: 0, message: message || "Требуется ручной расчёт стоимости" };
+    state.report = { contractor: selectedContractor, level: selectedLevel, scope: selectedScope, calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, regulationTotal: 0, calculatedAt: null, matchedGroups: 0, unmatchedGroups: 0, message: message || "Требуется ручной расчёт стоимости" };
   }
 
   function buildLoadedRateIndex() {
@@ -3297,8 +3328,16 @@ for (let idx = 0; idx < sources.length; idx++) {
           const rates = calculations[calculationName].rates || {};
           Object.keys(rates).forEach(function(code) {
             const price = Number(rates[code].totalPrice);
-            const key = normalizeParserLabel(contractor) + "||" + normalizeParserLabel(code);
-            if (!index.has(key) && Number.isFinite(price)) index.set(key, { price: price, contract: contractName, calculation: calculationName });
+            if (!Number.isFinite(price)) return;
+            const contractorKey = normalizeParserLabel(canonicalContractorName(contractor));
+            const contractKey = normalizeParserLabel(contractName);
+            const codeKey = normalizeWorkCode(code);
+            if (!codeKey) return;
+            const rate = { price: price, code: canonicalWorkCode(code), contract: contractName, calculation: calculationName };
+            const exactKey = contractorKey + "||" + contractKey + "||" + codeKey;
+            const fallbackKey = contractorKey + "||||" + codeKey;
+            if (!index.has(exactKey)) index.set(exactKey, rate);
+            if (!index.has(fallbackKey)) index.set(fallbackKey, rate);
           });
         });
       });
@@ -3306,15 +3345,19 @@ for (let idx = 0; idx < sources.length; idx++) {
     return index;
   }
 
-  function findLoadedRate(rateIndex, contractor, rateCode) {
-    return rateIndex.get(normalizeParserLabel(contractor) + "||" + normalizeParserLabel(rateCode)) || null;
+  function findLoadedRate(rateIndex, contractor, contractNumber, rateCode) {
+    const contractorKey = normalizeParserLabel(canonicalContractorName(contractor));
+    const contractKey = normalizeParserLabel(contractNumber);
+    const codeKey = normalizeWorkCode(rateCode);
+    return rateIndex.get(contractorKey + "||" + contractKey + "||" + codeKey) ||
+      rateIndex.get(contractorKey + "||||" + codeKey) || null;
   }
 
   function reportLevelValues(group, level) {
     const isKq1 = level === "kq1";
     const code = String((isKq1 ? group.kq1Code : group.kq2Code) || group.kqCode || "Без шифра").trim();
     const map = state.kqNameMap && state.kqNameMap[level] ? state.kqNameMap[level] : {};
-    const mappedName = map[normalizeParserLabel(code)];
+    const mappedName = map[normalizeWorkCode(code)];
     const volumeField = isKq1 ? group.actualSmrKq1 : group.actualSmrKq2;
     const monthlyField = isKq1 ? group.monthlyKq1 : group.monthlyKq2;
     const volume = volumeField != null ? Number(volumeField) || 0 : Number(group.actualSmr) || 0;
@@ -3327,17 +3370,9 @@ for (let idx = 0; idx < sources.length; idx++) {
   }
 
   function findReportRate(rateIndex, group) {
-    const candidates = [group.kq2Code, group.kq1Code, group.kqCode].filter(Boolean);
-    const checked = new Set();
-    for (let index = 0; index < candidates.length; index += 1) {
-      const code = String(candidates[index]).trim();
-      const normalized = normalizeParserLabel(code);
-      if (!normalized || checked.has(normalized)) continue;
-      checked.add(normalized);
-      const rate = findLoadedRate(rateIndex, group.contractor, code);
-      if (rate) return Object.assign({ code: code }, rate);
-    }
-    return null;
+    const erCode = canonicalWorkCode(group.erCode || "");
+    if (!erCode) return null;
+    return findLoadedRate(rateIndex, group.contractor, group.contractNumber, erCode);
   }
 
   function reportReadiness() {
@@ -3346,11 +3381,13 @@ for (let idx = 0; idx < sources.length; idx++) {
     const rateIndex = pricingReady ? buildLoadedRateIndex() : new Map();
     const selectedLevel = state.report.scope === "project" ? "kq1" : (state.report.level || state.kqLevel || "kq2");
     const sourceGroups = kfoReady ? ((state.kfo.reportGroups && state.kfo.reportGroups.length) ? state.kfo.reportGroups : state.kfo.groups) : [];
-    const requiredGroups = sourceGroups.filter(function(group) { return Math.abs(reportLevelValues(group, selectedLevel).volume) > 0; });
+    const requiredGroups = sourceGroups.filter(function(group) {
+      return Math.abs(Number(group.rawActualSmr) || 0) > 0 || Math.abs(Number(group.evaluatedVolume) || 0) > 0;
+    });
     const matchedGroups = requiredGroups.filter(function(group) { return Boolean(findReportRate(rateIndex, group)); }).length;
     const unmatchedGroups = Math.max(0, requiredGroups.length - matchedGroups);
     const matchingReady = requiredGroups.length > 0 && unmatchedGroups === 0;
-    const sourceCount = Array.from(rateIndex.values()).length;
+    const sourceCount = new Set(Array.from(rateIndex.values())).size;
     return {
       rateIndex: rateIndex,
       canCalculate: kfoReady,
@@ -3359,7 +3396,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       items: [
         { label: "БД КФО загружена", ready: kfoReady, required: true, detail: kfoReady ? formatNumber(state.kfo.totalRows, 0) + " строк" : state.kfo.message },
         { label: "Источники расценок", ready: pricingReady, required: false, detail: pricingReady ? formatNumber(sourceCount, 0) + " доступных единичных расценок" : "Не загружены — стоимость позиций будет равна 0" },
-        { label: "Сопоставление объёмов и расценок", ready: matchingReady, required: false, detail: matchingReady ? "Все " + formatNumber(requiredGroups.length, 0) + " групп обеспечены расценками" : "Без расценки: " + formatNumber(unmatchedGroups, 0) + " из " + formatNumber(requiredGroups.length, 0) + " групп; они останутся в отчёте со стоимостью 0" },
+        { label: "Сопоставление объёмов и расценок", ready: matchingReady, required: false, detail: matchingReady ? "Все " + formatNumber(requiredGroups.length, 0) + " единичных расценок сопоставлены по шифру ЕР" : "Без расценки: " + formatNumber(unmatchedGroups, 0) + " из " + formatNumber(requiredGroups.length, 0) + " позиций ЕР; они останутся в отчёте со стоимостью 0" },
         { label: "Режим формирования", ready: kfoReady, required: true, detail: state.report.scope === "project" ? "Проект в целом · KQ-1" : "По подрядчикам · " + selectedLevel.toUpperCase().replace("KQ", "KQ-") }
       ]
     };
@@ -3387,38 +3424,44 @@ for (let idx = 0; idx < sources.length; idx++) {
       const group = groups[index];
       const values = reportLevelValues(group, level);
       const volume = Number(values.volume) || 0;
-      if (!volume) continue;
+      const erVolume = Number(group.rawActualSmr) || 0;
+      const regulationVolume = Number(group.evaluatedVolume) || 0;
+      if (!volume && !erVolume && !regulationVolume) continue;
       const rate = findReportRate(readiness.rateIndex, group);
       const price = rate ? Number(rate.price) || 0 : 0;
-      const cost = volume * price;
+      const cost = erVolume * price;
+      const regulationCost = regulationVolume * price;
       if (rate) matchedGroups += 1; else unmatchedGroups += 1;
       const contractor = projectScope ? "Проект в целом" : group.contractor;
-      const rowKey = [normalizeParserLabel(contractor), normalizeParserLabel(values.code), normalizeParserLabel(group.unit)].join("||");
+      const rowKey = [normalizeParserLabel(contractor), normalizeWorkCode(values.code), normalizeParserLabel(group.unit)].join("||");
       let row = rowMap.get(rowKey);
       if (!row) {
-        row = { contractor: contractor, level: level, code: values.code, name: values.name, unit: group.unit || "", volume: 0, price: 0, cost: 0, matchedVolume: 0, missingVolume: 0, matchedParts: 0, missingParts: 0, rateCodes: new Set(), contracts: new Set() };
+        row = { contractor: contractor, level: level, code: values.code, name: values.name, unit: group.unit || "", volume: 0, erVolume: 0, regulationVolume: 0, price: 0, cost: 0, regulationCost: 0, matchedVolume: 0, missingVolume: 0, matchedParts: 0, missingParts: 0, rateCodes: new Set(), contracts: new Set() };
         rowMap.set(rowKey, row);
       }
       row.volume += volume;
+      row.erVolume += erVolume;
+      row.regulationVolume += regulationVolume;
       row.cost += cost;
+      row.regulationCost += regulationCost;
       if (rate) {
-        row.matchedVolume += volume;
+        row.matchedVolume += erVolume;
         row.matchedParts += 1;
-        row.rateCodes.add(rate.code);
+        row.rateCodes.add(rate.code || group.erCode);
         if (rate.contract) row.contracts.add(rate.contract);
       } else {
-        row.missingVolume += volume;
+        row.missingVolume += erVolume;
         row.missingParts += 1;
       }
-      Object.keys(values.monthly || {}).forEach(function(month) {
-        const monthCost = (Number(values.monthly[month]) || 0) * price;
+      Object.keys(group.monthlyRaw || {}).forEach(function(month) {
+        const monthCost = (Number(group.monthlyRaw[month]) || 0) * price;
         monthly[month] = (monthly[month] || 0) + monthCost;
         const contractorMonths = monthlyByContractor[contractor] = monthlyByContractor[contractor] || {};
         contractorMonths[month] = (contractorMonths[month] || 0) + monthCost;
       });
     }
     const rows = Array.from(rowMap.values()).map(function(row) {
-      row.price = row.volume ? row.cost / row.volume : 0;
+      row.price = row.erVolume ? row.cost / row.erVolume : 0;
       row.rateStatus = row.missingParts ? (row.matchedParts ? "Частично" : "Нет расценки") : "Расценка найдена";
       row.rateCode = Array.from(row.rateCodes).sort().join(", ");
       row.contract = Array.from(row.contracts).sort().join(", ");
@@ -3429,12 +3472,13 @@ for (let idx = 0; idx < sources.length; idx++) {
       return a.contractor.localeCompare(b.contractor, "ru", { numeric: true }) || a.code.localeCompare(b.code, "ru", { numeric: true }) || a.unit.localeCompare(b.unit, "ru");
     });
     const total = rows.reduce(function(sum, row) { return sum + row.cost; }, 0);
+    const regulationTotal = rows.reduce(function(sum, row) { return sum + row.regulationCost; }, 0);
     const rowsWithoutRates = rows.filter(function(row) { return row.missingParts > 0; }).length;
     state.report = {
       contractor: projectScope ? "__ALL__" : (state.report.contractor || "__ALL__"), level: level, scope: state.report.scope, calculated: true, rows: rows, monthly: monthly,
-      monthlyByContractor: monthlyByContractor, total: total, calculatedAt: new Date(),
+      monthlyByContractor: monthlyByContractor, total: total, regulationTotal: regulationTotal, calculatedAt: new Date(),
       matchedGroups: matchedGroups, unmatchedGroups: unmatchedGroups,
-      message: "Расчёт завершён: " + rows.length + " позиций; без полной расценки — " + rowsWithoutRates + "; итоговая стоимость " + formatNumber(total, 2) + " ₽"
+      message: "Расчёт завершён: " + rows.length + " позиций; без полной расценки — " + rowsWithoutRates + "; стоимость КФО " + formatMillions(total, 3) + "; по регламенту " + formatMillions(regulationTotal, 3)
     };
     return true;
   }
@@ -3452,7 +3496,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const months = Array.from(monthSet).sort();
     if (!months.length || !series.length) return emptyState("Нет месячной динамики", "В сопоставленных данных отсутствуют даты выполнения.", "clipboard");
     const allValues = [];
-    series.forEach(function(entry) { months.forEach(function(month) { allValues.push(Number(entry.values[month]) || 0); }); });
+    series.forEach(function(entry) { months.forEach(function(month) { allValues.push((Number(entry.values[month]) || 0) / 1000000); }); });
     const maximum = Math.max.apply(null, allValues.concat([1]));
     const left = 70, right = 680, top = 20, bottom = 210;
     const x = function(index) { return months.length === 1 ? (left + right) / 2 : left + index * ((right - left) / (months.length - 1)); };
@@ -3462,10 +3506,10 @@ for (let idx = 0; idx < sources.length; idx++) {
       return '<line x1="' + left + '" y1="' + gridY + '" x2="' + right + '" y2="' + gridY + '" stroke="#e2e8f0"/><text x="' + (left - 8) + '" y="' + (gridY + 4) + '" text-anchor="end" font-size="9" fill="#64748b">' + escapeHtml(formatNumber(maximum * ratio, 0)) + '</text>';
     }).join("");
     const lines = series.map(function(entry) {
-      const points = months.map(function(month, index) { return x(index) + "," + y(entry.values[month] || 0); }).join(" ");
+      const points = months.map(function(month, index) { return x(index) + "," + y((entry.values[month] || 0) / 1000000); }).join(" ");
       const circles = months.map(function(month, index) {
-        const value = Number(entry.values[month]) || 0;
-        return '<circle cx="' + x(index) + '" cy="' + y(value) + '" r="3" fill="' + entry.color + '"><title>' + escapeHtml(entry.name + " · " + month + ": " + formatNumber(value, 2) + " ₽") + '</title></circle>';
+        const value = (Number(entry.values[month]) || 0) / 1000000;
+        return '<circle cx="' + x(index) + '" cy="' + y(value) + '" r="3" fill="' + entry.color + '"><title>' + escapeHtml(entry.name + " · " + month + ": " + formatNumber(value, 3) + " млн ₽") + '</title></circle>';
       }).join("");
       return '<polyline fill="none" stroke="' + entry.color + '" stroke-width="2.5" points="' + points + '"/>' + circles;
     }).join("");
@@ -3477,7 +3521,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       return '<line x1="' + legendX + '" y1="' + legendY + '" x2="' + (legendX + 18) + '" y2="' + legendY + '" stroke="' + entry.color + '" stroke-width="3"/><text x="' + (legendX + 24) + '" y="' + (legendY + 4) + '" font-size="9" fill="#334155">' + escapeHtml(entry.name) + '</text>';
     }).join("");
     const height = 260 + legendRows * 18;
-    return '<svg viewBox="0 0 720 ' + height + '" role="img" aria-label="Месячная динамика стоимости выполнения по интегрированным расценкам" style="width:100%;min-height:280px">' + grid + '<line x1="' + left + '" y1="' + bottom + '" x2="' + right + '" y2="' + bottom + '" stroke="#94a3b8"/>' + lines + labels + legend + '</svg>';
+    return '<svg viewBox="0 0 720 ' + height + '" role="img" aria-label="Месячная динамика стоимости выполнения, млн рублей" style="width:100%;min-height:280px"><text x="8" y="14" font-size="9" fill="#64748b">млн ₽</text>' + grid + '<line x1="' + left + '" y1="' + bottom + '" x2="' + right + '" y2="' + bottom + '" stroke="#94a3b8"/>' + lines + labels + legend + '</svg>';
   }
 
   function renderReport(item) {
@@ -3490,25 +3534,26 @@ for (let idx = 0; idx < sources.length; idx++) {
     if (selected !== "__ALL__" && contractors.indexOf(selected) < 0) selected = "__ALL__";
     const filteredRows = (state.report.rows || []).filter(function(row) { return projectScope || selected === "__ALL__" || row.contractor === selected; });
     const total = filteredRows.reduce(function(sum, row) { return sum + row.cost; }, 0);
+    const regulationTotal = filteredRows.reduce(function(sum, row) { return sum + row.regulationCost; }, 0);
     const chart = renderMonthlyReportChart(selected, contractors);
     const readyCount = readiness.items.filter(function(entry) { return entry.ready; }).length;
     const checklist = readiness.items.map(function(entry) { return '<div class="readiness-item ' + (entry.ready ? 'ready' : 'pending') + '"><div class="readiness-icon">' + icon(entry.ready ? "check" : "info") + '</div><div><div class="readiness-label">' + escapeHtml(entry.label) + (entry.required ? '' : ' <span class="muted">· необязательно</span>') + '</div><div class="readiness-detail">' + escapeHtml(entry.detail || (entry.ready ? "Этап выполнен" : "Требуется действие")) + '</div></div></div>'; }).join('');
     const missingRequired = readiness.items.filter(function(entry) { return entry.required && !entry.ready; }).map(function(entry) { return entry.label; });
     const blocked = missingRequired.length ? '<div class="banner warning"><div><strong>Сначала загрузите БД КФО.</strong> Без объёмов сформировать строки отчёта невозможно.</div></div>' : '';
-    const pricingWarning = ready && readiness.stats.unmatchedGroups > 0 ? '<div class="banner warning"><div><strong>Отсутствующие расценки не блокируют отчёт.</strong> Для ' + formatNumber(readiness.stats.unmatchedGroups, 0) + ' из ' + formatNumber(readiness.stats.requiredGroups, 0) + ' групп стоимость будет равна 0.</div>' + button("Открыть расценки", "calculator", "banner-action", 'id="open-pricing-from-report"') + '</div>' : '';
+    const pricingWarning = ready && readiness.stats.unmatchedGroups > 0 ? '<div class="banner warning"><div><strong>Отсутствующие расценки не блокируют отчёт.</strong> Для ' + formatNumber(readiness.stats.unmatchedGroups, 0) + ' из ' + formatNumber(readiness.stats.requiredGroups, 0) + ' позиций ЕР стоимость будет равна 0. Проверьте совпадение шифров ЕР и договоров в БД КФО и источниках расценок.</div>' + button("Открыть расценки", "calculator", "banner-action", 'id="open-pricing-from-report"') + '</div>' : '';
     const previewLimit = 500;
     const previewRows = filteredRows.slice(0, previewLimit);
     const rowsHtml = previewRows.map(function(row) {
       const missingClass = row.missingParts > 0 ? ' class="rate-missing"' : '';
-      return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml((row.level || selectedLevel).toUpperCase().replace("KQ", "KQ-")) + '</td><td><strong>' + escapeHtml(row.code) + '</strong></td><td>' + escapeHtml(row.name || row.code) + '</td><td>' + escapeHtml(row.unit || "—") + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td><td' + missingClass + '>' + escapeHtml(row.rateStatus) + '</td></tr>';
+      return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml((row.level || selectedLevel).toUpperCase().replace("KQ", "KQ-")) + '</td><td><strong>' + escapeHtml(row.code) + '</strong></td><td>' + escapeHtml(row.name || row.code) + '</td><td>' + escapeHtml(row.unit || "—") + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.erVolume, 2) + '</td><td class="num">' + formatNumber(row.regulationVolume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost / 1000000, 3) + '</td><td class="num">' + formatNumber(row.regulationCost / 1000000, 3) + '</td><td' + missingClass + '>' + escapeHtml(row.rateStatus) + '</td></tr>';
     }).join('');
     const previewNote = filteredRows.length > previewLimit ? '<p class="result-note">Для сохранения производительности показаны первые ' + previewLimit + ' из ' + formatNumber(filteredRows.length, 0) + ' строк. Итог рассчитан по всем строкам.</p>' : '';
     const calculatedNote = state.report.calculatedAt ? ' · ' + new Date(state.report.calculatedAt).toLocaleString("ru-RU") : '';
     const scopeOptions = '<option value="contractors"' + (!projectScope ? ' selected' : '') + '>По подрядчикам</option><option value="project"' + (projectScope ? ' selected' : '') + '>Проект в целом · KQ-1</option>';
     const levelOptions = '<option value="kq1"' + (selectedLevel === "kq1" ? ' selected' : '') + '>KQ-1</option><option value="kq2"' + (selectedLevel === "kq2" ? ' selected' : '') + '>KQ-2</option>';
-    const reportSetup = '<section class="card"><div class="card-header"><div><h3 class="card-title">Логика расчёта</h3><p class="card-desc">Параметры представления и фактическая формула оценки.</p></div></div><div class="card-body report-setup"><div class="field-grid"><div class="field"><label for="report-scope">Представление</label><select class="input" id="report-scope">' + scopeOptions + '</select></div><div class="field"><label for="report-level">Уровень видов работ</label><select class="input" id="report-level"' + (projectScope ? ' disabled' : '') + '>' + levelOptions + '</select></div></div><div class="report-formula"><div class="report-formula-main">Стоимость = Объём КФО × коэффициент KQ × единичная расценка</div><div class="report-formula-parts"><div class="report-formula-part"><strong>1. Объём КФО</strong>Факт СМР из рабочей БД на выбранную дату.</div><div class="report-formula-part"><strong>2. Коэффициент KQ</strong>Коэффициент выбранного уровня KQ-1 или KQ-2 из БД и конфигуратора.</div><div class="report-formula-part"><strong>3. Единичная расценка</strong>Цена подрядчика из источника расценок; если цена не найдена, применяется 0.</div></div><div class="result-note">Для свода по проекту стоимость сначала рассчитывается по каждому подрядчику и единичной расценке, затем суммируется по виду работ KQ-1.</div></div></div></section>';
+    const reportSetup = '<section class="card"><div class="card-header"><div><h3 class="card-title">Логика расчёта</h3><p class="card-desc">Стоимость считается на уровне единичной расценки; KQ используется только для группировки результата.</p></div></div><div class="card-body report-setup"><div class="field-grid"><div class="field"><label for="report-scope">Представление</label><select class="input" id="report-scope">' + scopeOptions + '</select></div><div class="field"><label for="report-level">Уровень видов работ</label><select class="input" id="report-level"' + (projectScope ? ' disabled' : '') + '>' + levelOptions + '</select></div></div><div class="report-formula"><div class="report-formula-main">Стоимость КФО = Σ(объём КФО по ЕР × единичная расценка)</div><div class="report-formula-main">Стоимость по регламенту = Σ((СМР × Ксмр + СК × Кск + ИД × Кид) по ЕР × единичная расценка)</div><div class="report-formula-parts"><div class="report-formula-part"><strong>1. Уровень ЕР</strong>Объём и цена сопоставляются по шифру единичной расценки и договору подрядчика.</div><div class="report-formula-part"><strong>2. Этапы регламента</strong>Объёмы СМР, «Принято СК» и «Принято ИД» умножаются на свои коэффициенты регламента и складываются.</div><div class="report-formula-part"><strong>3. Стоимость</strong>Объём на уровне ЕР умножается на единичную расценку. Коэффициенты KQ в стоимость не входят.</div><div class="report-formula-part"><strong>4. Агрегация</strong>Рассчитанные стоимости суммируются до выбранного уровня KQ-1 или KQ-2.</div></div><div class="result-note">Все итоговые стоимостные суммы отчёта отображаются в млн рублей; единичная расценка остаётся в ₽/ед.</div></div></div></section>';
     const contractorFilter = projectScope ? '' : '<select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__"' + (selected === "__ALL__" ? ' selected' : '') + '>Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select>';
-    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack report-stack">' + reportSetup + '<section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Готовность расчёта</h3><p class="card-desc">БД КФО обязательна; расценки повышают полноту оценки, но не блокируют формирование.</p></div><span class="badge ' + (ready ? 'green' : 'warning') + '">' + readyCount + ' из ' + readiness.items.length + '</span></div></div><div class="card-body report-readiness-content"><div class="readiness-summary"><strong>' + (ready ? 'Данные готовы к формированию' : 'Требуется загрузить объёмы') + '</strong><span class="badge ' + (ready ? 'green' : 'warning') + '">' + (ready ? 'Можно рассчитывать' : 'Нет данных КФО') + '</span></div>' + blocked + pricingWarning + '<div class="readiness-grid">' + checklist + '</div><p class="result-note">' + escapeHtml(state.report.message) + escapeHtml(calculatedNote) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Месячная динамика выполнения</h3><p class="card-desc">Стоимость выполнения с нулевыми значениями для объёмов без расценки.</p></div>' + contractorFilter + '</div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт по оценке</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body">' + previewNote + '<div class="table-wrap"><table><thead><tr><th>' + (projectScope ? 'Область' : 'Подрядчик') + '</th><th>Уровень</th><th>Вид работ</th><th>Наименование</th><th>Ед.</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th><th>Расценка</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="9">Нажмите «Рассчитать стоимость», чтобы сформировать отчёт.</td></tr>') + '</tbody></table></div></div></section></div>';
+    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack report-stack">' + reportSetup + '<section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Готовность расчёта</h3><p class="card-desc">БД КФО обязательна; расценки повышают полноту оценки, но не блокируют формирование.</p></div><span class="badge ' + (ready ? 'green' : 'warning') + '">' + readyCount + ' из ' + readiness.items.length + '</span></div></div><div class="card-body report-readiness-content"><div class="readiness-summary"><strong>' + (ready ? 'Данные готовы к формированию' : 'Требуется загрузить объёмы') + '</strong><span class="badge ' + (ready ? 'green' : 'warning') + '">' + (ready ? 'Можно рассчитывать' : 'Нет данных КФО') + '</span></div>' + blocked + pricingWarning + '<div class="readiness-grid">' + checklist + '</div><p class="result-note">' + escapeHtml(state.report.message) + escapeHtml(calculatedNote) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Месячная динамика выполнения</h3><p class="card-desc">Стоимость КФО по месяцам, млн рублей; объёмы без расценки отображаются с нулевой стоимостью.</p></div>' + contractorFilter + '</div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт по оценке</h3><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="badge green">КФО: ' + formatMillions(total, 3) + '</span><span class="badge green">По регламенту: ' + formatMillions(regulationTotal, 3) + '</span></div></div></div><div class="card-body">' + previewNote + '<div class="table-wrap"><table><thead><tr><th>' + (projectScope ? 'Область' : 'Подрядчик') + '</th><th>Уровень</th><th>Вид работ</th><th>Наименование</th><th>Ед.</th><th class="num">Объём KQ</th><th class="num">Объём КФО по ЕР</th><th class="num">Объём по регламенту</th><th class="num">Средняя цена, ₽/ед.</th><th class="num">Стоимость КФО, млн ₽</th><th class="num">Стоимость по регламенту, млн ₽</th><th>Расценка</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="12">Нажмите «Рассчитать стоимость», чтобы сформировать отчёт.</td></tr>') + '</tbody></table></div></div></section></div>';
   }
 
   // =====================================================================
