@@ -824,6 +824,7 @@
     selectedContractors: [],
     contractorSearch: "",
     dataUpdatedAt: null,
+    kfoLoadGeneration: 0,
     kqNameMap: { kq1: {}, kq2: {} },
     kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
     regulations: { status: "inactive", rules: new Map(), entries: [], sourceName: "", message: "Источник регламентов не подключён" },
@@ -855,6 +856,7 @@
   };
 
   let aggregationSearchTimer = null;
+  let contractorSearchTimer = null;
 
   // =====================================================================
   // 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -1607,7 +1609,7 @@ function contractorNameStem(value) {
     return { rules: rules, entries: entries, sheetName: selected.name };
   }
 
-  function parseKfoWorkbook(buffer, source, parserConfig, selectedContractors) {
+  async function parseKfoWorkbook(buffer, source, parserConfig, selectedContractors, onProgress, isCancelled) {
     if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
     const sheetSelection = [source.sheetName, "KQ"].filter(Boolean);
     const workbook = XLSX.read(buffer, { type: "array", dense: true, cellDates: true, sheets: sheetSelection });
@@ -1647,7 +1649,18 @@ function contractorNameStem(value) {
     const diagnostics = { totalRows: 0, includedRows: 0, dateExcludedRows: 0, futureFactRows: 0, missingContractorRows: 0, missingKqRows: 0, missingRegulationRows: 0, regulationMatchedRows: 0, zeroVolumeRows: 0, filteredOutByContractor: 0 };
     let maximumRowDate = "";
 
-    for (let rowIndex = resolved.headerIndex + 1; rowIndex <= resolved.lastRow; rowIndex += 1) {
+    const firstDataRow = resolved.headerIndex + 1;
+    const totalDataRows = Math.max(0, resolved.lastRow - firstDataRow + 1);
+    const batchSize = 2000;
+    for (let rowIndex = firstDataRow; rowIndex <= resolved.lastRow; rowIndex += 1) {
+      if ((rowIndex - firstDataRow) % batchSize === 0) {
+        if (isCancelled && isCancelled()) throw new DOMException("Загрузка отменена новым запросом", "AbortError");
+        if (onProgress) onProgress(rowIndex - firstDataRow, totalDataRows);
+        await new Promise(function (resolve) {
+          if (typeof requestAnimationFrame === "function") requestAnimationFrame(function () { resolve(); });
+          else setTimeout(resolve, 0);
+        });
+      }
       const get = function (field) { return resolved.columns[field] === undefined ? "" : readSheetCell(selected.sheet, rowIndex, resolved.columns[field]); };
       const erCode = String(get("erCode") || "").trim();
       const contractor = String(get("contractor") || "").trim();
@@ -1771,6 +1784,7 @@ function contractorNameStem(value) {
     });
 
     const coverageBase = diagnostics.regulationMatchedRows + diagnostics.missingRegulationRows;
+    if (onProgress) onProgress(totalDataRows, totalDataRows);
     return {
       groups: outputGroups,
       summary: {
@@ -1858,6 +1872,7 @@ function contractorNameStem(value) {
   }
 
 async function loadKfoSources() {
+    const loadGeneration = ++state.kfoLoadGeneration;
     const sources = getKfoSources().filter(function (source) {
         return source.enabled && source.url;
     });
@@ -1969,12 +1984,25 @@ for (let idx = 0; idx < sources.length; idx++) {
                 progress
             );
 
-            const parsed = parseKfoWorkbook(
-                await fetchWorkbookBuffer(source.url),
+            const workbookBuffer = await fetchWorkbookBuffer(source.url);
+            if (loadGeneration !== state.kfoLoadGeneration) return false;
+            const parsed = await parseKfoWorkbook(
+                workbookBuffer,
                 source,
                 parserConfig,
-                filterContractors
+                filterContractors,
+                function(processed, total) {
+                    const sourceShare = total ? processed / total : 1;
+                    const percent = 10 + (((i + sourceShare) / totalSources) * 80);
+                    updateProgress(
+                        `Обработка: ${source.name} — ${formatNumber(processed, 0)} из ${formatNumber(total, 0)} строк`,
+                        percent
+                    );
+                },
+                function() { return loadGeneration !== state.kfoLoadGeneration; }
             );
+
+            if (loadGeneration !== state.kfoLoadGeneration) return false;
 
             allGroups.push.apply(allGroups, parsed.groups);
             summaries.push(parsed.summary);
@@ -2004,6 +2032,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         }
     }
 
+    if (loadGeneration !== state.kfoLoadGeneration) return false;
     state.dataUpdatedAt = new Date();
     updateProgress('Формирование итоговых данных...', 95);
 
@@ -3315,14 +3344,15 @@ for (let idx = 0; idx < sources.length; idx++) {
     if (contractorSearch) {
       contractorSearch.addEventListener("input", function() {
         state.contractorSearch = contractorSearch.value;
-        renderContent();
-        setTimeout(function() {
+        window.clearTimeout(contractorSearchTimer);
+        contractorSearchTimer = window.setTimeout(function() {
+          renderContent();
           const newSearch = document.getElementById("contractor-search");
           if (newSearch) {
             newSearch.focus();
             newSearch.setSelectionRange(newSearch.value.length, newSearch.value.length);
           }
-        }, 50);
+        }, 180);
       });
     }
 
