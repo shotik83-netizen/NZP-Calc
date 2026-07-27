@@ -59,14 +59,43 @@
     .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
     .workspace { min-height: 0; display: grid; grid-template-columns: 256px minmax(0, 1fr); }
-    .sidebar { min-width: 0; overflow-y: auto; background: #f5f8f6; border-right: 1px solid var(--border); }
+    .sidebar { min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: #f5f8f6; border-right: 1px solid var(--border); }
     .sidebar-label { margin: 18px 14px 8px; color: var(--muted-foreground); font-size: 10px; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
-    .nav-list { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 16px; }
+    .nav-list { min-height: 0; display: flex; flex-direction: column; gap: 2px; padding: 0 8px 16px; overflow-y: auto; }
     .nav-item { width: 100%; display: flex; align-items: center; gap: 11px; min-height: 42px; padding: 9px 11px; color: #34423c; background: transparent; border: 0; border-radius: 7px; text-align: left; font-size: 13px; font-weight: 550; transition: background .16s ease, color .16s ease; }
     .nav-item:hover { background: rgba(40, 150, 114, .07); }
     .nav-item.active { color: var(--primary-strong); background: rgba(40, 150, 114, .1); }
     .nav-icon { width: 18px; height: 18px; flex: 0 0 auto; color: var(--primary); }
     .nav-text { line-height: 1.25; }
+
+    .sidebar-process { margin-top: auto; min-height: 0; padding: 12px; display: flex; justify-content: center; }
+    .process-ring {
+      --process-value: 0; --process-color: var(--primary);
+      width: 66px; height: 66px; position: relative; display: grid; place-items: center;
+      border: 0; border-radius: 50%; color: var(--foreground);
+      background: radial-gradient(circle at center, #f5f8f6 0 55%, transparent 56%), conic-gradient(var(--process-color) calc(var(--process-value) * 1%), var(--border) 0);
+      box-shadow: 0 5px 18px rgba(23, 49, 39, .1); font-size: 14px; font-weight: 750;
+      font-variant-numeric: tabular-nums; animation: process-in .18s ease-out;
+    }
+    .process-ring::after { content: ""; position: absolute; inset: 5px; border: 1px solid rgba(40, 150, 114, .12); border-radius: 50%; pointer-events: none; }
+    .process-ring[data-running="true"] { animation: process-in .18s ease-out, process-pulse 1.4s ease-in-out infinite; }
+    @keyframes process-in { from { opacity: 0; transform: translateY(7px) scale(.94); } }
+    @keyframes process-pulse { 50% { box-shadow: 0 5px 22px rgba(40, 150, 114, .22); } }
+
+    .readiness-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--primary-faint); }
+    .readiness-summary strong { font-size: 13px; }
+    .readiness-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .readiness-item { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; align-items: center; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcfb; }
+    .readiness-item.ready { border-color: rgba(40, 150, 114, .25); background: var(--primary-faint); }
+    .readiness-item.pending { border-color: rgba(154, 103, 0, .2); background: var(--warning-soft); }
+    .readiness-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--danger); background: var(--danger-soft); }
+    .readiness-item.ready .readiness-icon { color: var(--primary-strong); background: var(--primary-soft); }
+    .readiness-icon svg { width: 16px; height: 16px; }
+    .readiness-label { font-size: 12px; font-weight: 650; }
+    .readiness-detail { margin-top: 2px; color: var(--muted-foreground); font-size: 10px; line-height: 1.4; }
+    .kpi-details { margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fbfcfb; }
+    .kpi-details > summary { cursor: pointer; padding: 11px 13px; color: var(--primary-strong); font-size: 12px; font-weight: 650; }
+    .kpi-details[open] > summary { border-bottom: 1px solid var(--border); background: var(--primary-faint); }
 
     .admin-group {
       margin-top: 12px;
@@ -570,6 +599,8 @@
       .sidebar { width: 100%; max-width: 100vw; overflow: hidden; border-right: 0; border-bottom: 1px solid var(--border); }
       .sidebar-label { display: none; }
       .nav-list { width: 100%; max-width: 100vw; overflow-x: auto; flex-direction: row; padding: 7px 10px; flex-wrap: nowrap; }
+      .sidebar-process { position: fixed; left: 12px; bottom: 64px; z-index: 80; padding: 0; }
+      .process-ring { width: 58px; height: 58px; background: radial-gradient(circle at center, white 0 55%, transparent 56%), conic-gradient(var(--process-color) calc(var(--process-value) * 1%), var(--border) 0); }
       .nav-item { width: auto; min-width: max-content; min-height: 38px; padding: 8px 10px; }
       .nav-text { white-space: nowrap; }
       .admin-group { border-top: none; margin-top: 0; padding-top: 0; display: flex; align-items: center; gap: 2px; }
@@ -617,6 +648,7 @@
       .source-overview { grid-template-columns: minmax(60px, 1fr) auto auto auto auto; gap: 6px; padding-inline: 9px; }
       .source-overview-secondary, .source-date-origin { display: none; }
       .metric-strip { grid-template-columns: 1fr; }
+      .readiness-grid { grid-template-columns: 1fr; }
       .contractor-item > summary { grid-template-columns: minmax(0, 1fr) 18px; }
       .contractor-metrics { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
       .app-footer { padding: 0 12px; }
@@ -665,6 +697,7 @@
     <aside class="sidebar" aria-label="Разделы приложения">
       <div class="sidebar-label">Разделы</div>
       <nav class="nav-list" id="nav-list"></nav>
+      <div class="sidebar-process" id="sidebar-process" aria-live="polite"></div>
     </aside>
     <main class="content-scroll" id="main-scroll">
       <div class="content" id="content" aria-live="polite"></div>
@@ -712,6 +745,7 @@
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>',
     lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    stop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="7.5" y1="16.5" x2="16.5" y2="7.5"/></svg>',
     chevronRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>',
     chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
@@ -725,7 +759,7 @@
     { id: "data-upload", label: "БД КФО", icon: "database", description: "Подключение базы КФО на SharePoint и получение сведений на выбранную дату." },
     { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
     { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
-    { id: "aggregation", label: "Справочник BOQ", icon: "book", description: "Объединение детальных видов работ в отчётные группы." },
+    { id: "aggregation", label: "Справочник BOQ", icon: "stop", description: "Объединение детальных видов работ в отчётные группы.", admin: true },
     { id: "report", label: "Отчёт", icon: "clipboard", description: "Месячная динамика выполнения и ручной расчёт стоимости." },
     { id: "contractor-directory", label: "Справочник подрядчиков", icon: "users", description: "Акцепт новых наименований и объединение вариантов одного подрядчика без изменения первичных расчётов.", admin: true },
     { id: "admin", label: "Административные настройки", icon: "settings", description: "Источники данных, соответствия колонок и параметры экспорта.", admin: true }
@@ -814,6 +848,7 @@
     aggregation: { status: "inactive", entries: [], parserVersion: "", parserConfig: null, parserDirty: false, index: new Map(), message: "Справочник не загружен" },
     pricing: {
       status: "inactive",
+      message: "Источники расценок ещё не загружены",
       data: {},
       expanded: { contractors: {}, contracts: {}, rdcs: {} },
       rateSearchInput: "",
@@ -843,6 +878,7 @@
 
   let aggregationSearchTimer = null;
   let contractorSearchTimer = null;
+  let processHideTimer = null;
 
   // =====================================================================
   // 5. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -887,6 +923,8 @@
     }
 
     document.getElementById("nav-list").innerHTML = html;
+    const processHost = document.getElementById("sidebar-process");
+    if (processHost) processHost.innerHTML = renderProcessIndicator();
   }
 
   function pageHead(item, actions) {
@@ -2413,9 +2451,10 @@ for (let idx = 0; idx < sources.length; idx++) {
     const bindings = state.config && state.config.pricingBindings ? state.config.pricingBindings : {};
     invalidateReport("Источники расценок обновляются — требуется повторный расчёт стоимости");
     if (!Object.keys(bindings).length) {
-      state.pricing.status = "inactive";
+      state.pricing.status = "error";
+      state.pricing.message = "В config.json отсутствуют привязки pricingBindings. Добавьте источник в режиме редактирования.";
       state.pricing.data = {};
-      if (!quiet) showToast("Расценки не загружены", "Нет привязок в конфигурации.");
+      if (!quiet) showToast("Расценки не загружены", state.pricing.message);
       if (state.active === "pricing") renderContent();
       return false;
     }
@@ -2427,6 +2466,8 @@ for (let idx = 0; idx < sources.length; idx++) {
     }, 0);
     startProcess("Источники расценок", "Загрузка расценок");
     state.pricing.status = "loading";
+    state.pricing.message = "Читаем настроенные источники расценок…";
+    state.pricing.data = {};
     if (state.active === "pricing") renderContent();
 
     let loadedCount = 0;
@@ -2443,10 +2484,11 @@ for (let idx = 0; idx < sources.length; idx++) {
         for (const [rdc, config] of Object.entries(rdcs)) {
           updateProcess("Загрузка расценок", Math.round((loadedCount + errorCount) / Math.max(1, pricingSourcesTotal) * 90), loadedCount + errorCount, contractor + " · " + contract + " · " + rdc);
           try {
-            if (config.sourceUrl) {
-              if (!String(config.sheetName || "").trim()) throw new Error("Не указано наименование вкладки Excel в конфигурации источника");
-              const buffer = await fetchWorkbookBuffer(config.sourceUrl);
+            if (!config || !String(config.sourceUrl || "").trim()) throw new Error("Не указан URL Excel-файла");
+            if (!String(config.sheetName || "").trim()) throw new Error("Не указано наименование вкладки Excel в конфигурации источника");
+              const buffer = await fetchWorkbookBuffer(String(config.sourceUrl).trim());
               const rates = parsePricingWorkbook(buffer, config.columns || { code: "A", name: "B", unit: "C", currency: "D", basePrice: "E" }, config.sheetName);
+              if (!Object.keys(rates).length) throw new Error("На выбранной вкладке не найдено ни одной расценки");
 
               const indirectPercent = config.indirectPercent || 0;
               const multiplier = 1 + indirectPercent / 100;
@@ -2463,7 +2505,6 @@ for (let idx = 0; idx < sources.length; idx++) {
                 columns: config.columns || { code: "A", name: "B", unit: "C", currency: "D", basePrice: "E" }
               };
               loadedCount++;
-            }
           } catch (error) {
             errorCount++;
             if (!quiet) {
@@ -2475,6 +2516,9 @@ for (let idx = 0; idx < sources.length; idx++) {
     }
 
     state.pricing.status = loadedCount > 0 ? "active" : "error";
+    state.pricing.message = loadedCount > 0
+      ? "Загружено источников: " + loadedCount + (errorCount ? "; ошибок: " + errorCount : "")
+      : "Расценки не загружены: проверьте URL, вкладку и колонки источников";
     finishProcess(loadedCount > 0 ? (errorCount ? "warning" : "success") : "error", loadedCount > 0 ? "Завершено" : "Загрузка расценок", loadedCount, errorCount ? "Ошибок источников: " + errorCount : "Расценки загружены");
     if (state.active === "pricing") renderContent();
 
@@ -2594,41 +2638,27 @@ for (let idx = 0; idx < sources.length; idx++) {
   function renderProcessIndicator() {
     const process = state.process || {};
     if (!process.visible) return "";
-    const colors = { running: "#2563eb", success: "#16a34a", warning: "#d97706", error: "#dc2626" };
-    const color = colors[process.status] || "#2563eb";
-    const elapsedEnd = process.finishedAt || Date.now();
-    const elapsed = process.startedAt ? ((elapsedEnd - process.startedAt) / 1000).toFixed(1) + " с" : "—";
-    const closeButton = process.status === "running" ? "" : '<button class="btn btn-ghost" type="button" id="close-process-indicator">Закрыть</button>';
-    return '<section id="process-indicator" class="card" aria-live="polite" style="border-color:' + color + ';margin-bottom:16px"><div class="card-body"><div class="card-title-row"><strong id="process-stage" style="color:' + color + '">' + escapeHtml(process.stage || "Обработка данных") + '</strong><div style="display:flex;align-items:center;gap:8px"><span class="badge" id="process-percent">' + formatNumber(process.percent || 0, 0) + '%</span>' + closeButton + '</div></div><div class="result-note"><span id="process-source">Источник: ' + escapeHtml(process.source || "—") + '</span> · <span id="process-processed">Обработано: ' + formatNumber(process.processed || 0, 0) + '</span> · <span id="process-elapsed">Время: ' + elapsed + '</span></div><div style="height:7px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:8px"><div id="process-progress-bar" style="height:100%;width:' + Math.max(0, Math.min(100, process.percent || 0)) + '%;background:' + color + ';transition:width .2s ease"></div></div><p id="process-message" class="result-note" style="color:' + color + ';' + (process.message ? '' : 'display:none') + '">' + escapeHtml(process.message || '') + '</p></div></section>';
+    const percent = Math.max(0, Math.min(100, Number(process.percent) || 0));
+    return '<div id="process-indicator" class="process-ring" role="progressbar" aria-label="Ход загрузки" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(percent) + '" data-running="' + (process.status === "running" ? "true" : "false") + '" style="--process-value:' + percent + ';--process-color:var(--primary)" title="' + escapeHtml(process.stage || "Загрузка") + '"><span id="process-percent">' + Math.round(percent) + '%</span></div>';
   }
 
   function startProcess(source, stage) {
+    window.clearTimeout(processHideTimer);
     state.process = { visible: true, status: "running", source: source || "", stage: stage || "Проверка файла", percent: 0, processed: 0, startedAt: Date.now(), finishedAt: 0, message: "" };
-    if (state.configLoaded) renderContent();
+    if (state.configLoaded) renderNav();
   }
 
   function refreshProcessIndicator() {
     const process = state.process || {};
-    const colors = { running: "#2563eb", success: "#16a34a", warning: "#d97706", error: "#dc2626" };
-    const color = colors[process.status] || "#2563eb";
     const card = document.getElementById("process-indicator");
-    if (!card) return;
-    const stage = document.getElementById("process-stage");
-    const source = document.getElementById("process-source");
-    const processed = document.getElementById("process-processed");
-    const elapsed = document.getElementById("process-elapsed");
+    if (!card) { renderNav(); return; }
     const percent = document.getElementById("process-percent");
-    const bar = document.getElementById("process-progress-bar");
-    const message = document.getElementById("process-message");
-    const elapsedEnd = process.finishedAt || Date.now();
-    card.style.borderColor = color;
-    if (stage) { stage.textContent = process.stage || "Обработка данных"; stage.style.color = color; }
-    if (source) source.textContent = "Источник: " + (process.source || "—");
-    if (processed) processed.textContent = "Обработано: " + formatNumber(process.processed || 0, 0);
-    if (elapsed) elapsed.textContent = "Время: " + (process.startedAt ? ((elapsedEnd - process.startedAt) / 1000).toFixed(1) + " с" : "—");
-    if (percent) percent.textContent = formatNumber(process.percent || 0, 0) + "%";
-    if (bar) { bar.style.width = process.percent + "%"; bar.style.background = color; }
-    if (message) { message.textContent = process.message || ""; message.style.color = color; message.style.display = process.message ? "" : "none"; }
+    const value = Math.max(0, Math.min(100, Number(process.percent) || 0));
+    card.style.setProperty("--process-value", value);
+    card.setAttribute("aria-valuenow", String(Math.round(value)));
+    card.setAttribute("data-running", process.status === "running" ? "true" : "false");
+    card.setAttribute("title", process.stage || "Загрузка");
+    if (percent) percent.textContent = Math.round(value) + "%";
   }
 
   function updateProcess(stage, percent, processed, message) {
@@ -2648,6 +2678,11 @@ for (let idx = 0; idx < sources.length; idx++) {
     state.process.visible = true;
     state.process.finishedAt = Date.now();
     refreshProcessIndicator();
+    window.clearTimeout(processHideTimer);
+    processHideTimer = window.setTimeout(function() {
+      state.process.visible = false;
+      renderNav();
+    }, 10000);
   }
 
   // =====================================================================
@@ -2675,7 +2710,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       "report": renderReport,
       "admin": renderAdmin
     };
-    document.getElementById("content").innerHTML = renderProcessIndicator() + renderers[item.id](item);
+    document.getElementById("content").innerHTML = renderers[item.id](item);
     bindContentEvents();
   }
 
@@ -2833,7 +2868,24 @@ for (let idx = 0; idx < sources.length; idx++) {
     const kpi = state.kpi;
     const kpiContractors = new Set((kpi.groups || []).map(function(group) { return normalizeParserLabel(group.contractor); })).size;
     const kpiTypes = new Set((kpi.groups || []).map(function(group) { return normalizeParserLabel(group.kqCode); })).size;
-    const kpiBlock = '<section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Ключевые показатели проекта</h3><p class="card-desc">Независимая аналитика только уровня KQ-1. Проверка источника не запускает чтение данных.</p></div>' + button(kpi.status === "loading" ? "Загрузка…" : "Загрузить KPI KQ-1", "upload", "btn-primary", 'id="load-project-kpi" ' + (kpi.status === "loading" ? "disabled" : "")) + '</div></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpiContractors, 0) : "—") + '</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpi.totalRows, 0) : "—") + '</div><div class="stat-note">' + escapeHtml(kpi.message) + '</div></div><div class="stat"><div class="stat-label">Групп KQ-1</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpiTypes, 0) : "—") + '</div></div></div></div></section>';
+    const kpiRows = (function() {
+      const rows = new Map();
+      (kpi.groups || []).forEach(function(group) {
+        const contractor = canonicalContractorName(group.contractor);
+        const key = [normalizeParserLabel(contractor), normalizeParserLabel(group.kqCode), normalizeParserLabel(group.unit)].join("||");
+        if (!rows.has(key)) rows.set(key, { contractor: contractor, code: group.kqCode, name: group.kqName || group.erName || "Наименование не найдено", unit: group.unit || "—", rows: 0, actualSmr: 0, acceptedSk: 0, acceptedId: 0 });
+        const row = rows.get(key);
+        row.rows += Number(group.rows) || 0;
+        row.actualSmr += Number(group.actualSmr) || 0;
+        row.acceptedSk += Number(group.acceptedSk) || 0;
+        row.acceptedId += Number(group.acceptedId) || 0;
+      });
+      return Array.from(rows.values()).sort(function(a, b) { return a.contractor.localeCompare(b.contractor, "ru") || String(a.code).localeCompare(String(b.code), "ru"); });
+    })();
+    const kpiDetails = kpi.status === "active"
+      ? '<details class="kpi-details"><summary>Раскрыть все KQ-1 · ' + formatNumber(kpiRows.length, 0) + ' видов работ</summary><div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>KQ-1</th><th>Наименование работ</th><th>Ед.</th><th class="num">Строк</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th></tr></thead><tbody>' + kpiRows.map(function(row) { return '<tr><td>' + escapeHtml(row.contractor) + '</td><td><strong>' + escapeHtml(row.code) + '</strong></td><td>' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.unit) + '</td><td class="num">' + formatNumber(row.rows, 0) + '</td><td class="num">' + formatNumber(row.actualSmr, 0) + '</td><td class="num">' + formatNumber(row.acceptedSk, 0) + '</td><td class="num">' + formatNumber(row.acceptedId, 0) + '</td></tr>'; }).join("") + '</tbody></table></div></details>'
+      : '';
+    const kpiBlock = '<section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Ключевые показатели проекта</h3><p class="card-desc">Независимая аналитика только уровня KQ-1. Проверка источника не запускает чтение данных.</p></div>' + button(kpi.status === "loading" ? "Загрузка…" : "Загрузить KQ-1", "upload", "btn-primary", 'id="load-project-kpi" ' + (kpi.status === "loading" ? "disabled" : "")) + '</div></div><div class="card-body"><div class="metric-strip"><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpiContractors, 0) : "—") + '</div></div><div class="stat highlight"><div class="stat-label">Строк для анализа</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpi.totalRows, 0) : "—") + '</div><div class="stat-note">' + escapeHtml(kpi.message) + '</div></div><div class="stat"><div class="stat-label">Групп KQ-1</div><div class="stat-value">' + (kpi.status === "active" ? formatNumber(kpiTypes, 0) : "—") + '</div></div></div>' + kpiDetails + '</div></section>';
 
     return pageHead(item, kfoActions) +
       '<div class="stack">' +
@@ -3201,7 +3253,8 @@ for (let idx = 0; idx < sources.length; idx++) {
     const filteredRows = (state.report.rows || []).filter(function(row) { return selected === "__ALL__" || row.contractor === selected; });
     const total = filteredRows.reduce(function(sum, row) { return sum + row.cost; }, 0);
     const chart = renderMonthlyReportChart(selected, contractors);
-    const checklist = readiness.items.map(function(entry) { return '<li style="color:' + (entry.ready ? 'var(--success)' : 'var(--danger)') + '">' + (entry.ready ? '✓ ' : '✕ ') + escapeHtml(entry.label) + '<span class="muted"> — ' + escapeHtml(entry.detail || "") + '</span></li>'; }).join('');
+    const readyCount = readiness.items.filter(function(entry) { return entry.ready; }).length;
+    const checklist = readiness.items.map(function(entry) { return '<div class="readiness-item ' + (entry.ready ? 'ready' : 'pending') + '"><div class="readiness-icon">' + icon(entry.ready ? "check" : "info") + '</div><div><div class="readiness-label">' + escapeHtml(entry.label) + '</div><div class="readiness-detail">' + escapeHtml(entry.detail || (entry.ready ? "Этап выполнен" : "Требуется действие")) + '</div></div></div>'; }).join('');
     const missing = readiness.items.filter(function(entry) { return !entry.ready; }).map(function(entry) { return entry.label; });
     const blocked = missing.length ? '<div class="banner warning"><div><strong>Расчёт недоступен.</strong> Незавершённые этапы: ' + escapeHtml(missing.join("; ")) + '.</div></div>' : '';
     const previewLimit = 500;
@@ -3209,7 +3262,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const rowsHtml = previewRows.map(function(row) { return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml(row.code) + '</td><td>' + escapeHtml(row.unit || "—") + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td></tr>'; }).join('');
     const previewNote = filteredRows.length > previewLimit ? '<p class="result-note">Для сохранения производительности показаны первые ' + previewLimit + ' из ' + formatNumber(filteredRows.length, 0) + ' строк. Итог рассчитан по всем строкам.</p>' : '';
     const calculatedNote = state.report.calculatedAt ? ' · ' + new Date(state.report.calculatedAt).toLocaleString("ru-RU") : '';
-    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack"><section class="card"><div class="card-header"><h3 class="card-title">Check List готовности</h3></div><div class="card-body">' + blocked + '<ul>' + checklist + '</ul><p class="result-note">' + escapeHtml(state.report.message) + escapeHtml(calculatedNote) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Месячная динамика выполнения</h3><p class="card-desc">Стоимость выполнения по интегрированным расценкам. В режиме «Все подрядчики» каждый подрядчик показан отдельной линией.</p></div><select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__"' + (selected === "__ALL__" ? ' selected' : '') + '>Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select></div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body">' + previewNote + '<div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Расценка</th><th>Ед.</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="6">Нет рассчитанных данных</td></tr>') + '</tbody></table></div></div></section></div>';
+    return pageHead(item, button("Рассчитать стоимость", "calculator", "btn-primary", 'id="calculate-report" ' + (ready ? '' : 'disabled'))) + '<div class="stack"><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Готовность расчёта</h3><p class="card-desc">Проверка обязательных источников перед формированием отчёта.</p></div><span class="badge ' + (ready ? 'green' : 'warning') + '">' + readyCount + ' из ' + readiness.items.length + '</span></div></div><div class="card-body"><div class="readiness-summary"><strong>' + (ready ? 'Все этапы готовы' : 'Требуется завершить подготовку') + '</strong><span class="badge ' + (ready ? 'green' : 'warning') + '">' + (ready ? 'Можно рассчитывать' : 'Расчёт заблокирован') + '</span></div>' + blocked + '<div class="readiness-grid">' + checklist + '</div><p class="result-note">' + escapeHtml(state.report.message) + escapeHtml(calculatedNote) + '</p></div></section><section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Месячная динамика выполнения</h3><p class="card-desc">Стоимость выполнения по интегрированным расценкам. В режиме «Все подрядчики» каждый подрядчик показан отдельной линией.</p></div><select class="input" id="report-contractor" style="max-width:280px"><option value="__ALL__"' + (selected === "__ALL__" ? ' selected' : '') + '>Все подрядчики</option>' + contractors.map(function(name) { return '<option value="' + escapeHtml(name) + '"' + (name === selected ? ' selected' : '') + '>' + escapeHtml(name) + '</option>'; }).join('') + '</select></div></div><div class="card-body">' + chart + '</div></section><section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Отчёт</h3><span class="badge green">' + formatNumber(total, 2) + ' ₽</span></div></div><div class="card-body">' + previewNote + '<div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Расценка</th><th>Ед.</th><th class="num">Объём</th><th class="num">Цена</th><th class="num">Стоимость</th></tr></thead><tbody>' + (rowsHtml || '<tr><td colspan="6">Нет рассчитанных данных</td></tr>') + '</tbody></table></div></div></section></div>';
   }
 
   // =====================================================================
@@ -3248,6 +3301,9 @@ for (let idx = 0; idx < sources.length; idx++) {
     const allRates = getAllRates();
     const addForm = state.pricing.addForm || {};
     const searchVal = state.pricing.rateSearchInput || '';
+    const loadProblem = pricing.status === "error"
+      ? '<div class="banner warning" style="margin-bottom:8px;">' + icon("info") + '<div><strong>Расценки не загружены.</strong> ' + escapeHtml(pricing.message || "Проверьте настройки источников.") + '</div></div>'
+      : '';
 
     const devBanner = '<div class="banner warning" style="margin-bottom:8px;">' +
         icon("info") +
@@ -3585,6 +3641,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     return pageHead(item, actions) +
     '<div class="stack">' +
         devBanner +
+        loadProblem +
         (isEdit ? '<div class="banner">' + icon("info") + '<div><strong>Режим редактирования включён.</strong> Добавляйте источники расценок, управляйте договорами, РДЦ и % косвенных.</div></div>' : '') +
         pricingBlock +
         comparisonHTML +
@@ -4680,6 +4737,9 @@ for (let idx = 0; idx < sources.length; idx++) {
   function setEditMode(enabled, quiet) {
     const shouldDownloadConfig = state.editMode && !enabled && state.configDirty;
     state.editMode = Boolean(enabled);
+    if (!state.editMode && (MENU.find(function(item) { return item.id === state.active; }) || {}).admin) {
+      state.active = "data-upload";
+    }
     document.body.classList.toggle("edit-mode", state.editMode);
     document.getElementById("edit-mode").checked = state.editMode;
 
