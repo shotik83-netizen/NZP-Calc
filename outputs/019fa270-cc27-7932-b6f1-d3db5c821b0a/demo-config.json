@@ -1,0 +1,176 @@
+{
+  "application": "nzp-calculator",
+  "version": "1.6-demo",
+  "title": "Отчёт по незавершённому строительству — демонстрационный режим",
+  "configUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/demo-config.json",
+  "editMode": false,
+  "dataSources": [
+    {
+      "id": "demo-kfo",
+      "name": "Демонстрационная БД КФО",
+      "url": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/nzp-demo-kfo.xlsx",
+      "enabled": true,
+      "sheetName": "КФО",
+      "dkSheetName": "ДК",
+      "headerSearchRows": 50,
+      "updatedAtCell": "Q2",
+      "kqLevel": "kq2",
+      "calculationMode": "with-regulations",
+      "columns": {
+        "rowDate": "A",
+        "markCode": "B",
+        "erCode": "C",
+        "erName": "D",
+        "unit": "E",
+        "contractor": "F",
+        "contractNumber": "G",
+        "actualSmr": "H",
+        "lastFactDate": "I",
+        "acceptedSk": "J",
+        "acceptedId": "K",
+        "kq1Code": "L",
+        "kq1Coefficient": "M",
+        "kq2Code": "N",
+        "kq2Coefficient": "O"
+      }
+    }
+  ],
+  "calculation": {
+    "defaultKqLevel": "kq2",
+    "defaultMode": "with-regulations"
+  },
+  "regulationsSource": {
+    "name": "Демонстрационные регламенты",
+    "url": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/nzp-demo-kfo.xlsx",
+    "enabled": true,
+    "sheetName": "ДК",
+    "headerSearchRows": 30,
+    "defaultDistribution": {
+      "actualSmr": 0.5,
+      "acceptedSk": 0.35,
+      "acceptedId": 0.15
+    }
+  },
+  "contractorDirectory": {
+    "storage": "shared-config",
+    "entries": [
+      {
+        "sourceName": "ДемоСтрой",
+        "canonicalName": "ДемоСтрой",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "МонолитПроект",
+        "canonicalName": "МонолитПроект",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ИнжСервис",
+        "canonicalName": "ИнжСервис",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ПромМонтаж",
+        "canonicalName": "ПромМонтаж",
+        "status": "canonical"
+      },
+      {
+        "sourceName": "ТехноСтрой",
+        "canonicalName": "ТехноСтрой",
+        "status": "canonical"
+      }
+    ]
+  },
+  "coefficientBindings": {},
+  "pricingBindings": {
+    "ДемоСтрой": {
+      "ДЕМО-001": {
+        "Демо РДЦ": {
+          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-01.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 0,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "МонолитПроект": {
+      "ДЕМО-002": {
+        "Демо РДЦ": {
+          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-02.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 1.5,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "ИнжСервис": {
+      "ДЕМО-003": {
+        "Демо РДЦ": {
+          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-03.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 3,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "ПромМонтаж": {
+      "ДЕМО-004": {
+        "Демо РДЦ": {
+          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-04.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 4.5,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    },
+    "ТехноСтрой": {
+      "ДЕМО-005": {
+        "Демо РДЦ": {
+          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-05.xlsx",
+          "sheetName": "Расценки",
+          "indirectPercent": 6,
+          "columns": {
+            "code": "A",
+            "name": "B",
+            "unit": "C",
+            "currency": "D",
+            "basePrice": "E"
+          }
+        }
+      }
+    }
+  },
+  "aggregationSource": {
+    "name": "Справочник BOQ",
+    "url": ""
+  },
+  "parserConfigUrl": "./parser-config.json",
+  "export": {
+    "fileName": "Расчёт НЗП — демо.xlsx",
+    "sheetName": "НЗП"
+  }
+}

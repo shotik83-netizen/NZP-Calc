@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "inputRows": 400000,
+  "contractors": 5,
+  "ratesPerContractor": 20,
+  "aggregatedGroups": 100,
+  "matchedGroups": 100,
+  "months": 12,
+  "sourceVolume": 1199991.25,
+  "reportTotal": 3824965318.75,
+  "aggregationMs": 2182.17,
+  "reportMs": 1.18,
+  "totalMs": 2183.35,
+  "heapUsedMb": 4.65,
+  "rssMb": 41.16,
+  "scope": "Вычислительный контур после декодирования Excel; время XLSX.read зависит от реального файла и измеряется отдельно."
+}

@@ -781,6 +781,7 @@
   };
 
   const CONFIG_LIFETIME_MS = 10 * 60 * 1000;
+  const DEMO_CONFIG_URL = "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/demo-config.json";
 
   // =====================================================================
   // 4. СОСТОЯНИЕ
@@ -2500,7 +2501,8 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     setConfigStatus("", "Загрузка конфигурации…");
 
-    const urlToFetch = DEFAULT_CONFIG.configUrl;
+    const demoMode = new URLSearchParams(location.search).get("demo") === "1";
+    const urlToFetch = demoMode ? DEMO_CONFIG_URL : DEFAULT_CONFIG.configUrl;
 
     if (!urlToFetch) {
       state.configLoaded = false;
