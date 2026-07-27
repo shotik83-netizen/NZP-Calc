@@ -2,13 +2,13 @@
   "application": "nzp-calculator",
   "version": "1.6-demo",
   "title": "Отчёт по незавершённому строительству — демонстрационный режим",
-  "configUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/demo-config.json",
+  "configUrl": "./demo/demo-config.json",
   "editMode": false,
   "dataSources": [
     {
       "id": "demo-kfo",
       "name": "Демонстрационная БД КФО",
-      "url": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/nzp-demo-kfo.xlsx",
+      "url": "./demo/nzp-demo-kfo.xlsx",
       "enabled": true,
       "sheetName": "КФО",
       "dkSheetName": "ДК",
@@ -41,7 +41,7 @@
   },
   "regulationsSource": {
     "name": "Демонстрационные регламенты",
-    "url": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/nzp-demo-kfo.xlsx",
+    "url": "./demo/nzp-demo-kfo.xlsx",
     "enabled": true,
     "sheetName": "ДК",
     "headerSearchRows": 30,
@@ -86,7 +86,7 @@
     "ДемоСтрой": {
       "ДЕМО-001": {
         "Демо РДЦ": {
-          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-01.xlsx",
+          "sourceUrl": "./demo/pricing-01.xlsx",
           "sheetName": "Расценки",
           "indirectPercent": 0,
           "columns": {
@@ -102,7 +102,7 @@
     "МонолитПроект": {
       "ДЕМО-002": {
         "Демо РДЦ": {
-          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-02.xlsx",
+          "sourceUrl": "./demo/pricing-02.xlsx",
           "sheetName": "Расценки",
           "indirectPercent": 1.5,
           "columns": {
@@ -118,7 +118,7 @@
     "ИнжСервис": {
       "ДЕМО-003": {
         "Демо РДЦ": {
-          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-03.xlsx",
+          "sourceUrl": "./demo/pricing-03.xlsx",
           "sheetName": "Расценки",
           "indirectPercent": 3,
           "columns": {
@@ -134,7 +134,7 @@
     "ПромМонтаж": {
       "ДЕМО-004": {
         "Демо РДЦ": {
-          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-04.xlsx",
+          "sourceUrl": "./demo/pricing-04.xlsx",
           "sheetName": "Расценки",
           "indirectPercent": 4.5,
           "columns": {
@@ -150,7 +150,7 @@
     "ТехноСтрой": {
       "ДЕМО-005": {
         "Демо РДЦ": {
-          "sourceUrl": "./outputs/019fa270-cc27-7932-b6f1-d3db5c821b0a/pricing-05.xlsx",
+          "sourceUrl": "./demo/pricing-05.xlsx",
           "sheetName": "Расценки",
           "indirectPercent": 6,
           "columns": {
