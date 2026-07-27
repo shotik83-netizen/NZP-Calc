@@ -71,7 +71,8 @@
     .sidebar-process { margin-top: auto; min-height: 0; padding: 12px; display: flex; justify-content: center; }
     .process-widget {
       width: 136px; min-height: 136px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-      padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+      padding: 12px; border: 1px solid rgba(211, 222, 216, .72); border-radius: 10px; background: rgba(255, 255, 255, .76);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       box-shadow: 0 6px 20px rgba(23, 49, 39, .08);
     }
     .process-widget-label { color: var(--muted-foreground); font-size: 10px; font-weight: 700; line-height: 1.25; text-align: center; }
@@ -855,7 +856,7 @@
     contractorSearch: "",
     dataUpdatedAt: null,
     kfoLoadGeneration: 0,
-    process: { visible: true, status: "running", source: "Приложение", stage: "Начальная загрузка", percent: 0, processed: 0, startedAt: Date.now(), finishedAt: 0, message: "" },
+    process: { visible: false, status: "idle", source: "", stage: "", percent: 0, processed: 0, startedAt: 0, finishedAt: 0, message: "" },
     kqNameMap: { kq1: {}, kq2: {} },
     kfo: { status: "inactive", groups: [], contractors: [], rawContractors: [], sourceSummaries: [], totalRows: 0, includedRows: 0, message: "Сведения не загружены" },
     kpi: { status: "inactive", groups: [], totalRows: 0, includedRows: 0, message: "Источник проверен; аналитика не загружена" },
@@ -1940,20 +1941,20 @@ function contractorNameStem(value) {
 
   async function checkKfoConnections(quiet) {
     const sources = getKfoSources().filter(function(source) { return source.enabled; });
-    startProcess("Источники БД КФО", "Проверка файла");
+    if (!quiet) startProcess("Источники БД КФО", "Проверка файла");
     if (!sources.length) {
-      finishProcess("error", "Проверка файла", 0, "Нет включённых источников БД КФО");
+      if (!quiet) finishProcess("error", "Проверка файла", 0, "Нет включённых источников БД КФО");
       if (state.configLoaded) renderContent();
       if (!quiet) showToast("Источники не настроены", "Добавьте и включите источник БД КФО.");
       return false;
     }
     const results = [];
     for (let index = 0; index < sources.length; index += 1) {
-      updateProcess("Проверка файла", Math.round(index / sources.length * 100), index, sources[index].name || sources[index].url);
+      if (!quiet) updateProcess("Проверка файла", Math.round(index / sources.length * 100), index, sources[index].name || sources[index].url);
       results.push(await checkKfoSourceConnection(sources[index]));
     }
     const available = results.filter(Boolean).length;
-    finishProcess(available === sources.length ? "success" : (available ? "warning" : "error"), "Завершено", sources.length, available + " из " + sources.length + " файлов доступны. Данные не загружались.");
+    if (!quiet) finishProcess(available === sources.length ? "success" : (available ? "warning" : "error"), "Завершено", sources.length, available + " из " + sources.length + " файлов доступны. Данные не загружались.");
     if (state.configLoaded) renderContent();
     if (!quiet) showToast(results.some(Boolean) ? "Проверка завершена" : "Источники недоступны", available + " из " + results.length + " файлов доступны. Данные не загружались.");
     return results.some(Boolean);
@@ -2552,6 +2553,7 @@ for (let idx = 0; idx < sources.length; idx++) {
   // =====================================================================
   async function loadConfig(force) {
     const now = Date.now();
+    const showProcess = Boolean(force || state.configLoaded);
 
     if (!force && state.configLoaded && state.config && state.configLoadedAt &&
         (now - state.configLoadedAt) < CONFIG_LIFETIME_MS) {
@@ -2559,8 +2561,10 @@ for (let idx = 0; idx < sources.length; idx++) {
       return true;
     }
 
-    startProcess("Приложение", "Загрузка конфигурации");
-    updateProcess("Загрузка конфигурации", 15, 0, "Чтение config.json");
+    if (showProcess) {
+      startProcess("Приложение", "Загрузка конфигурации");
+      updateProcess("Загрузка конфигурации", 15, 0, "Чтение config.json");
+    }
     setConfigStatus("", "Загрузка конфигурации…");
 
     const demoMode = new URLSearchParams(location.search).get("demo") === "1";
@@ -2570,7 +2574,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       state.configLoaded = false;
       state.configLoadError = "Адрес конфигурационного файла не указан в коде приложения.";
       setConfigStatus("error", "Адрес не указан");
-      finishProcess("error", "Ошибка конфигурации", 0, state.configLoadError);
+      if (showProcess) finishProcess("error", "Ошибка конфигурации", 0, state.configLoadError);
       renderContent();
       return false;
     }
@@ -2581,7 +2585,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       const response = await fetch(requestUrl.href, { cache: "no-store", credentials: "include" });
       if (!response.ok) throw new Error("HTTP " + response.status);
       const incoming = await response.json();
-      updateProcess("Проверка конфигурации", 60, 0, "Проверка структуры config.json");
+      if (showProcess) updateProcess("Проверка конфигурации", 60, 0, "Проверка структуры config.json");
       if (!incoming || incoming.application !== "nzp-calculator") {
         throw new Error("неверный формат файла (ожидается application: nzp-calculator)");
       }
@@ -2617,9 +2621,9 @@ for (let idx = 0; idx < sources.length; idx++) {
       applyConfigToChrome();
       setConfigStatus("ok", "config.json загружен");
       setEditMode(Boolean(state.config.editMode), true);
-      updateProcess("Подготовка интерфейса", 90, 0, "Применение настроек");
+      if (showProcess) updateProcess("Подготовка интерфейса", 90, 0, "Применение настроек");
       renderContent();
-      finishProcess("success", "Готово", 0, "Приложение загружено");
+      if (showProcess) finishProcess("success", "Готово", 0, "Приложение загружено");
 
       setTimeout(function() {
         checkKfoConnections(true);
@@ -2631,7 +2635,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       state.config = null;
       state.configLoadError = error.message || "Неизвестная ошибка загрузки конфигурации.";
       setConfigStatus("error", "Ошибка загрузки");
-      finishProcess("error", "Ошибка конфигурации", 0, state.configLoadError);
+      if (showProcess) finishProcess("error", "Ошибка конфигурации", 0, state.configLoadError);
       renderContent();
       showToast("Ошибка загрузки конфигурации", state.configLoadError);
       return false;
