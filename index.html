@@ -827,13 +827,14 @@
         colUnit: "C",
         colCurrency: "D",
         colBasePrice: "E",
-        indirectPercent: ""
+        indirectPercent: "",
+        availableSheets: [],
+        fileCheckStatus: "",
+        fileCheckMessage: ""
       },
       comparison: {
         selectedContractors: [],
-        selectedRates: [],
-        contractorSearch: "",
-        rateSearch: ""
+        selectedRates: []
       }
     },
     report: { contractor: "__ALL__", calculated: false, rows: [], monthly: {}, monthlyByContractor: {}, total: 0, message: "Расчёт не запускался" }
@@ -1413,12 +1414,19 @@ function contractorNameStem(value) {
 
     const rates = {};
     const reference = XLSX.utils.decode_range(sheet["!ref"] || "A1:A1");
-    let startRow = 1;
+    let startRow = reference.s.r;
 
     for (let rowIndex = 0; rowIndex < Math.min(reference.e.r + 1, 50); rowIndex += 1) {
       const code = String(readSheetCell(sheet, rowIndex, colMap.code) || "").trim();
-      if (code && /^[A-Z0-9-]+$/i.test(code)) {
+      const normalizedCode = normalizeParserLabel(code);
+      if (["шифр ер", "код", "код расценки", "code", "rate code"].indexOf(normalizedCode) >= 0) {
         startRow = rowIndex + 1;
+        break;
+      }
+      const rawPrice = readSheetCell(sheet, rowIndex, colMap.basePrice);
+      const price = typeof rawPrice === "number" ? rawPrice : Number(String(rawPrice || "").replace(/[\s\u00a0]/g, "").replace(",", "."));
+      if (code && rawPrice !== "" && Number.isFinite(price)) {
+        startRow = rowIndex;
         break;
       }
     }
@@ -2226,6 +2234,10 @@ for (let idx = 0; idx < sources.length; idx++) {
         includedRows: summaries.reduce(function (sum, entry) { return sum + entry.includedRows; }, 0),
         message: errors.length ? errors.join("; ") : "Сведения загружены"
     };
+    if (state.pricing.addForm.contractor) {
+        const refreshedContracts = getKfoContracts(state.pricing.addForm.contractor);
+        if (refreshedContracts.indexOf(state.pricing.addForm.contract) < 0) state.pricing.addForm.contract = "";
+    }
     state.connection = {
         status: summaries.length ? "active" : "inactive",
         checkedAt: new Date(),
@@ -2429,6 +2441,7 @@ for (let idx = 0; idx < sources.length; idx++) {
           updateProcess("Загрузка расценок", Math.round((loadedCount + errorCount) / Math.max(1, pricingSourcesTotal) * 90), loadedCount + errorCount, contractor + " · " + contract + " · " + rdc);
           try {
             if (config.sourceUrl) {
+              if (!String(config.sheetName || "").trim()) throw new Error("Не указано наименование вкладки Excel в конфигурации источника");
               const buffer = await fetchWorkbookBuffer(config.sourceUrl);
               const rates = parsePricingWorkbook(buffer, config.columns || { code: "A", name: "B", unit: "C", currency: "D", basePrice: "E" }, config.sheetName);
 
@@ -2441,6 +2454,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
               state.pricing.data[contractor].contracts[contract].priceCalculations[rdc] = {
                 sourceUrl: config.sourceUrl,
+                sheetName: config.sheetName,
                 indirectPercent: indirectPercent,
                 rates: rates,
                 columns: config.columns || { code: "A", name: "B", unit: "C", currency: "D", basePrice: "E" }
@@ -3156,16 +3170,23 @@ for (let idx = 0; idx < sources.length; idx++) {
     let addFormHTML = '';
     if (isEdit) {
         const selectedAddContractor = addForm.contractor || '';
-        const contractOptions = getKfoContracts(selectedAddContractor).map(function(contract) {
+        const addContractList = getKfoContracts(selectedAddContractor);
+        const contractOptions = addContractList.map(function(contract) {
             return '<option value="' + escapeHtml(contract) + '"' + (contract === addForm.contract ? ' selected' : '') + '>' + escapeHtml(contract) + '</option>';
         }).join('');
+        const addContractReady = addContractList.indexOf(addForm.contract) >= 0;
         const contractorOptions = allContractorNames.map(function(name) {
             const hasRates = state.pricing.data[name] &&
                            Object.keys(state.pricing.data[name].contracts || {}).length > 0;
-            return '<option value="' + escapeHtml(name) + '">' +
+            return '<option value="' + escapeHtml(name) + '"' + (name === selectedAddContractor ? ' selected' : '') + '>' +
                    escapeHtml(name) + (hasRates ? ' ✓' : '') +
                    '</option>';
         }).join('');
+        const availableSheets = Array.isArray(addForm.availableSheets) ? addForm.availableSheets : [];
+        const sheetOptions = availableSheets.map(function(name) { return '<option value="' + escapeHtml(name) + '"></option>'; }).join('');
+        const fileCheckNote = addForm.fileCheckMessage
+          ? '<div class="banner ' + (addForm.fileCheckStatus === "error" ? "warning" : "") + '" style="margin-top:10px"><div>' + escapeHtml(addForm.fileCheckMessage) + '</div></div>'
+          : '';
 
         addFormHTML = '<div class="add-form">' +
             '<div class="form-title">➕ Добавление источника расценок</div>' +
@@ -3181,16 +3202,17 @@ for (let idx = 0; idx < sources.length; idx++) {
                     '</span>' +
                 '</div>' +
                 '<div class="field"><label>Договор</label>' +
-                    '<select class="input" id="add-contract"><option value="">— Выберите договор из БД КФО —</option>' + contractOptions + '</select></div>' +
+                    '<select class="input" id="add-contract"' + (selectedAddContractor && contractOptions ? '' : ' disabled') + '><option value="">— Выберите договор из БД КФО —</option>' + contractOptions + '</select>' +
+                    (selectedAddContractor && !contractOptions ? '<span style="font-size:9px;color:var(--danger);">У подрядчика нет договоров в загруженной БД КФО</span>' : '') + '</div>' +
                 '<div class="field"><label>РДЦ</label>' +
                     '<input class="input" id="add-rdc" placeholder="Например: РДЦ-1" value="' + escapeHtml(addForm.rdc || '') + '" /></div>' +
-                '<div>' + button("Добавить", "plus", "btn-primary", 'id="add-pricing-source"') + '</div>' +
+                '<div>' + button("Добавить", "plus", "btn-primary", 'id="add-pricing-source"' + (selectedAddContractor && addContractReady ? '' : ' disabled')) + '</div>' +
             '</div>' +
             '<div class="form-details">' +
                 '<div class="field"><label>URL источника (Excel)</label>' +
                     '<input class="input" id="add-source-url" placeholder="https://sp.sibur.local/..." value="' + escapeHtml(addForm.sourceUrl || '') + '" />' + button("Проверить файл", "check", "btn-ghost", 'id="check-pricing-file"') + '</div>' +
                 '<div class="field"><label>Наименование вкладки</label>' +
-                    '<input class="input" id="add-sheet-name" list="pricing-sheet-options" placeholder="Расценки" value="' + escapeHtml(addForm.sheetName || 'Расценки') + '" /><datalist id="pricing-sheet-options"></datalist></div>' +
+                    '<input class="input" id="add-sheet-name" list="pricing-sheet-options" placeholder="Расценки" value="' + escapeHtml(addForm.sheetName || 'Расценки') + '" /><datalist id="pricing-sheet-options">' + sheetOptions + '</datalist></div>' +
                 '<div class="field"><label>Колонка: шифр ЕР</label>' +
                     '<input class="input" id="add-col-code" placeholder="A" value="' + escapeHtml(addForm.colCode || 'A') + '" style="text-transform:uppercase;" /></div>' +
                 '<div class="field"><label>Колонка: наименование</label>' +
@@ -3205,8 +3227,8 @@ for (let idx = 0; idx < sources.length; idx++) {
                     '<input class="input" id="add-indirect-percent" placeholder="12.5" value="' + escapeHtml(addForm.indirectPercent || '') + '" type="number" step="0.01" min="0" max="100" /></div>' +
             '</div>' +
             '<div style="margin-top:10px;font-size:11px;color:var(--muted-foreground);">' +
-                'Подрядчик выбирается из справочника. Если подрядчика нет в списке, добавьте его в разделе «Справочник подрядчиков» и обновите страницу.' +
-            '</div>' +
+                'Подрядчик выбирается из справочника, а договор — только из актуальной БД КФО. После проверки Excel вкладку можно ввести вручную или выбрать из найденного списка.' +
+            '</div>' + fileCheckNote +
         '</div>';
     }
 
@@ -3260,6 +3282,7 @@ for (let idx = 0; idx < sources.length; idx++) {
                     const rateKeys = Object.keys(rdц.rates || {});
                     const indirect = rdц.indirectPercent || 0;
                     const sourceUrl = rdц.sourceUrl || "";
+                    const sourceSheetName = rdц.sheetName || "";
 
                     let ratesHeader = '<div class="rate-header">' +
                         '<span class="h-check">✓</span>' +
@@ -3273,7 +3296,10 @@ for (let idx = 0; idx < sources.length; idx++) {
 
                     let ratesHTML = rateKeys.map(function(rateKey) {
                         const rate = rdц.rates[rateKey];
-                        const isSelected = state.pricing.comparison.selectedRates.indexOf(rateKey) >= 0;
+                        const sourceSelected = state.pricing.comparison.selectedContractors.some(function(entry) {
+                            return entry.name === contractorName && entry.contract === contractKey && entry.priceCalculation === rdцKey;
+                        });
+                        const isSelected = sourceSelected && state.pricing.comparison.selectedRates.indexOf(rateKey) >= 0;
                         return '<div class="rate-row">' +
                             '<span class="rate-check"><input type="checkbox" data-rate-check="' + escapeHtml(rateKey) + '" ' + (isSelected ? 'checked' : '') + ' data-contractor="' + escapeHtml(contractorName) + '" data-contract="' + escapeHtml(contractKey) + '" data-rdc="' + escapeHtml(rdцKey) + '" /></span>' +
                             '<span class="rate-code">' + escapeHtml(rateKey) + '</span>' +
@@ -3294,6 +3320,8 @@ for (let idx = 0; idx < sources.length; idx++) {
                     const urlField = isEdit ? '<div class="source-url-edit" style="margin-top:4px;padding-left:20px;">' +
                         '<label style="font-size:10px;color:var(--muted-foreground);">Источник:</label>' +
                         '<input type="text" value="' + escapeHtml(sourceUrl) + '" data-source-url="' + escapeHtml(contractorName) + '" data-contract="' + escapeHtml(contractKey) + '" data-rdc="' + escapeHtml(rdцKey) + '" style="flex:1;min-width:200px;" />' +
+                        '<label style="font-size:10px;color:var(--muted-foreground);">Вкладка:</label>' +
+                        '<input type="text" value="' + escapeHtml(sourceSheetName) + '" data-source-sheet="' + escapeHtml(contractorName) + '" data-contract="' + escapeHtml(contractKey) + '" data-rdc="' + escapeHtml(rdцKey) + '" style="width:160px;" />' +
                         '</div>' : '';
 
                     return '<div class="pricing-node" style="margin:2px 0;">' +
@@ -3301,7 +3329,7 @@ for (let idx = 0; idx < sources.length; idx++) {
                             '<span class="toggle">' + toggleIcon + '</span>' +
                             '<span>📊 ' + escapeHtml(rdцKey) + '</span>' +
                             '<span class="indirect-edit">' +
-                                '% косв.: <input type="number" step="0.01" min="0" max="100" value="' + escapeHtml(indirect) + '" ' + (isEdit ? '' : 'disabled') + ' />%' +
+                                '% косв.: <input type="number" step="0.01" min="0" max="100" value="' + escapeHtml(indirect) + '" data-indirect-contractor="' + escapeHtml(contractorName) + '" data-contract="' + escapeHtml(contractKey) + '" data-rdc="' + escapeHtml(rdцKey) + '" ' + (isEdit ? '' : 'disabled') + ' />%' +
                                 (isEdit ? button("✓", "refresh", "btn-ghost", 'style="min-height:20px;padding:0 4px;font-size:9px;"') : '') +
                             '</span>' +
                             (isEdit ? '<span class="node-actions">' +
@@ -3363,38 +3391,6 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     // Сравнительный анализ
     const comparison = state.pricing.comparison;
-    const comparisonContractorNames = getContractorNamesFromDirectory();
-
-    let contractorSearchResults = '';
-    const searchContractor = comparison.contractorSearch ? comparison.contractorSearch.trim().toLowerCase() : '';
-    const filteredContractors = searchContractor
-        ? comparisonContractorNames.filter(function(name) { return name.toLowerCase().indexOf(searchContractor) >= 0; })
-        : [];
-    if (comparison.contractorSearch && filteredContractors.length) {
-        contractorSearchResults = filteredContractors.map(function(name) {
-            const contracts = getContractorContracts(name);
-            return '<div class="result-item" data-contractor="' + escapeHtml(name) + '">' + escapeHtml(name) + ' (' + contracts.length + ' договоров)</div>';
-        }).join('');
-    }
-
-    let rateSearchResults = '';
-    const searchRate = comparison.rateSearch ? comparison.rateSearch.trim().toLowerCase() : '';
-    const filteredRates = searchRate
-        ? allRates.filter(function(rate) {
-            const name = getRateName(rate);
-            return name.toLowerCase().indexOf(searchRate) >= 0 ||
-                   rate.toLowerCase().indexOf(searchRate) >= 0;
-        })
-        : [];
-    if (comparison.rateSearch && filteredRates.length) {
-        rateSearchResults = filteredRates.map(function(rate) {
-            const name = getRateName(rate);
-            return '<div class="result-item" data-rate="' + escapeHtml(rate) + '">' +
-                '<span class="item-code">' + escapeHtml(rate) + '</span> <span class="item-name">' + escapeHtml(name) + '</span>' +
-            '</div>';
-        }).join('');
-    }
-
     let comparisonTableHTML = '';
     const selectedRates = comparison.selectedRates;
     const selectedContractors = comparison.selectedContractors;
@@ -3445,7 +3441,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         const rdcs = getContractorRDC(entry.name, entry.contract);
 
         return '<div class="comparison-item" style="flex-wrap:wrap;padding:4px 0;">' +
-            '<input type="checkbox" checked data-remove-contractor="' + escapeHtml(entry.name) + '" style="align-self:flex-start;margin-top:3px;" />' +
+            '<input type="checkbox" checked data-remove-contractor="' + escapeHtml(entry.name) + '" data-remove-contract="' + escapeHtml(entry.contract) + '" data-remove-rdc="' + escapeHtml(entry.priceCalculation) + '" style="align-self:flex-start;margin-top:3px;" />' +
             '<div style="flex:1;min-width:100px;">' +
                 '<div style="font-weight:600;font-size:12px;">' + escapeHtml(entry.name) + '</div>' +
                 '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;">' +
@@ -3516,64 +3512,10 @@ for (let idx = 0; idx < sources.length; idx++) {
   // 20. ОБРАБОТЧИКИ СОБЫТИЙ
   // =====================================================================
   function bindContentEvents() {
+    const contentRoot = document.getElementById("content");
     document.getElementById("close-process-indicator")?.addEventListener("click", function() {
       state.process.visible = false;
       renderContent();
-    });
-
-    // Навигация
-    document.querySelectorAll("[data-section]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        state.active = btn.getAttribute("data-section");
-        renderNav();
-        renderContent();
-        document.getElementById("main-scroll").scrollTop = 0;
-      });
-    });
-
-    // Режим редактирования
-    document.getElementById("edit-mode").addEventListener("change", function(e) {
-      const wasEditing = state.editMode;
-      const isEditing = e.target.checked;
-
-      if (isEditing && !wasEditing) {
-        state.savedState = JSON.parse(JSON.stringify(state.pricing.data));
-        document.getElementById("cancel-changes").style.display = "inline-flex";
-        document.getElementById("save-hint").style.display = "inline-flex";
-        showToast("Режим редактирования", "Изменения можно отменить кнопкой «Отменить».");
-      }
-
-      state.editMode = isEditing;
-
-      if (wasEditing && !isEditing) {
-        document.getElementById("cancel-changes").style.display = "none";
-        document.getElementById("save-hint").style.display = "none";
-
-        if (state.configDirty) {
-          downloadConfig();
-          showToast("💾 Конфигурация сохранена", "config.json скачан. Замените им файл на сервере.");
-          state.configDirty = false;
-        }
-        state.savedState = null;
-      }
-
-      renderNav();
-      renderContent();
-    });
-
-    // Отмена изменений
-    document.getElementById("cancel-changes")?.addEventListener("click", function() {
-      if (state.savedState) {
-        state.pricing.data = JSON.parse(JSON.stringify(state.savedState));
-        state.configDirty = false;
-        state.savedState = null;
-        document.getElementById("cancel-changes").style.display = "none";
-        document.getElementById("save-hint").style.display = "none";
-        showToast("↩ Изменения отменены", "Восстановлено состояние до начала редактирования.");
-        renderContent();
-      } else {
-        showToast("Нет изменений", "Нечего отменять.");
-      }
     });
 
     // БД КФО - дата среза
@@ -3818,7 +3760,6 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     // Скачать config
     document.getElementById("admin-download")?.addEventListener("click", downloadConfig);
-    document.getElementById("download-config")?.addEventListener("click", downloadConfig);
 
     // Скачать JSON коэффициентов
     document.getElementById("download-parser-config")?.addEventListener("click", downloadParserConfig);
@@ -3833,7 +3774,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     // ===== СОБЫТИЯ ДЛЯ РАЗДЕЛА РАСЦЕНОК =====
     // Toggle для дерева расценок
-    document.addEventListener("click", function(e) {
+    contentRoot.addEventListener("click", function(e) {
       const header = e.target.closest("[data-toggle]");
       if (header && header.closest("#content")) {
         const target = header.getAttribute("data-toggle");
@@ -3897,7 +3838,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     });
 
     // Чекбоксы для добавления в сравнение
-    document.addEventListener("change", function(e) {
+    contentRoot.addEventListener("change", function(e) {
       const checkbox = e.target.closest("[data-rate-check]");
       if (checkbox && checkbox.closest("#content")) {
         const rateCode = checkbox.getAttribute("data-rate-check");
@@ -3923,18 +3864,11 @@ for (let idx = 0; idx < sources.length; idx++) {
             }
           }
         } else {
-          state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(r) { return r !== rateCode; });
-          const hasOtherRates = state.pricing.comparison.selectedRates.some(function(r) {
-            const rateExists = state.pricing.data[contractor] &&
-              state.pricing.data[contractor].contracts[contract] &&
-              state.pricing.data[contractor].contracts[contract].priceCalculations[rdc] &&
-              state.pricing.data[contractor].contracts[contract].priceCalculations[rdc].rates[r];
-            return rateExists;
+          state.pricing.comparison.selectedContractors = state.pricing.comparison.selectedContractors.filter(function(entry) {
+            return !(entry.name === contractor && entry.contract === contract && entry.priceCalculation === rdc);
           });
-          if (!hasOtherRates && contractor) {
-            state.pricing.comparison.selectedContractors = state.pricing.comparison.selectedContractors.filter(function(entry) {
-              return !(entry.name === contractor && entry.contract === contract && entry.priceCalculation === rdc);
-            });
+          if (!state.pricing.comparison.selectedContractors.length) {
+            state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(r) { return r !== rateCode; });
           }
           state.configDirty = true;
         }
@@ -3942,76 +3876,8 @@ for (let idx = 0; idx < sources.length; idx++) {
       }
     });
 
-    // Поиск подрядчиков (сравнение)
-    let contractorTimer = null;
-    const contractorSearchComp = document.getElementById("comparison-contractor-search");
-    if (contractorSearchComp) {
-      contractorSearchComp.addEventListener("input", function() {
-        clearTimeout(contractorTimer);
-        contractorTimer = setTimeout(function() {
-          state.pricing.comparison.contractorSearch = contractorSearchComp.value;
-          renderContent();
-          setTimeout(function() {
-            const newSearch = document.getElementById("comparison-contractor-search");
-            if (newSearch) { newSearch.focus(); newSearch.setSelectionRange(newSearch.value.length, newSearch.value.length); }
-          }, 50);
-        }, 200);
-      });
-    }
-
-    // Поиск расценок (сравнение)
-    let rateSearchCompTimer = null;
-    const rateSearchComp = document.getElementById("comparison-rate-search");
-    if (rateSearchComp) {
-      rateSearchComp.addEventListener("input", function() {
-        clearTimeout(rateSearchCompTimer);
-        rateSearchCompTimer = setTimeout(function() {
-          state.pricing.comparison.rateSearch = rateSearchComp.value;
-          renderContent();
-          setTimeout(function() {
-            const newSearch = document.getElementById("comparison-rate-search");
-            if (newSearch) { newSearch.focus(); newSearch.setSelectionRange(newSearch.value.length, newSearch.value.length); }
-          }, 50);
-        }, 200);
-      });
-    }
-
-    // Клик по результатам поиска
-    document.addEventListener("click", function(e) {
-      const item = e.target.closest(".result-item[data-contractor]");
-      if (item && item.closest("#content")) {
-        const name = item.getAttribute("data-contractor");
-        const contracts = getContractorContracts(name);
-        if (contracts.length) {
-          const contract = contracts[0];
-          const rdcs = getContractorRDC(name, contract);
-          if (rdcs.length) {
-            const exists = state.pricing.comparison.selectedContractors.some(function(entry) { return entry.name === name; });
-            if (!exists) {
-              state.pricing.comparison.selectedContractors.push({
-                name: name,
-                contract: contract,
-                priceCalculation: rdcs[0]
-              });
-              state.configDirty = true;
-            }
-            state.pricing.comparison.contractorSearch = "";
-            renderContent();
-          }
-        }
-      }
-
-      const rateItem = e.target.closest(".result-item[data-rate]");
-      if (rateItem && rateItem.closest("#content")) {
-        const rate = rateItem.getAttribute("data-rate");
-        if (!state.pricing.comparison.selectedRates.includes(rate)) {
-          state.pricing.comparison.selectedRates.push(rate);
-          state.configDirty = true;
-        }
-        state.pricing.comparison.rateSearch = "";
-        renderContent();
-      }
-
+    // Управление составом сравнения без дополнительных фильтров
+    contentRoot.addEventListener("click", function(e) {
       const primaryRemove = e.target.closest("[data-remove-primary-rate]");
       if (primaryRemove && primaryRemove.closest("#content")) {
         const rate = primaryRemove.getAttribute("data-remove-primary-rate");
@@ -4025,8 +3891,10 @@ for (let idx = 0; idx < sources.length; idx++) {
       const removeBtn = e.target.closest("[data-remove-contractor]");
       if (removeBtn && removeBtn.closest("#content")) {
         const name = removeBtn.getAttribute("data-remove-contractor");
+        const contract = removeBtn.getAttribute("data-remove-contract");
+        const rdc = removeBtn.getAttribute("data-remove-rdc");
         state.pricing.comparison.selectedContractors = state.pricing.comparison.selectedContractors.filter(function(entry) {
-          return entry.name !== name;
+          return !(entry.name === name && entry.contract === contract && entry.priceCalculation === rdc);
         });
         state.configDirty = true;
         renderContent();
@@ -4042,7 +3910,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     });
 
     // Изменение договора/РДЦ в сравнении
-    document.addEventListener("change", function(e) {
+    contentRoot.addEventListener("change", function(e) {
       const select = e.target.closest("[data-comparison-contract]");
       if (select && select.closest("#content")) {
         const name = select.getAttribute("data-comparison-contract");
@@ -4071,19 +3939,30 @@ for (let idx = 0; idx < sources.length; idx++) {
     });
 
     // Изменение % косвенных
-    document.addEventListener("change", function(e) {
+    contentRoot.addEventListener("change", function(e) {
       const input = e.target.closest(".indirect-edit input");
       if (input && input.closest("#content")) {
         const val = parseFloat(input.value);
         if (!isNaN(val) && val >= 0 && val <= 100) {
+          const contractor = input.getAttribute("data-indirect-contractor");
+          const contract = input.getAttribute("data-contract");
+          const rdc = input.getAttribute("data-rdc");
+          const runtime = state.pricing.data[contractor] && state.pricing.data[contractor].contracts[contract] && state.pricing.data[contractor].contracts[contract].priceCalculations[rdc];
+          const binding = state.config.pricingBindings && state.config.pricingBindings[contractor] && state.config.pricingBindings[contractor][contract] && state.config.pricingBindings[contractor][contract][rdc];
+          if (runtime) {
+            runtime.indirectPercent = val;
+            Object.keys(runtime.rates || {}).forEach(function(code) { runtime.rates[code].totalPrice = runtime.rates[code].basePrice * (1 + val / 100); });
+          }
+          if (binding) binding.indirectPercent = val;
           state.configDirty = true;
           showToast("Обновлено", "Новый % косвенных: " + val + "%");
+          renderContent();
         }
       }
     });
 
     // Изменение URL источника
-    document.addEventListener("change", function(e) {
+    contentRoot.addEventListener("change", function(e) {
       const input = e.target.closest("[data-source-url]");
       if (input && input.closest("#content")) {
         const contractor = input.getAttribute("data-source-url");
@@ -4095,6 +3974,8 @@ for (let idx = 0; idx < sources.length; idx++) {
               state.pricing.data[contractor].contracts[contract] &&
               state.pricing.data[contractor].contracts[contract].priceCalculations[rdc]) {
             state.pricing.data[contractor].contracts[contract].priceCalculations[rdc].sourceUrl = url;
+            const binding = state.config.pricingBindings && state.config.pricingBindings[contractor] && state.config.pricingBindings[contractor][contract] && state.config.pricingBindings[contractor][contract][rdc];
+            if (binding) binding.sourceUrl = url;
             state.configDirty = true;
             showToast("URL обновлён", "Путь к файлу изменён.");
           }
@@ -4102,117 +3983,168 @@ for (let idx = 0; idx < sources.length; idx++) {
       }
     });
 
+    contentRoot.addEventListener("change", function(e) {
+      const input = e.target.closest("[data-source-sheet]");
+      if (!input) return;
+      const contractor = input.getAttribute("data-source-sheet");
+      const contract = input.getAttribute("data-contract");
+      const rdc = input.getAttribute("data-rdc");
+      const sheetName = input.value.trim();
+      const runtime = state.pricing.data[contractor] && state.pricing.data[contractor].contracts[contract] && state.pricing.data[contractor].contracts[contract].priceCalculations[rdc];
+      const binding = state.config.pricingBindings && state.config.pricingBindings[contractor] && state.config.pricingBindings[contractor][contract] && state.config.pricingBindings[contractor][contract][rdc];
+      if (!runtime || !binding || !sheetName) {
+        showToast("Вкладка не изменена", "Укажите непустое наименование вкладки.");
+        return;
+      }
+      runtime.sheetName = sheetName;
+      binding.sheetName = sheetName;
+      state.configDirty = true;
+      showToast("Вкладка обновлена", "При следующей загрузке будет прочитана только вкладка «" + sheetName + "».");
+    });
+
     // Добавление источника расценок
+    function syncPricingAddForm() {
+      const fields = {
+        contract: "add-contract",
+        rdc: "add-rdc",
+        sourceUrl: "add-source-url",
+        sheetName: "add-sheet-name",
+        colCode: "add-col-code",
+        colName: "add-col-name",
+        colUnit: "add-col-unit",
+        colCurrency: "add-col-currency",
+        colBasePrice: "add-col-baseprice",
+        indirectPercent: "add-indirect-percent"
+      };
+      Object.keys(fields).forEach(function(key) {
+        const input = document.getElementById(fields[key]);
+        if (input) state.pricing.addForm[key] = input.value;
+      });
+    }
+
+    Object.keys({
+      rdc: "add-rdc", sourceUrl: "add-source-url", sheetName: "add-sheet-name",
+      colCode: "add-col-code", colName: "add-col-name", colUnit: "add-col-unit",
+      colCurrency: "add-col-currency", colBasePrice: "add-col-baseprice",
+      indirectPercent: "add-indirect-percent"
+    }).forEach(function(key) {
+      const id = {
+        rdc: "add-rdc", sourceUrl: "add-source-url", sheetName: "add-sheet-name",
+        colCode: "add-col-code", colName: "add-col-name", colUnit: "add-col-unit",
+        colCurrency: "add-col-currency", colBasePrice: "add-col-baseprice",
+        indirectPercent: "add-indirect-percent"
+      }[key];
+      document.getElementById(id)?.addEventListener("input", function(event) {
+        state.pricing.addForm[key] = event.target.value;
+        if (key === "sourceUrl" || key === "sheetName") {
+          state.pricing.addForm.fileCheckStatus = "";
+          state.pricing.addForm.fileCheckMessage = "";
+        }
+      });
+    });
+
     document.getElementById("add-contractor")?.addEventListener("change", function(e) {
+      syncPricingAddForm();
       state.pricing.addForm.contractor = e.target.value;
-      state.pricing.addForm.contract = "";
+      const availableContracts = getKfoContracts(e.target.value);
+      state.pricing.addForm.contract = availableContracts.length === 1 ? availableContracts[0] : "";
+      renderContent();
+    });
+    document.getElementById("add-contract")?.addEventListener("change", function(e) {
+      state.pricing.addForm.contract = e.target.value;
       renderContent();
     });
 
     document.getElementById("check-pricing-file")?.addEventListener("click", async function() {
-      const url = document.getElementById("add-source-url").value.trim();
+      syncPricingAddForm();
+      const url = String(state.pricing.addForm.sourceUrl || "").trim();
       if (!url) { showToast("Адрес не указан", "Укажите URL Excel-файла."); return; }
+      startProcess(url, "Проверка файла");
       try {
+        if (!window.XLSX) throw new Error("Библиотека чтения Excel не загрузилась");
+        updateProcess("Чтение данных", 35, 0, "Читаем структуру Excel без загрузки расценок");
         const workbook = XLSX.read(await fetchWorkbookBuffer(url), { type: "array", bookSheets: true });
         const names = workbook.SheetNames || [];
-        const list = document.getElementById("pricing-sheet-options");
-        if (list) list.innerHTML = names.map(function(name) { return '<option value="' + escapeHtml(name) + '"></option>'; }).join("");
-        showToast("Файл проверен", "Найдены вкладки: " + names.join(", "));
-      } catch (error) { showToast("Ошибка проверки файла", error.message); }
+        const selectedSheet = String(state.pricing.addForm.sheetName || "").trim();
+        const selectedExists = !selectedSheet || names.indexOf(selectedSheet) >= 0;
+        state.pricing.addForm.availableSheets = names;
+        state.pricing.addForm.fileCheckStatus = selectedExists ? "success" : "error";
+        state.pricing.addForm.fileCheckMessage = selectedExists
+          ? "Файл проверен. Найдены вкладки: " + names.join(", ")
+          : "Вкладка «" + selectedSheet + "» отсутствует. Найдены вкладки: " + names.join(", ");
+        finishProcess(selectedExists ? "success" : "warning", "Завершено", names.length, state.pricing.addForm.fileCheckMessage);
+        renderContent();
+        showToast(selectedExists ? "Файл проверен" : "Вкладка не найдена", state.pricing.addForm.fileCheckMessage);
+      } catch (error) {
+        state.pricing.addForm.availableSheets = [];
+        state.pricing.addForm.fileCheckStatus = "error";
+        state.pricing.addForm.fileCheckMessage = error.message || "Не удалось проверить Excel-файл";
+        finishProcess("error", "Проверка файла", 0, state.pricing.addForm.fileCheckMessage);
+        renderContent();
+        showToast("Ошибка проверки файла", state.pricing.addForm.fileCheckMessage);
+      }
     });
 
-    document.getElementById("add-pricing-source")?.addEventListener("click", function() {
-      const contractor = document.getElementById("add-contractor").value;
-      const contract = document.getElementById("add-contract").value.trim();
-      const rdc = document.getElementById("add-rdc").value.trim();
-      const sourceUrl = document.getElementById("add-source-url").value.trim();
-      const sheetName = document.getElementById("add-sheet-name").value.trim();
-      const colCode = document.getElementById("add-col-code").value.trim() || "A";
-      const colName = document.getElementById("add-col-name").value.trim() || "B";
-      const colUnit = document.getElementById("add-col-unit").value.trim() || "C";
-      const colCurrency = document.getElementById("add-col-currency").value.trim() || "D";
-      const colBasePrice = document.getElementById("add-col-baseprice").value.trim() || "E";
-      const indirectPercent = parseFloat(document.getElementById("add-indirect-percent").value) || 0;
+    document.getElementById("add-pricing-source")?.addEventListener("click", async function() {
+      syncPricingAddForm();
+      const contractor = String(state.pricing.addForm.contractor || "").trim();
+      const contract = String(state.pricing.addForm.contract || "").trim();
+      const rdc = String(state.pricing.addForm.rdc || "").trim();
+      const sourceUrl = String(state.pricing.addForm.sourceUrl || "").trim();
+      const sheetName = String(state.pricing.addForm.sheetName || "").trim();
+      const colCode = String(state.pricing.addForm.colCode || "A").trim() || "A";
+      const colName = String(state.pricing.addForm.colName || "B").trim() || "B";
+      const colUnit = String(state.pricing.addForm.colUnit || "C").trim() || "C";
+      const colCurrency = String(state.pricing.addForm.colCurrency || "D").trim() || "D";
+      const colBasePrice = String(state.pricing.addForm.colBasePrice || "E").trim() || "E";
+      const indirectPercent = parseFloat(state.pricing.addForm.indirectPercent) || 0;
 
       if (!contractor || !contract || !rdc || !sourceUrl || !sheetName) {
         showToast("Ошибка", "Заполните все обязательные поля (контрагент, договор, РДЦ, URL, вкладка)");
         return;
       }
-
-      // Проверяем наличие подрядчика в справочнике
-      const directoryContractors = getContractorNamesFromDirectory();
-      if (!directoryContractors.some(function(name) {
-          return normalizeParserLabel(name) === normalizeParserLabel(contractor);
-      })) {
-          if (!confirm('Подрядчик "' + contractor + '" отсутствует в справочнике. Добавить его как канонического?')) {
-              return;
-          }
-          const directory = getContractorDirectory();
-          const exists = directory.entries.some(function(entry) {
-              return normalizeParserLabel(entry.sourceName) === normalizeParserLabel(contractor);
-          });
-          if (!exists) {
-              directory.entries.push({
-                  sourceName: contractor,
-                  canonicalName: contractor,
-                  status: 'canonical'
-              });
-              state.config.contractorDirectory = normalizeContractorDirectory(directory);
-              state.configDirty = true;
-              showToast("Подрядчик добавлен", '"' + contractor + '" добавлен в справочник.');
-          }
+      const kfoContracts = getKfoContracts(contractor);
+      if (state.kfo.status !== "active" || kfoContracts.indexOf(contract) < 0) {
+        showToast("Договор недоступен", "Сначала загрузите БД КФО и выберите договор выбранного подрядчика из списка.");
+        return;
       }
-
-      // Сохраняем в config
-      if (!state.config.pricingBindings[contractor]) {
-        state.config.pricingBindings[contractor] = {};
-      }
-      if (!state.config.pricingBindings[contractor][contract]) {
-        state.config.pricingBindings[contractor][contract] = {};
-      }
-      state.config.pricingBindings[contractor][contract][rdc] = {
-        sourceUrl: sourceUrl,
-        sheetName: sheetName,
-        indirectPercent: indirectPercent,
-        columns: {
-          code: colCode.toUpperCase(),
-          name: colName.toUpperCase(),
-          unit: colUnit.toUpperCase(),
-          currency: colCurrency.toUpperCase(),
-          basePrice: colBasePrice.toUpperCase()
-        }
+      const columns = {
+        code: colCode.toUpperCase(), name: colName.toUpperCase(), unit: colUnit.toUpperCase(),
+        currency: colCurrency.toUpperCase(), basePrice: colBasePrice.toUpperCase()
       };
-
+      startProcess(sourceUrl, "Проверка файла");
       try {
-        fetchWorkbookBuffer(sourceUrl).then(function(buffer) {
-          const rates = parsePricingWorkbook(buffer, state.config.pricingBindings[contractor][contract][rdc].columns, sheetName);
-          const multiplier = 1 + indirectPercent / 100;
-          Object.keys(rates).forEach(function(code) {
-            rates[code].totalPrice = rates[code].basePrice * multiplier;
-          });
+        updateProcess("Чтение данных", 30, 0, "Читаем только вкладку «" + sheetName + "»");
+        const buffer = await fetchWorkbookBuffer(sourceUrl);
+        updateProcess("Загрузка расценок", 65, 0, "Проверяем структуру выбранной вкладки");
+        const rates = parsePricingWorkbook(buffer, columns, sheetName);
+        if (!Object.keys(rates).length) throw new Error("Во вкладке «" + sheetName + "» не найдено ни одной расценки по указанным колонкам");
+        const multiplier = 1 + indirectPercent / 100;
+        Object.keys(rates).forEach(function(code) { rates[code].totalPrice = rates[code].basePrice * multiplier; });
 
-          if (!state.pricing.data[contractor]) {
-            state.pricing.data[contractor] = { contracts: {} };
-          }
-          if (!state.pricing.data[contractor].contracts[contract]) {
-            state.pricing.data[contractor].contracts[contract] = { priceCalculations: {} };
-          }
-          state.pricing.data[contractor].contracts[contract].priceCalculations[rdc] = {
-            sourceUrl: sourceUrl,
-            sheetName: sheetName,
-            indirectPercent: indirectPercent,
-            rates: rates,
-            columns: state.config.pricingBindings[contractor][contract][rdc].columns
-          };
-
-          state.configDirty = true;
-          showToast("Источник добавлен", "Расценки загружены: " + Object.keys(rates).length + " позиций.");
-          renderContent();
-        }).catch(function(error) {
-          showToast("Ошибка загрузки", error.message);
-        });
+        state.config.pricingBindings = state.config.pricingBindings || {};
+        state.config.pricingBindings[contractor] = state.config.pricingBindings[contractor] || {};
+        state.config.pricingBindings[contractor][contract] = state.config.pricingBindings[contractor][contract] || {};
+        state.config.pricingBindings[contractor][contract][rdc] = {
+          sourceUrl: sourceUrl, sheetName: sheetName, indirectPercent: indirectPercent, columns: columns
+        };
+        state.pricing.data[contractor] = state.pricing.data[contractor] || { contracts: {} };
+        state.pricing.data[contractor].contracts[contract] = state.pricing.data[contractor].contracts[contract] || { priceCalculations: {} };
+        state.pricing.data[contractor].contracts[contract].priceCalculations[rdc] = {
+          sourceUrl: sourceUrl, sheetName: sheetName, indirectPercent: indirectPercent, rates: rates, columns: columns
+        };
+        state.pricing.status = "active";
+        state.configDirty = true;
+        finishProcess("success", "Завершено", Object.keys(rates).length, "Источник расценок загружен из вкладки «" + sheetName + "»");
+        renderContent();
+        showToast("Источник добавлен", "Расценки загружены: " + Object.keys(rates).length + " позиций.");
       } catch (error) {
-        showToast("Ошибка", error.message);
+        const message = error.message || "Не удалось загрузить источник расценок";
+        state.pricing.addForm.fileCheckStatus = "error";
+        state.pricing.addForm.fileCheckMessage = message;
+        finishProcess("error", "Загрузка расценок", 0, message);
+        renderContent();
+        showToast("Ошибка загрузки", message);
       }
     });
 
@@ -4703,7 +4635,7 @@ for (let idx = 0; idx < sources.length; idx++) {
   // =====================================================================
   // 23. ИНИЦИАЛИЗАЦИЯ
   // =====================================================================
-  document.addEventListener("click", function(event) {
+  document.getElementById("nav-list").addEventListener("click", function(event) {
     const buttonNode = event.target.closest("[data-section]");
     if (!buttonNode) return;
     state.active = buttonNode.getAttribute("data-section");
@@ -4713,7 +4645,8 @@ for (let idx = 0; idx < sources.length; idx++) {
   });
 
   document.getElementById("edit-mode").addEventListener("change", function (event) {
-    setEditMode(event.target.checked, false);
+    const enabled = event.target.checked;
+    setEditMode(enabled, false);
   });
 
   document.getElementById("download-config").addEventListener("click", downloadConfig);
