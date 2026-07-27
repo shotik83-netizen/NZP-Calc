@@ -766,6 +766,8 @@
     { key: "lastFactDate", label: "Дата последнего факта СМР" },
     { key: "acceptedSk", label: "Принято СК" },
     { key: "acceptedId", label: "Принято ИД" },
+    { key: "kq0Code", label: "KQ-0" },
+    { key: "kq0Coefficient", label: "Коэф-0" },
     { key: "kq1Code", label: "KQ-1" },
     { key: "kq1Coefficient", label: "Коэф-1" },
     { key: "kq2Code", label: "KQ-2" },
@@ -775,11 +777,11 @@
   const DEFAULT_KFO_COLUMNS = {
     rowDate: "B", markCode: "J", erCode: "S", erName: "U", unit: "V", contractor: "AK", contractNumber: "AL",
     actualSmr: "AO", lastFactDate: "AP", acceptedSk: "AR", acceptedId: "AZ",
-    kq1Code: "BI", kq1Coefficient: "BJ", kq2Code: "BK", kq2Coefficient: "BL"
+    kq0Code: "", kq0Coefficient: "", kq1Code: "BI", kq1Coefficient: "BJ", kq2Code: "BK", kq2Coefficient: "BL"
   };
 
   const DEFAULT_KFO_SOURCE = {
-    id: "kfo-main", name: "БД КФО", url: "./kfo-test.xlsb?v=20260719-205316", enabled: true, sheetName: "КФО", dkSheetName: "ДК",
+    id: "kfo-main", name: "БД КФО", url: "", enabled: true, sheetName: "КФО", dkSheetName: "ДК",
     headerSearchRows: 50, updatedAtCell: "AN1", kqLevel: "inherit", calculationMode: "with-regulations", columns: DEFAULT_KFO_COLUMNS
   };
 
@@ -787,16 +789,16 @@
     application: "nzp-calculator",
     version: "1.6",
     title: "Отчёт по незавершённому строительству (НЗП)",
-    configUrl: "https://shotik83-netizen.github.io/NZP-Calc/config.json",
+    configUrl: "https://sp.sibur.local/sites/ps250/_layouts/15/download.aspx?UniqueId=720cb4034fd04c67bc5afe8f4ff8df23",
     editMode: false,
-    dataSources: [DEFAULT_KFO_SOURCE],
+    dataSources: [],
     calculation: { defaultKqLevel: "kq2", defaultMode: "with-regulations" },
-    regulationsSource: { name: "Регламенты КФО", url: "./kfo-test.xlsb?v=20260719-205316", enabled: true, sheetName: "ДК", headerSearchRows: 30, defaultDistribution: { actualSmr: 0.5, acceptedSk: 0.38, acceptedId: 0.12 } },
+    regulationsSource: { name: "Регламенты КФО", url: "", enabled: false, sheetName: "ДК", headerSearchRows: 30, defaultDistribution: { actualSmr: 0.5, acceptedSk: 0.38, acceptedId: 0.12 } },
     contractorDirectory: { storage: "shared-config", entries: [] },
     coefficientBindings: {},
     pricingBindings: {},
     aggregationSource: { name: "Справочник BOQ", url: "" },
-    parserConfigUrl: "https://shotik83-netizen.github.io/NZP-Calc/parser-config.json",
+    parserConfigUrl: "",
     export: { fileName: "Расчёт НЗП.xlsx", sheetName: "НЗП" }
   };
 
@@ -913,19 +915,11 @@
     return '<div class="empty"><div class="empty-icon">' + (ICONS[iconName || "file"]) + '</div><div class="empty-title">' + title + '</div><div class="empty-note">' + note + '</div></div>';
   }
 
-  const numberFormatters = new Map();
-  const normalizedLabelCache = new Map();
-  const MAX_NORMALIZED_LABEL_CACHE = 10000;
-
   function formatNumber(value, digits) {
     if (value == null || value === "") return "—";
     const number = Number(value);
     if (!Number.isFinite(number)) return "—";
-    const precision = digits == null ? 3 : digits;
-    if (!numberFormatters.has(precision)) {
-      numberFormatters.set(precision, new Intl.NumberFormat("ru-RU", { maximumFractionDigits: precision }));
-    }
-    return numberFormatters.get(precision).format(number);
+    return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: digits == null ? 3 : digits }).format(number);
   }
 
   function formatDateTime(value) {
@@ -941,12 +935,7 @@
   }
 
   function normalizeParserLabel(value) {
-    const source = String(value == null ? "" : value);
-    if (normalizedLabelCache.has(source)) return normalizedLabelCache.get(source);
-    const normalized = source.trim().replace(/\s+/g, " ").toLowerCase();
-    if (normalizedLabelCache.size >= MAX_NORMALIZED_LABEL_CACHE) normalizedLabelCache.clear();
-    normalizedLabelCache.set(source, normalized);
-    return normalized;
+    return String(value == null ? "" : value).trim().replace(/\s+/g, " ").toLowerCase();
   }
 
   // =====================================================================
@@ -1013,33 +1002,33 @@
     const directory = contractorDirectoryIndex();
     let currentName = String(sourceName || "").trim();
     if (!currentName) return "";
-
+    
     // Защита от циклических ссылок - отслеживаем все посещенные имена
     const visited = new Set();
     const maxIterations = 10; // Безопасный лимит
-
+    
     let iterations = 0;
     while (currentName && iterations < maxIterations) {
       iterations++;
       const key = normalizeParserLabel(currentName);
-
+      
       // Если уже были в этом имени - выходим, чтобы избежать бесконечного цикла
       if (visited.has(key)) {
         return String(sourceName || "").trim();
       }
       visited.add(key);
-
+      
       const entry = directory.get(key);
-
+      
       // Если записи нет или каноническое имя совпадает с текущим - это конечная точка
       if (!entry || normalizeParserLabel(entry.canonicalName) === key) {
         return entry ? entry.canonicalName : currentName;
       }
-
+      
       // Переходим к следующему имени в цепочке
       currentName = entry.canonicalName;
     }
-
+    
     // Если достигнут лимит итераций - возвращаем исходное имя
     return String(sourceName || "").trim();
   }
@@ -1079,7 +1068,7 @@ function contractorNameStem(value) {
     // Защита от бесконечного цикла - максимум 3 итерации
     const maxIterations = 3;
     let result = normalizeParserLabel(value);
-
+    
     for (let i = 0; i < maxIterations; i++) {
         const prev = result;
         result = result
@@ -1087,11 +1076,11 @@ function contractorNameStem(value) {
             .replace(/\s*\[[^\]]*\]\s*$/g, "")
             .replace(/[\s._-]*\d+\s*$/g, "")
             .replace(/[^a-zа-яё0-9]+/gi, "");
-
+        
         // Если результат не изменился - выходим из цикла
         if (result === prev) break;
     }
-
+    
     return result;
 }
 
@@ -1256,11 +1245,11 @@ function contractorNameStem(value) {
     if (!sheet || rowIndex == null || columnIndex == null || rowIndex < 0 || columnIndex < 0) {
       return "";
     }
-
+    
     try {
       const dense = sheet["!data"];
       let cell = null;
-
+      
       if (dense && dense[rowIndex] && dense[rowIndex][columnIndex] !== undefined) {
         cell = dense[rowIndex][columnIndex];
       } else {
@@ -1268,14 +1257,14 @@ function contractorNameStem(value) {
         const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex });
         cell = sheet[cellAddress];
       }
-
+      
       // Проверяем, что ячейка существует и имеет значение
       if (!cell) return "";
       if (cell.v === undefined || cell.v === null) return "";
-
+      
       // Если значение - строка, обрезаем пробелы
       if (typeof cell.v === "string") return cell.v.trim();
-
+      
       return cell.v;
     } catch (error) {
       // В случае ошибки возвращаем пустую строку
@@ -1304,13 +1293,13 @@ function contractorNameStem(value) {
     if (value === null || value === undefined || value === "") {
       return "";
     }
-
+    
     try {
       // Если это уже объект Date
       if (value instanceof Date && !Number.isNaN(value.getTime())) {
         return value.toISOString().slice(0, 10);
       }
-
+      
       // Если это число (серийный номер даты Excel)
       if (typeof value === "number" && Number.isFinite(value) && value > 0) {
         try {
@@ -1320,29 +1309,29 @@ function contractorNameStem(value) {
           }
         } catch (_) { /* игнорируем ошибки парсинга даты */ }
       }
-
+      
       // Попытка распарсить строку
       const text = String(value).trim();
       if (!text) return "";
-
+      
       // Русский формат ДД.ММ.ГГГГ или ДД/ММ/ГГГГ
       const ru = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(text);
       if (ru) {
         return [ru[3], ru[2].padStart(2, "0"), ru[1].padStart(2, "0")].join("-");
       }
-
+      
       // ISO формат ГГГГ-ММ-ДД
       const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
       if (iso) {
         return iso[1] + "-" + iso[2] + "-" + iso[3];
       }
-
+      
       // Попытка через конструктор Date
       const date = new Date(text);
       if (!Number.isNaN(date.getTime())) {
         return date.toISOString().slice(0, 10);
       }
-
+      
       return "";
     } catch (error) {
       return "";
@@ -1354,16 +1343,16 @@ function contractorNameStem(value) {
     if (value === null || value === undefined || value === "") {
       return fallback == null ? 0 : fallback;
     }
-
+    
     // Если уже число
     if (typeof value === "number") {
       return Number.isFinite(value) ? value : (fallback == null ? 0 : fallback);
     }
-
+    
     try {
       const normalized = String(value).replace(/[\s\u00a0]/g, "").replace(",", ".");
       if (!normalized) return fallback == null ? 0 : fallback;
-
+      
       const result = Number(normalized);
       return Number.isFinite(result) ? result : (fallback == null ? 0 : fallback);
     } catch (error) {
@@ -1376,16 +1365,16 @@ function contractorNameStem(value) {
     if (value === null || value === undefined || value === "") {
       return fallback == null ? 0 : fallback;
     }
-
+    
     // Если уже число
     if (typeof value === "number") {
       return Number.isFinite(value) ? value : (fallback == null ? 0 : fallback);
     }
-
+    
     try {
       const normalized = String(value).replace(/[\s\u00a0]/g, "").replace(",", ".");
       if (!normalized) return fallback == null ? 0 : fallback;
-
+      
       const result = Number(normalized);
       return Number.isFinite(result) ? result : (fallback == null ? 0 : fallback);
     } catch (error) {
@@ -1398,7 +1387,7 @@ function contractorNameStem(value) {
     const workbook = XLSX.read(buffer, { type: "array", dense: true, cellDates: true });
     const selected = getWorkbookSheet(workbook, "Лист1", ["Sheet1", "Расценки", "Prices"]);
     if (!selected) throw new Error("Лист с расценками не найден");
-
+    
     const sheet = selected.sheet;
     const colMap = {};
     const fields = ['code', 'name', 'unit', 'currency', 'basePrice'];
@@ -1409,7 +1398,7 @@ function contractorNameStem(value) {
       currency: columnsConfig.currency || 'D',
       basePrice: columnsConfig.basePrice || 'E'
     };
-
+    
     fields.forEach(function(field) {
       colMap[field] = columnLetterToIndex(colLetters[field]);
     });
@@ -1417,7 +1406,7 @@ function contractorNameStem(value) {
     const rates = {};
     const reference = XLSX.utils.decode_range(sheet["!ref"] || "A1:A1");
     let startRow = 1;
-
+    
     for (let rowIndex = 0; rowIndex < Math.min(reference.e.r + 1, 50); rowIndex += 1) {
       const code = String(readSheetCell(sheet, rowIndex, colMap.code) || "").trim();
       if (code && /^[A-Z0-9-]+$/i.test(code)) {
@@ -1433,7 +1422,7 @@ function contractorNameStem(value) {
       const unit = String(readSheetCell(sheet, rowIndex, colMap.unit) || "").trim() || "—";
       const currency = String(readSheetCell(sheet, rowIndex, colMap.currency) || "").trim() || "RUB";
       const basePrice = parsePricingNumber(readSheetCell(sheet, rowIndex, colMap.basePrice), 0);
-
+      
       rates[code] = {
         name: name,
         unit: unit,
@@ -1442,7 +1431,7 @@ function contractorNameStem(value) {
         totalPrice: basePrice
       };
     }
-
+    
     return rates;
   }
 
@@ -1637,6 +1626,7 @@ function contractorNameStem(value) {
     const regulationRules = state.regulations.status === "active" && state.regulations.rules instanceof Map ? state.regulations.rules : new Map();
 
     const level = ["kq1", "kq2"].indexOf(source.kqLevel) >= 0 ? source.kqLevel : state.kqLevel;
+    if (level === "kq0") state.kqLevel = "kq1";
     const mode = "with-regulations";
 
     const filterContractors = Array.isArray(selectedContractors) && selectedContractors.length > 0;
@@ -1685,12 +1675,21 @@ function contractorNameStem(value) {
       const codeField = level === "kq1" ? "kq1Code" : "kq2Code";
       const coefficientField = level === "kq1" ? "kq1Coefficient" : "kq2Coefficient";
 
+      let kq0Code = String(get("kq0Code") || "").trim();
       let kq1Code = String(get("kq1Code") || "").trim();
       let kq2Code = String(get("kq2Code") || "").trim();
+      let kq0Coefficient = parseKfoNumber(get("kq0Coefficient"), 1);
       let kq1Coefficient = parseKfoNumber(get("kq1Coefficient"), 1);
       let kq2Coefficient = parseKfoNumber(get("kq2Coefficient"), 1);
 
-      const coefficientRule = { __kfoSource: true, erCode: erCode, kq1Code: kq1Code, kq2Code: kq2Code, kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient };
+      const aggregationRule = state.aggregation.index && state.aggregation.index.get(normalizeParserLabel(erCode));
+      if (!kq0Code && aggregationRule) kq0Code = String(aggregationRule.kq0Code || "").trim();
+      if (aggregationRule && (get("kq0Coefficient") == null || String(get("kq0Coefficient")).trim() === "")) {
+        const refKq0Coeff = Number(aggregationRule.kq0Coefficient);
+        if (Number.isFinite(refKq0Coeff)) kq0Coefficient = refKq0Coeff;
+      }
+
+      const coefficientRule = { __kfoSource: true, erCode: erCode, kq0Code: kq0Code, kq1Code: kq1Code, kq2Code: kq2Code, kq0Coefficient: kq0Coefficient, kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient };
       kq1Coefficient = getEffectiveLevelCoefficient("kq1", coefficientRule, parserConfig);
       kq2Coefficient = getEffectiveLevelCoefficient("kq2", coefficientRule, parserConfig);
 
@@ -1743,8 +1742,8 @@ function contractorNameStem(value) {
           unit: unit,
           level: level,
           mode: mode,
-          kq1Code: kq1Code, kq2Code: kq2Code,
-          kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient,
+          kq0Code: kq0Code, kq1Code: kq1Code, kq2Code: kq2Code,
+          kq0Coefficient: kq0Coefficient, kq1Coefficient: kq1Coefficient, kq2Coefficient: kq2Coefficient,
           rows: 0, regulationRows: 0,
           actualSmr: 0, acceptedSk: 0, acceptedId: 0,
           evaluatedVolume: 0
@@ -1858,20 +1857,20 @@ function contractorNameStem(value) {
   }
 
 async function loadKfoSources() {
-    const sources = getKfoSources().filter(function (source) {
-        return source.enabled && source.url;
+    const sources = getKfoSources().filter(function (source) { 
+        return source.enabled && source.url; 
     });
-
+    
     if (!sources.length) {
-        state.kfo = {
-            status: "error",
-            groups: [],
-            contractors: [],
-            rawContractors: [],
-            sourceSummaries: [],
-            totalRows: 0,
-            includedRows: 0,
-            message: "Не указана ссылка ни на одну БД КФО"
+        state.kfo = { 
+            status: "error", 
+            groups: [], 
+            contractors: [], 
+            rawContractors: [], 
+            sourceSummaries: [], 
+            totalRows: 0, 
+            includedRows: 0, 
+            message: "Не указана ссылка ни на одну БД КФО" 
         };
         renderContent();
         showToast("Сведения не обновлены", "Укажите ссылку SharePoint в режиме редактирования.");
@@ -1887,14 +1886,14 @@ async function loadKfoSources() {
     const titleEl = document.getElementById('loading-title');
     const detailEl = document.getElementById('loading-detail');
     const progressBar = document.getElementById('loading-progress-bar');
-
+    
     if (indicator) {
         indicator.style.display = 'block';
         if (titleEl) titleEl.textContent = 'Загрузка БД КФО...';
         if (detailEl) detailEl.textContent = 'Подготовка...';
         if (progressBar) progressBar.style.width = '0%';
     }
-
+    
     function updateProgress(detail, percent) {
         if (detailEl) detailEl.textContent = detail || '';
         if (progressBar) {
@@ -1903,17 +1902,17 @@ async function loadKfoSources() {
         }
     }
 
-    state.kfo = {
-        status: "loading",
-        groups: [],
-        contractors: [],
-        rawContractors: [],
-        sourceSummaries: [],
-        totalRows: 0,
-        includedRows: 0,
-        message: "Читаем источники…"
+    state.kfo = { 
+        status: "loading", 
+        groups: [], 
+        contractors: [], 
+        rawContractors: [], 
+        sourceSummaries: [], 
+        totalRows: 0, 
+        includedRows: 0, 
+        message: "Читаем источники…" 
     };
-
+    
 for (let idx = 0; idx < sources.length; idx++) {
     const source = sources[idx];
     state.sourceConnections[source.id] = {
@@ -1965,20 +1964,20 @@ for (let idx = 0; idx < sources.length; idx++) {
         try {
             const progress = 10 + ((i / totalSources) * 80);
             updateProgress(
-                `Загрузка: ${source.name} (${i + 1}/${totalSources})`,
+                `Загрузка: ${source.name} (${i + 1}/${totalSources})`, 
                 progress
             );
-
+            
             const parsed = parseKfoWorkbook(
                 await fetchWorkbookBuffer(source.url),
                 source,
                 parserConfig,
                 filterContractors
             );
-
+            
             allGroups.push.apply(allGroups, parsed.groups);
             summaries.push(parsed.summary);
-
+            
             state.sourceConnections[source.id] = {
                 status: "active",
                 checkedAt: new Date(),
@@ -1986,19 +1985,19 @@ for (let idx = 0; idx < sources.length; idx++) {
                     " строк; с объёмами — " + formatNumber(parsed.summary.includedRows, 0) +
                     (parsed.summary.filteredOutByContractor ? "; отфильтровано по подрядчикам — " + formatNumber(parsed.summary.filteredOutByContractor, 0) : "")
             };
-
+            
             const afterProgress = 10 + (((i + 1) / totalSources) * 80);
             updateProgress(
-                `Обработано: ${source.name} (${i + 1}/${totalSources})`,
+                `Обработано: ${source.name} (${i + 1}/${totalSources})`, 
                 afterProgress
             );
-
+            
         } catch (error) {
             const message = error && error.name === "AbortError" ? "Превышено время загрузки" : (error.message || "Ошибка чтения Excel");
-            state.sourceConnections[source.id] = {
-                status: "error",
-                checkedAt: new Date(),
-                message: message
+            state.sourceConnections[source.id] = { 
+                status: "error", 
+                checkedAt: new Date(), 
+                message: message 
             };
             errors.push(source.name + ": " + message);
         }
@@ -2166,6 +2165,9 @@ for (let idx = 0; idx < sources.length; idx++) {
               erCode: String(getValue("erCode")).trim(),
               erName: String(getValue("erName")).trim(),
               unit: String(getValue("unit")).trim(),
+              kq0Code: String(getValue("kq0Code")).trim(),
+              kq0Name: String(getValue("kq0Name")).trim(),
+              kq0Coefficient: numeric("kq0Coefficient"),
               kq1Code: String(getValue("kq1Code")).trim(),
               kq1Name: String(getValue("kq1Name")).trim(),
               kq1Coefficient: numeric("kq1Coefficient"),
@@ -2175,7 +2177,7 @@ for (let idx = 0; idx < sources.length; idx++) {
               status: String(getValue("status") || parser.defaultStatus || "Действует").trim()
             };
             const defaultCoefficient = Number(parser.missingCoefficient) || 1;
-            ["kq1Coefficient", "kq2Coefficient"].forEach(function (field) {
+            ["kq0Coefficient", "kq1Coefficient", "kq2Coefficient"].forEach(function (field) {
               if (entry[field] === null) entry[field] = defaultCoefficient;
             });
             entries.push(entry);
@@ -2262,10 +2264,10 @@ for (let idx = 0; idx < sources.length; idx++) {
             if (config.sourceUrl) {
               const buffer = await fetchWorkbookBuffer(config.sourceUrl);
               const rates = parsePricingWorkbook(buffer, config.columns || { code: "A", name: "B", unit: "C", currency: "D", basePrice: "E" });
-
+              
               const indirectPercent = config.indirectPercent || 0;
               const multiplier = 1 + indirectPercent / 100;
-
+              
               Object.keys(rates).forEach(function(code) {
                 rates[code].totalPrice = rates[code].basePrice * multiplier;
               });
@@ -2290,7 +2292,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     state.pricing.status = loadedCount > 0 ? "active" : "error";
     if (state.active === "pricing") renderContent();
-
+    
     if (!quiet) {
       if (loadedCount > 0) {
         showToast("Расценки загружены", "Загружено источников: " + loadedCount + (errorCount ? ", ошибок: " + errorCount : ""));
@@ -2344,7 +2346,6 @@ for (let idx = 0; idx < sources.length; idx++) {
 
       merged.configUrl = urlToFetch;
 
-      coefficientCache.clear();
       state.config = merged;
       state.configLoaded = true;
       state.configLoadError = null;
@@ -2455,16 +2456,16 @@ for (let idx = 0; idx < sources.length; idx++) {
       const date = summary && summary.updatedAt ? 'Данные <strong>' + updated + '</strong><span class="source-date-origin"> · ' + escapeHtml(updatedOrigin) + '</span>' : 'Данные <strong>—</strong>';
       const openLink = source.url ? '<a class="source-open-link" href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer" aria-label="Открыть файл ' + escapeHtml(source.name) + '">Открыть</a>' : '<span class="source-open-link muted">Нет ссылки</span>';
       const removeButton = state.editMode ? button("Удалить", "", "", 'data-remove-source="' + index + '"') : "";
-
+      
       const levelOptions = '<option value="inherit"' + (source.kqLevel === "inherit" ? " selected" : "") + '>Выбранный уровень</option><option value="kq1"' + (source.kqLevel === "kq1" ? " selected" : "") + '>KQ-1</option><option value="kq2"' + (source.kqLevel === "kq2" ? " selected" : "") + '>KQ-2</option>';
       const mapping = KFO_COLUMN_FIELDS.map(function (field) {
         return '<div class="field"><label>' + field.label + '</label><input class="input" maxlength="3" value="' + escapeHtml(source.columns[field.key] || "") + '" data-source-index="' + index + '" data-column-key="' + field.key + '" /></div>';
       }).join("");
-
+      
       const editor = state.editMode
         ? '<div class="source-settings"><div class="field-grid"><div class="field"><label>Наименование источника</label><input class="input" value="' + escapeHtml(source.name) + '" data-source-index="' + index + '" data-source-field="name" /></div><div class="field"><label>Использование</label><select class="input" data-source-index="' + index + '" data-source-field="enabled"><option value="true"' + (source.enabled ? " selected" : "") + '>Включён</option><option value="false"' + (!source.enabled ? " selected" : "") + '>Отключён</option></select></div><div class="field field-wide"><label>Ссылка SharePoint или путь к тестовому файлу</label><input class="input" type="text" placeholder="https://...sharepoint.com/.../БД-КФО.xlsb" value="' + escapeHtml(source.url) + '" data-source-index="' + index + '" data-source-field="url" /></div><div class="field"><label>Лист данных</label><input class="input" value="' + escapeHtml(source.sheetName) + '" data-source-index="' + index + '" data-source-field="sheetName" /></div><div class="field"><label>Ячейка даты обновления</label><input class="input" value="' + escapeHtml(source.updatedAtCell) + '" data-source-index="' + index + '" data-source-field="updatedAtCell" /></div><div class="field"><label>Строк поиска заголовка</label><input class="input" type="number" min="1" max="500" value="' + source.headerSearchRows + '" data-source-index="' + index + '" data-source-field="headerSearchRows" /></div><div class="field"><label>Уровень KQ для файла</label><select class="input" data-source-index="' + index + '" data-source-field="kqLevel">' + levelOptions + '</select></div></div><h5 class="settings-section-title">Колонки для сбора информации</h5><p class="settings-section-note">Все поля доступны для настройки. Заголовки определяются автоматически, указанные буквы используются как резерв.</p><div class="mapping-grid">' + mapping + '</div></div>'
         : "";
-
+      
       return '<div class="source-card"><div class="source-overview"><div class="source-overview-name">' + escapeHtml(source.name) + '</div><div class="source-status-inline' + (active ? " active" : "") + '" title="' + escapeHtml(statusDetails) + '"><span class="source-status-dot"></span><span>' + title + '</span></div><div class="source-overview-metric">' + metric + '</div><div class="source-overview-date">' + date + '</div><div class="source-overview-actions">' + openLink + removeButton + '</div></div>' + editor + '</div>';
     }).join("") : emptyState("Источники не настроены", "Включите режим редактирования и добавьте ссылку на БД КФО.", "database");
 
@@ -2502,7 +2503,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         });
       });
     })();
-
+    
     const visibleContractors = (function() {
       const map = new Map();
       visibleGroups.forEach(function (group) {
@@ -2636,7 +2637,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const canonicalCount = canonicalContractorNames().length;
     const detectedCount = (state.kfo.rawContractors || []).length;
     const options = canonicalNames.map(function (name) { return '<option value="' + escapeHtml(name) + '"></option>'; }).join("");
-
+    
     let tableRows = rows.map(function (row) {
       const entry = row.entry;
       const status = !entry ? "pending" : entry.status;
@@ -2652,16 +2653,16 @@ for (let idx = 0; idx < sources.length; idx++) {
         : (entry ? '<strong>' + escapeHtml(entry.canonicalName) + '</strong>' : '<span class="muted">Не определено</span>');
       return '<tr data-directory-status="' + status + '" data-directory-search="' + escapeHtml(normalizeParserLabel(row.sourceName + " " + (entry ? entry.canonicalName : ""))) + '"><td class="directory-source">' + escapeHtml(row.sourceName) + '</td><td class="directory-status">' + kfoStatus + '</td><td class="num">' + (row.detected ? formatNumber(row.rows, 0) : "—") + '</td><td class="directory-status"><span class="badge ' + statusClass + '">' + statusLabel + '</span></td><td class="directory-canonical">' + canonicalCell + '</td></tr>';
     }).join("");
-
+    
     const locked = state.editMode ? "" : '<div class="banner warning">' + icon("lock") + '<div>Для акцепта включите <strong>режим редактирования</strong>. Изменения сохраняются в общем config.json и не зависят от браузера конкретного пользователя.</div></div>';
     const warning = pending.length
       ? '<div class="banner warning">' + icon("info") + '<div><strong>Новых подрядчиков: ' + formatNumber(pending.length, 0) + '.</strong> Для каждого выберите существующее каноническое наименование либо отметьте исходное наименование как каноническое.</div></div>'
       : '<div class="banner">' + icon("check") + '<div>Все подрядчики текущей БД КФО акцептованы. Расчёт выполняется по исходным строкам, а объединение применяется после расчёта.</div></div>';
-
+    
     const body = rows.length
       ? '<div class="directory-toolbar"><div class="field"><label for="directory-search">Поиск подрядчика</label><input class="input" id="directory-search" type="search" placeholder="Исходное или каноническое наименование" value="' + escapeHtml(state.directorySearch) + '" /></div><div class="field"><label for="directory-filter">Статус</label><select class="input" id="directory-filter"><option value="all"' + (state.directoryFilter === "all" ? " selected" : "") + '>Все</option><option value="pending"' + (state.directoryFilter === "pending" ? " selected" : "") + '>Требуют акцепта</option><option value="canonical"' + (state.directoryFilter === "canonical" ? " selected" : "") + '>Канонические</option><option value="alias"' + (state.directoryFilter === "alias" ? " selected" : "") + '>Объединённые</option></select></div></div><datalist id="contractor-canonical-options">' + options + '</datalist><div class="table-wrap"><table><thead><tr><th>Наименование в БД КФО</th><th>Статус БД КФО</th><th class="num">Строк</th><th>Статус</th><th>Канонический подрядчик</th></tr></thead><tbody id="contractor-directory-body">' + tableRows + '</tbody></table></div><p class="result-note">После акцепта скачайте обновлённый config.json и разместите его в общем источнике. Тогда соответствия будут одинаковыми для всех пользователей.</p>'
       : emptyState("Подрядчики ещё не обнаружены", "Нажмите «Сверить с БД КФО», чтобы прочитать актуальный файл и сформировать список для акцепта.", "users");
-
+    
     return pageHead(item, button("Сверить с БД КФО", "refresh", "", 'id="sync-contractors"') + button("Скачать config.json", "download", "btn-primary edit-only", 'id="directory-download"')) +
       '<div class="stack">' + locked + warning + '<div class="metric-strip"><div class="stat"><div class="stat-label">Наименований в БД КФО</div><div class="stat-value">' + (state.kfo.status === "active" ? formatNumber(detectedCount, 0) : "—") + '</div><div class="stat-note">уникальные исходные значения</div></div><div class="stat"><div class="stat-label">Канонических подрядчиков</div><div class="stat-value">' + formatNumber(canonicalCount, 0) + '</div><div class="stat-note">единые группы для отчёта</div></div><div class="stat ' + (pending.length ? "" : "highlight") + '"><div class="stat-label">Требуют акцепта</div><div class="stat-value">' + (state.kfo.status === "active" ? formatNumber(pending.length, 0) : "—") + '</div><div class="stat-note">обнаружены в текущей базе</div></div></div>' +
       '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Общий справочник подрядчиков</h3><span class="badge green">config.json</span></div><p class="card-desc">Исходные наименования сохраняются для аудита. Каноническое наименование используется только при последующей группировке рассчитанных объёмов.</p></div><div class="card-body">' + body + '</div></section></div>';
@@ -2687,9 +2688,9 @@ for (let idx = 0; idx < sources.length; idx++) {
     const statusClass = regulations.status === "active" ? "green" : regulations.status === "error" ? "warning" : "";
     const statusLabel = regulations.status === "active" ? "Подключено" : regulations.status === "loading" ? "Загрузка…" : regulations.status === "error" ? "Ошибка" : "Нет источника";
     const sourceLink = source.url ? '<a href="' + escapeHtml(source.url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(source.name || "Регламенты КФО") + ' ↗</a>' : "Ссылка не указана";
-
+    
     const editor = '<section class="card editable-card edit-only block"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Источник регламентов</h3><span class="badge green">config.json</span></div><p class="card-desc">Источник задаётся отдельно от БД КФО и читается по правилам parsers.dk JSON-конфигуратора.</p></div><div class="card-body"><div class="field-grid"><div class="field"><label for="regulations-source-name">Наименование</label><input class="input" id="regulations-source-name" value="' + escapeHtml(source.name) + '" /></div><div class="field field-wide"><label for="regulations-source-url">Ссылка на документ с вкладкой ДК</label><input class="input" id="regulations-source-url" type="url" value="' + escapeHtml(source.url) + '" /></div><div class="field"><label for="regulations-source-sheet">Вкладка</label><input class="input" id="regulations-source-sheet" value="' + escapeHtml(source.sheetName) + '" /></div><div class="field"><label for="regulations-default-smr">Без вида работ: Факт СМР</label><input class="input" id="regulations-default-smr" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.actualSmr) + '" /></div><div class="field"><label for="regulations-default-sk">Без вида работ: Принято СК</label><input class="input" id="regulations-default-sk" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedSk) + '" /></div><div class="field"><label for="regulations-default-id">Без вида работ: Принято ИД</label><input class="input" id="regulations-default-id" type="number" min="0" max="1" step="0.01" value="' + escapeHtml(source.defaultDistribution.acceptedId) + '" /></div></div></div><div class="card-footer">' + button("Применить источник", "check", "btn-primary", 'id="apply-regulations-source"') + '</div></section>';
-
+    
     let matrix = "";
     if (regulations.status === "loading") {
       matrix = emptyState("Читаем регламенты", "Большой файл .xlsb обрабатывается в браузере.", "sliders");
@@ -2704,7 +2705,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         return '<details class="contractor-item"' + (group.common ? " open" : "") + '><summary><span class="contractor-name">' + escapeHtml(group.name) + '</span><span class="contractor-metrics"><span class="metric-inline"><strong>' + formatNumber(group.entries.length, 0) + '</strong> правил</span><span class="badge ' + (group.common ? "" : "green") + '">' + (group.common ? "Для остальных подрядчиков" : "Особые коэффициенты") + '</span></span></summary><div class="contractor-body"><div class="table-wrap"><table><thead><tr><th>Вид работ</th><th>Договор</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th><th>Документ</th></tr></thead><tbody>' + rows + '</tbody></table></div></div></details>';
       }).join("") + '</div>';
     }
-
+    
     return pageHead(item, button("Обновить регламенты", "refresh", "", 'id="load-regulations"')) +
       '<div class="stack"><div class="grid-3"><div class="stat"><div class="stat-label">Регламентов</div><div class="stat-value">' + (regulations.status === "active" ? formatNumber(entries.length, 0) : "—") + '</div><div class="stat-note">' + formatNumber(common.length, 0) + ' общих</div></div><div class="stat"><div class="stat-label">Подрядчиков</div><div class="stat-value">' + (regulations.status === "active" ? formatNumber(contractorNames.length, 0) : "—") + '</div><div class="stat-note">с особыми коэффициентами</div></div><div class="stat highlight"><div class="stat-label">Покрытие расчёта</div><div class="stat-value">' + (coverage == null ? "—" : formatNumber(coverage, 0) + "%") + '</div><div class="stat-note">после обновления БД КФО</div></div></div>' + editor +
       '<section class="card editable-card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Матрица регламентов</h3><span class="badge ' + statusClass + '">' + statusLabel + '</span></div><p class="card-desc">Источник: ' + sourceLink + '. Общие правила применяются к подрядчикам без персональной записи; персональные правила имеют приоритет.</p></div><div class="card-body">' + matrix + '</div></section></div>';
@@ -2724,11 +2725,11 @@ for (let idx = 0; idx < sources.length; idx++) {
         normalizeParserLabel(searchableKq2).indexOf(aggregationQuery) >= 0 ||
         normalizeParserLabel(entry.erCode).indexOf(aggregationQuery) >= 0;
     }) : entries;
-
+    
     const source = state.config.aggregationSource || DEFAULT_CONFIG.aggregationSource;
     const activeLevel = runtimeConfig && runtimeConfig.aggregationLogic ? runtimeConfig.aggregationLogic.activeLevel : "kq2";
     const priorityText = runtimeConfig && Array.isArray(runtimeConfig.sourcePriority) ? runtimeConfig.sourcePriority.slice().sort(function (a, b) { return b.priority - a.priority; }).map(function (entry) { return entry.source; }).join(" → ") : "kfo → contractPrice → aggregation";
-
+    
     const hierarchy = new Map();
     filteredEntries.forEach(function (entry) {
       const effectiveKq1 = runtimeConfig ? getEffectiveAggregationGroup("kq1", entry.kq1Code, entry.kq1Name, runtimeConfig) : { code: entry.kq1Code, name: entry.kq1Name, corrected: false };
@@ -2741,9 +2742,10 @@ for (let idx = 0; idx < sources.length; idx++) {
       kq1.groups.get(kq2Key).entries.push(entry);
       kq1.count += 1;
     });
-
+    
     const coefficientOverview = (function () {
       const levels = [
+        { key: "kq0", label: "KQ-0" },
         { key: "kq1", label: "KQ-1" },
         { key: "kq2", label: "KQ-2" }
       ];
@@ -2792,21 +2794,21 @@ for (let idx = 0; idx < sources.length; idx++) {
       const kq1Entries = Array.from(kq1.groups.values()).reduce(function (all, group) { return all.concat(group.entries); }, []);
       const kq2Rows = Array.from(kq1.groups.values()).sort(function (a, b) { return a.code.localeCompare(b.code, "ru"); }).map(function (kq2) {
         const erRows = kq2.entries.sort(function (a, b) { return a.erCode.localeCompare(b.erCode, "ru"); }).map(function (entry) {
-          return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong></td><td>' + escapeHtml(entry.erName) + '</td><td>' + escapeHtml(entry.unit) + '</td><td class="num">' + coefficientCell("kq1", entry) + '</td><td class="num">' + coefficientCell("kq2", entry) + '</td><td>' + escapeHtml(entry.status || "Действует") + '</td></tr>';
+          return '<tr><td><strong>' + escapeHtml(entry.erCode) + '</strong></td><td>' + escapeHtml(entry.erName) + '</td><td>' + escapeHtml(entry.unit) + '</td><td>' + escapeHtml(entry.kq0Code) + '</td><td class="num">' + coefficientCell("kq0", entry) + '</td><td class="num">' + coefficientCell("kq1", entry) + '</td><td class="num">' + coefficientCell("kq2", entry) + '</td><td>' + escapeHtml(entry.status || "Действует") + '</td></tr>';
         }).join("");
-        return '<details class="card" style="margin:8px 0"><summary style="cursor:pointer;padding:12px 16px"><span class="badge">Уровень 2 · KQ-2</span> <strong>' + escapeHtml(kq2.code) + '</strong> — ' + escapeHtml(kq2.name) + (kq2.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' ' + groupCoefficientControl("kq2", kq2.code, kq2.entries) + ' <span class="badge">ЕР: ' + kq2.entries.length + '</span></summary><div class="table-wrap"><table><thead><tr><th>Уровень 3 · Шифр ЕР</th><th>Наименование ЕР</th><th>Ед. изм.</th><th class="num">Коэф. KQ-1</th><th class="num">Коэф. KQ-2</th><th>Статус</th></tr></thead><tbody>' + erRows + '</tbody></table></div></details>';
+        return '<details class="card" style="margin:8px 0"><summary style="cursor:pointer;padding:12px 16px"><span class="badge">Уровень 2 · KQ-2</span> <strong>' + escapeHtml(kq2.code) + '</strong> — ' + escapeHtml(kq2.name) + (kq2.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' ' + groupCoefficientControl("kq2", kq2.code, kq2.entries) + ' <span class="badge">ЕР: ' + kq2.entries.length + '</span></summary><div class="table-wrap"><table><thead><tr><th>Уровень 3 · Шифр ЕР</th><th>Наименование ЕР</th><th>Ед. изм.</th><th>KQ-0</th><th class="num">Коэф. KQ-0</th><th class="num">Коэф. KQ-1</th><th class="num">Коэф. KQ-2</th><th>Статус</th></tr></thead><tbody>' + erRows + '</tbody></table></div></details>';
       }).join("");
       return '<details class="card" style="margin:12px 0"><summary style="cursor:pointer;padding:14px 16px"><span class="badge green">Уровень 1 · KQ-1</span> <strong>' + escapeHtml(kq1.code) + '</strong> — ' + escapeHtml(kq1.name) + (kq1.corrected ? ' <span class="badge warning">JSON</span>' : '') + ' ' + groupCoefficientControl("kq1", kq1.code, kq1Entries) + ' <span class="badge">KQ-2: ' + kq1.groups.size + '</span> <span class="badge">ЕР: ' + kq1.count + '</span></summary><div style="padding:0 12px 12px">' + kq2Rows + '</div></details>';
     }).join("");
 
     const searchBlock = '<div class="field"><label for="aggregation-search">Поиск по шифрам</label><div class="form-actions"><input class="input" id="aggregation-search" type="search" placeholder="Введите KQ-1, KQ-2 или Шифр ЕР" value="' + escapeHtml(state.aggregationSearch) + '" />' + (state.aggregationSearch ? button("Очистить", "refresh", "", 'id="clear-aggregation-search"') : '') + '</div><p class="field-note">Поиск выполняется одновременно по кодам KQ-1, KQ-2 и единичных расценок.</p></div>';
-    const editHint = state.editMode ? '<div class="banner">' + icon("sliders") + '<div><strong>Режим редактирования:</strong> нажмите на любой коэффициент KQ-1 или KQ-2 в таблице либо на коэффициент группы в заголовке. Для значений из БД КФО используйте таблицу раздела «БД КФО». Enter сохраняет значение, Esc отменяет, клик вне поля сохраняет. После изменений скачайте обновлённый JSON.</div></div>' : '';
+    const editHint = state.editMode ? '<div class="banner">' + icon("sliders") + '<div><strong>Режим редактирования:</strong> нажмите на любой коэффициент KQ-0, KQ-1 или KQ-2 в таблице либо на коэффициент группы в заголовке. Для значений из БД КФО используйте таблицу раздела «БД КФО». Enter сохраняет значение, Esc отменяет, клик вне поля сохраняет. После изменений скачайте обновлённый JSON.</div></div>' : '';
     const body = entries.length
       ? editHint + searchBlock + '<div class="banner">' + icon("info") + '<div>Уровни скрываются и раскрываются последовательно: KQ-1 → KQ-2 → Шифр ЕР. Найдено ' + filteredEntries.length + ' из ' + entries.length + ' шифров ЕР.</div></div>' + (filteredEntries.length ? coefficientOverview + groupedRows : emptyState("Совпадений не найдено", "Измените запрос: поиск проверяет только коды KQ-1, KQ-2 и Шифр ЕР.", "book"))
       : emptyState("Справочник BOQ не загружен", state.aggregation.message, "book");
-
+    
     const aggregationActions = button("Загрузить справочник BOQ", "upload", "", 'id="load-aggregation"') + (state.editMode && runtimeConfig ? button("Скачать JSON", "download", state.aggregation.parserDirty ? "btn-primary" : "", 'id="download-parser-config"') : "");
-
+    
     return pageHead(item, aggregationActions) +
       '<div class="stack"><div class="banner">' + icon("info") + '<div>Excel читается по правилам внешнего JSON-конфигуратора. Источники изменяются централизованно в административном разделе.</div></div>' +
       '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Подключение справочника BOQ</h3><span class="badge ' + (entries.length ? "green" : "warning") + '">' + (entries.length ? entries.length + " записей" : "Нет данных") + '</span></div><p class="card-desc">Источник из JSON: ' + escapeHtml((runtimeConfig && runtimeConfig.sources && runtimeConfig.sources.aggregation.url) || source.url || "не задан") + '<br>Конфигуратор: ' + escapeHtml(state.config.parserConfigUrl || "не задан") + (state.aggregation.parserVersion ? ' (версия ' + escapeHtml(state.aggregation.parserVersion) + ')' : '') + '<br>Активный уровень: ' + escapeHtml(activeLevel.toUpperCase()) + '; приоритет: ' + escapeHtml(priorityText) + '</p></div><div class="card-body">' + body + '</div></section></div>';
@@ -2828,7 +2830,7 @@ for (let idx = 0; idx < sources.length; idx++) {
     const cfg = state.config || DEFAULT_CONFIG;
     const exportConfig = cfg.export || DEFAULT_CONFIG.export;
     const locked = state.editMode ? "" : '<div class="banner warning">' + icon("lock") + '<div>Включите <strong>режим редактирования</strong> в футере, чтобы изменить настройки.</div></div>';
-
+    
     return pageHead(item, button("Скачать config.json", "download", "btn-primary edit-only", 'id="admin-download"')) +
       '<div class="stack">' + locked +
       '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">Основные параметры</h3><span class="badge green">config.json</span></div><p class="card-desc">Расположение конфигурации, настройки интерфейса и параметры экспортируемого отчёта.</p></div><div class="card-body"><div class="field-grid">' +
@@ -2866,10 +2868,10 @@ for (let idx = 0; idx < sources.length; idx++) {
     let addFormHTML = '';
     if (isEdit) {
         const contractorOptions = allContractorNames.map(function(name) {
-            const hasRates = state.pricing.data[name] &&
+            const hasRates = state.pricing.data[name] && 
                            Object.keys(state.pricing.data[name].contracts || {}).length > 0;
-            return '<option value="' + escapeHtml(name) + '">' +
-                   escapeHtml(name) + (hasRates ? ' ✓' : '') +
+            return '<option value="' + escapeHtml(name) + '">' + 
+                   escapeHtml(name) + (hasRates ? ' ✓' : '') + 
                    '</option>';
         }).join('');
 
@@ -2882,7 +2884,7 @@ for (let idx = 0; idx < sources.length; idx++) {
                         contractorOptions +
                     '</select>' +
                     '<span style="font-size:9px;color:var(--muted-foreground);">' +
-                        'Подрядчиков в справочнике: ' + allContractorNames.length +
+                        'Подрядчиков в справочнике: ' + allContractorNames.length + 
                         ' (✓ - есть расценки)' +
                     '</span>' +
                 '</div>' +
@@ -3808,8 +3810,8 @@ for (let idx = 0; idx < sources.length; idx++) {
 
       // Проверяем наличие подрядчика в справочнике
       const directoryContractors = getContractorNamesFromDirectory();
-      if (!directoryContractors.some(function(name) {
-          return normalizeParserLabel(name) === normalizeParserLabel(contractor);
+      if (!directoryContractors.some(function(name) { 
+          return normalizeParserLabel(name) === normalizeParserLabel(contractor); 
       })) {
           if (!confirm('Подрядчик "' + contractor + '" отсутствует в справочнике. Добавить его как канонического?')) {
               return;
@@ -4289,7 +4291,6 @@ for (let idx = 0; idx < sources.length; idx++) {
       corrections[mapName] = corrections[mapName] || {};
       corrections[mapName][key] = value;
     }
-    coefficientCache.clear();
     state.aggregation.parserDirty = true;
     const downloadButton = document.getElementById("download-parser-config");
     if (downloadButton) downloadButton.classList.add("btn-primary");
