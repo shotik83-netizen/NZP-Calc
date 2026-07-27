@@ -93,7 +93,7 @@
     .report-readiness-content { display: grid; gap: 14px; }
     .readiness-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--primary-faint); }
     .readiness-summary strong { font-size: 13px; }
-    .readiness-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .readiness-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .readiness-item { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; align-items: center; padding: 11px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcfb; }
     .readiness-item.ready { border-color: rgba(40, 150, 114, .25); background: var(--primary-faint); }
     .readiness-item.pending { border-color: rgba(154, 103, 0, .2); background: var(--warning-soft); }
@@ -151,12 +151,13 @@
     .btn:disabled { cursor: not-allowed; opacity: .46; }
     .btn svg { width: 15px; height: 15px; }
 
-    .stack { display: grid; gap: 16px; }
+    .stack { display: grid; gap: 20px; }
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .grid-2 > *, .grid-3 > *, .metric-strip > * { min-width: 0; height: 100%; }
     .card { min-width: 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 1px 2px rgba(20, 40, 32, .02); }
     .card-header { padding: 18px 18px 0; }
-    .card-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .card-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .card-title { margin: 0; font-size: 14px; font-weight: 650; }
     .card-desc { margin: 5px 0 0; color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
     .card-body { padding: 16px 18px 18px; }
@@ -189,7 +190,7 @@
     .source-copy { min-width: 0; flex: 1; }
     .source-name { overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
     .source-meta { overflow: hidden; margin-top: 2px; color: var(--muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-    .source-grid { display: grid; gap: 12px; }
+    .source-grid { display: grid; gap: 16px; }
     .source-card { overflow: hidden; background: #fbfcfb; border: 1px solid var(--border); border-radius: 8px; }
     .source-overview { min-height: 46px; display: grid; grid-template-columns: minmax(90px, 1fr) auto minmax(190px, auto) auto auto; align-items: center; gap: 14px; padding: 9px 12px; }
     .source-overview-name { min-width: 0; overflow: hidden; color: var(--foreground); font-size: 12px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
@@ -238,7 +239,7 @@
     .empty-title { color: #3e4b45; font-size: 12px; font-weight: 650; }
     .empty-note { max-width: 420px; font-size: 11px; line-height: 1.45; }
 
-    .metric-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .metric-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     .stat { padding: 11px 13px; background: #fafcfb; border: 1px solid var(--border); border-radius: 8px; }
     .stat.highlight { background: var(--primary-faint); border-color: rgba(40, 150, 114, .2); }
     .stat-label { color: var(--muted-foreground); font-size: 11px; }
@@ -282,7 +283,7 @@
     .directory-status { min-width: 120px; }
     .directory-suggestion { display: block; margin-top: 4px; color: var(--muted-foreground); font-size: 10px; }
 
-    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .field { display: grid; gap: 6px; }
     .field-wide { grid-column: 1 / -1; }
     .field label { color: #44524c; font-size: 11px; font-weight: 600; }
@@ -388,6 +389,11 @@
 
     /* ===== РАСЦЕНКИ ===== */
     .pricing-tree { display: grid; gap: 2px; }
+    .contract-sync > summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 18px; cursor: pointer; list-style: none; }
+    .contract-sync > summary::-webkit-details-marker { display: none; }
+    .contract-sync > summary::after { content: "Раскрыть"; color: var(--primary-strong); font-size: 10px; font-weight: 700; margin-left: auto; align-self: center; }
+    .contract-sync[open] > summary::after { content: "Скрыть"; }
+    .contract-sync[open] > summary { border-bottom: 1px solid var(--border); }
     .pricing-node .node-header {
       display: flex; align-items: center; gap: 8px;
       padding: 6px 8px; background: transparent;
@@ -415,7 +421,7 @@
 
     .rate-row {
       display: grid;
-      grid-template-columns: 0.4fr 0.5fr 0.9fr 0.5fr 0.6fr 0.6fr 0.5fr auto;
+      grid-template-columns: 0.4fr 0.5fr 0.9fr 0.5fr 0.6fr 0.6fr 0.5fr;
       align-items: center;
       gap: 6px;
       padding: 4px 8px 4px 20px;
@@ -436,7 +442,7 @@
 
     .rate-header {
       display: grid;
-      grid-template-columns: 0.4fr 0.5fr 0.9fr 0.5fr 0.6fr 0.6fr 0.5fr auto;
+      grid-template-columns: 0.4fr 0.5fr 0.9fr 0.5fr 0.6fr 0.6fr 0.5fr;
       gap: 6px;
       padding: 4px 8px 4px 20px;
       font-size: 9px;
@@ -590,6 +596,9 @@
     .comparison-table .rate-name-cell { text-align: left; font-size: 10px; color: var(--muted-foreground); }
     .comparison-table .rate-unit-cell { text-align: center; font-size: 10px; color: var(--muted-foreground); }
     .comparison-table .contractor-header { text-align: center; }
+    .comparison-remove { width: 20px; height: 20px; display: inline-grid; place-items: center; margin-right: 5px; padding: 0; color: var(--muted-foreground); background: transparent; border: 1px solid transparent; border-radius: 50%; font-size: 16px; line-height: 1; vertical-align: middle; cursor: pointer; }
+    .comparison-remove:hover { color: var(--danger); background: var(--danger-soft); border-color: rgba(180, 35, 24, .18); }
+    .contractor-header .comparison-remove { display: grid; margin: 0 auto 3px; }
 
     .search-input-wrap { position: relative; }
     .search-input-wrap .search-results {
@@ -639,8 +648,8 @@
       .field-grid { grid-template-columns: 1fr; }
       .add-form .form-row { grid-template-columns: 1fr 1fr; }
       .add-form .form-details { grid-template-columns: 1fr 1fr 1fr; }
-      .rate-row { grid-template-columns: 0.3fr 0.3fr 0.4fr 0.3fr 0.4fr 0.4fr 0.3fr auto; gap: 4px; font-size: 10px; }
-      .rate-header { grid-template-columns: 0.3fr 0.3fr 0.4fr 0.3fr 0.4fr 0.4fr 0.3fr auto; gap: 4px; font-size: 8px; }
+      .rate-row { grid-template-columns: 0.3fr 0.3fr 0.4fr 0.3fr 0.4fr 0.4fr 0.3fr; gap: 4px; font-size: 10px; }
+      .rate-header { grid-template-columns: 0.3fr 0.3fr 0.4fr 0.3fr 0.4fr 0.4fr 0.3fr; gap: 4px; font-size: 8px; }
       .rate-search-wrap { flex-wrap: wrap; }
       .source-url-edit input { width: 180px; }
     }
@@ -673,16 +682,14 @@
       .contractor-selector { max-height: 150px; }
       .add-form .form-row { grid-template-columns: 1fr; }
       .add-form .form-details { grid-template-columns: 1fr; }
-      .rate-row { grid-template-columns: 0.3fr 0.3fr 0.4fr auto; gap: 4px; }
+      .rate-row { grid-template-columns: 30px minmax(86px, .6fr) minmax(54px, .4fr) minmax(72px, .5fr); gap: 4px; }
       .rate-row .rate-price { display: none; }
       .rate-row .rate-name { display: none; }
-      .rate-row .rate-check { display: none; }
       .rate-row .rate-currency { display: none; }
       .rate-header .h-price { display: none; }
       .rate-header .h-name { display: none; }
-      .rate-header .h-check { display: none; }
       .rate-header .h-currency { display: none; }
-      .rate-header { grid-template-columns: 0.3fr 0.3fr 0.4fr auto; gap: 4px; }
+      .rate-header { grid-template-columns: 30px minmax(86px, .6fr) minmax(54px, .4fr) minmax(72px, .5fr); gap: 4px; }
       .comparison-table { font-size: 10px; }
       .comparison-table th, .comparison-table td { padding: 4px 6px; }
       .source-url-edit input { width: 120px; font-size: 10px; }
@@ -772,11 +779,11 @@
   // =====================================================================
   const MENU = [
     { id: "data-upload", label: "БД КФО", icon: "database", description: "Подключение базы КФО на SharePoint и получение сведений на выбранную дату." },
-    { id: "instructions", label: "Инструкция", icon: "info", description: "Краткий поэтапный порядок работы с приложением — от загрузки исходных данных до формирования отчёта." },
     { id: "coefficients", label: "Регламенты", icon: "sliders", description: "Настройка коэффициентов выполнения по видам работ." },
     { id: "pricing", label: "Расценки", icon: "calculator", description: "Загрузка стоимости работ и привязка расценок к контрагентам." },
     { id: "aggregation", label: "Справочник BOQ", icon: "stop", description: "Объединение детальных видов работ в отчётные группы.", admin: true },
     { id: "report", label: "Отчёт", icon: "clipboard", description: "Месячная динамика выполнения и ручной расчёт стоимости." },
+    { id: "instructions", label: "Инструкция", icon: "info", description: "Краткий поэтапный порядок работы с приложением — от загрузки исходных данных до формирования отчёта." },
     { id: "contractor-directory", label: "Справочник подрядчиков", icon: "users", description: "Акцепт новых наименований и объединение вариантов одного подрядчика без изменения первичных расчётов.", admin: true },
     { id: "admin", label: "Административные настройки", icon: "settings", description: "Источники данных, соответствия колонок и параметры экспорта.", admin: true }
   ];
@@ -1991,21 +1998,34 @@ function contractorNameStem(value) {
     const source = getRegulationsSource();
     if (!source.enabled || !source.url) {
       state.regulations = { status: "inactive", rules: new Map(), entries: [], sourceName: source.name, message: "Источник регламентов не подключён" };
+      if (!quiet) {
+        startProcess(source.name || "Регламенты", "Проверка источника");
+        finishProcess("error", "Источник не подключён", 0, state.regulations.message);
+      }
       if (state.active === "coefficients") renderContent();
       return false;
+    }
+    if (!quiet) {
+      startProcess(source.name || "Регламенты", "Проверка файла");
+      updateProcess("Проверка файла", 10, 0, "Проверяем настройки источника регламентов");
     }
     state.regulations = { status: "loading", rules: new Map(), entries: [], sourceName: source.name, message: "Читаем регламенты…" };
     if (state.active === "coefficients") renderContent();
     try {
       const parserConfig = await fetchParserConfiguration();
-      const parsed = parseRegulationsWorkbook(await fetchWorkbookBuffer(source.url), source, parserConfig);
+      if (!quiet) updateProcess("Загрузка регламентов", 35, 0, "Читаем файл источника");
+      const buffer = await fetchWorkbookBuffer(source.url);
+      if (!quiet) updateProcess("Обработка данных", 70, 0, "Разбираем лист регламентов");
+      const parsed = parseRegulationsWorkbook(buffer, source, parserConfig);
       state.regulations = { status: "active", rules: parsed.rules, entries: parsed.entries, sourceName: source.name, sheetName: parsed.sheetName, message: "Регламенты загружены" };
+      if (!quiet) finishProcess("success", "Завершено", parsed.entries.length, "Регламенты загружены");
       if (!quiet) showToast("Регламенты загружены", "Прочитано записей: " + formatNumber(parsed.entries.length, 0) + ".");
       if (state.kfo.status === "active" && !quiet) showToast("Требуется обновление БД КФО", "Регламенты изменились. Для пересчёта нажмите «Собрать сведения» в разделе БД КФО.");
       if (state.active === "coefficients") renderContent();
       return true;
     } catch (error) {
       state.regulations = { status: "error", rules: new Map(), entries: [], sourceName: source.name, message: error.message || "Не удалось прочитать регламенты" };
+      if (!quiet) finishProcess("error", "Ошибка загрузки", 0, state.regulations.message);
       if (!quiet) showToast("Регламенты не загружены", state.regulations.message);
       if (state.active === "coefficients") renderContent();
       return false;
@@ -2753,7 +2773,8 @@ for (let idx = 0; idx < sources.length; idx++) {
       ["Соберите сведения", "Нажмите «Собрать сведения». Приложение одновременно рассчитает рабочие данные и сводные показатели проекта уровня KQ-1."],
       ["Проверьте регламенты", "В разделе «Регламенты» загрузите коэффициенты и убедитесь, что они покрывают выбранные виды работ."],
       ["Загрузите расценки", "В разделе «Расценки» загрузите источники, привязанные к подрядчику, договору и РДЦ в config.json."],
-      ["Проверьте готовность", "Откройте «Отчёт» и завершите пункты, которые отмечены как требующие действия."],
+      ["Сопоставьте выполнение и расценки", "В разделе «Расценки» раскройте синхронизацию договоров и проверьте, что каждому подрядчику и договору назначен источник, а шифры расценок совпадают с KQ из БД КФО."],
+      ["Проверьте готовность", "Откройте «Отчёт». В карточке сопоставления должно быть указано, что все группы с ненулевым выполнением обеспечены расценками; при ошибке перейдите обратно в «Расценки»."],
       ["Сформируйте результат", "Нажмите «Рассчитать стоимость», проверьте итог и выгрузите отчёт в Excel."]
     ];
     return pageHead(item, "") + '<div class="stack instruction-list">' + steps.map(function(step, index) {
@@ -2913,7 +2934,6 @@ for (let idx = 0; idx < sources.length; idx++) {
       : "";
 
     const kpi = state.kpi;
-    const kpiTypes = new Set((kpi.groups || []).map(function(group) { return normalizeParserLabel(group.kqCode); })).size;
     const kpiRows = (function() {
       const rows = new Map();
       (kpi.groups || []).forEach(function(group) {
@@ -2924,8 +2944,11 @@ for (let idx = 0; idx < sources.length; idx++) {
         row.acceptedSk += Number(group.acceptedSk) || 0;
         row.acceptedId += Number(group.acceptedId) || 0;
       });
-      return Array.from(rows.values()).sort(function(a, b) { return String(a.code).localeCompare(String(b.code), "ru"); });
+      return Array.from(rows.values()).filter(function(row) {
+        return Math.round(Math.abs(row.actualSmr)) > 0 || Math.round(Math.abs(row.acceptedSk)) > 0 || Math.round(Math.abs(row.acceptedId)) > 0;
+      }).sort(function(a, b) { return String(a.code).localeCompare(String(b.code), "ru"); });
     })();
+    const kpiTypes = new Set(kpiRows.map(function(row) { return normalizeParserLabel(row.code); })).size;
     const kpiDetails = kpi.status === "active"
       ? '<details class="kpi-details"><summary>Раскрыть все KQ-1 · ' + formatNumber(kpiRows.length, 0) + ' видов работ</summary><div class="table-wrap"><table><thead><tr><th>KQ-1</th><th>Наименование работ</th><th>Ед.</th><th class="num">Факт СМР</th><th class="num">Принято СК</th><th class="num">Принято ИД</th></tr></thead><tbody>' + kpiRows.map(function(row) { return '<tr><td><strong>' + escapeHtml(row.code) + '</strong></td><td>' + escapeHtml(row.name) + '</td><td>' + escapeHtml(row.unit) + '</td><td class="num">' + formatNumber(row.actualSmr, 0) + '</td><td class="num">' + formatNumber(row.acceptedSk, 0) + '</td><td class="num">' + formatNumber(row.acceptedId, 0) + '</td></tr>'; }).join("") + '</tbody></table></div></details>'
       : '';
@@ -3202,7 +3225,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       items: [
         { label: "БД КФО загружена", ready: kfoReady, detail: kfoReady ? formatNumber(state.kfo.totalRows, 0) + " строк" : state.kfo.message },
         { label: "Источники расценок загружены", ready: pricingReady, detail: pricingReady ? formatNumber(sourceCount, 0) + " доступных расценок" : "Загрузите настроенные источники" },
-        { label: "Выполнено сопоставление данных", ready: matchingReady, detail: formatNumber(matchedGroups, 0) + " из " + formatNumber(requiredGroups.length, 0) + " групп с ненулевым выполнением" },
+        { label: "Сопоставление выполнения и расценок", ready: matchingReady, detail: matchingReady ? "Все " + formatNumber(requiredGroups.length, 0) + " групп обеспечены расценками" : "Откройте «Расценки»: проверьте договоры, источники и совпадение шифров KQ. Сопоставлено " + formatNumber(matchedGroups, 0) + " из " + formatNumber(requiredGroups.length, 0) + " групп" },
         { label: "Все обязательные проверки завершены", ready: complete, detail: complete ? "Расчёт разрешён" : "Расчёт заблокирован" }
       ]
     };
@@ -3300,7 +3323,8 @@ for (let idx = 0; idx < sources.length; idx++) {
     const readyCount = readiness.items.filter(function(entry) { return entry.ready; }).length;
     const checklist = readiness.items.map(function(entry) { return '<div class="readiness-item ' + (entry.ready ? 'ready' : 'pending') + '"><div class="readiness-icon">' + icon(entry.ready ? "check" : "info") + '</div><div><div class="readiness-label">' + escapeHtml(entry.label) + '</div><div class="readiness-detail">' + escapeHtml(entry.detail || (entry.ready ? "Этап выполнен" : "Требуется действие")) + '</div></div></div>'; }).join('');
     const missing = readiness.items.filter(function(entry) { return !entry.ready; }).map(function(entry) { return entry.label; });
-    const blocked = missing.length ? '<div class="banner warning"><div><strong>Расчёт недоступен.</strong> Незавершённые этапы: ' + escapeHtml(missing.join("; ")) + '.</div></div>' : '';
+    const matchingMissing = readiness.items[2] && !readiness.items[2].ready;
+    const blocked = missing.length ? '<div class="banner warning"><div><strong>Расчёт недоступен.</strong> Незавершённые этапы: ' + escapeHtml(missing.join("; ")) + '.</div>' + (matchingMissing ? button("Открыть расценки", "calculator", "banner-action", 'id="open-pricing-from-report"') : '') + '</div>' : '';
     const previewLimit = 500;
     const previewRows = filteredRows.slice(0, previewLimit);
     const rowsHtml = previewRows.map(function(row) { return '<tr><td>' + escapeHtml(row.contractor) + '</td><td>' + escapeHtml(row.code) + '</td><td>' + escapeHtml(row.unit || "—") + '</td><td class="num">' + formatNumber(row.volume, 2) + '</td><td class="num">' + formatNumber(row.price, 2) + '</td><td class="num">' + formatNumber(row.cost, 2) + '</td></tr>'; }).join('');
@@ -3351,7 +3375,7 @@ for (let idx = 0; idx < sources.length; idx++) {
 
     const contractSyncBlock = (function() {
       if (state.kfo.status !== "active") {
-        return '<section class="card"><div class="card-header"><h3 class="card-title">Синхронизация договоров</h3><p class="card-desc">Сначала нажмите «Собрать сведения» в разделе «БД КФО».</p></div></section>';
+        return '<details class="card contract-sync"><summary class="card-header"><div><h3 class="card-title">Синхронизация договоров</h3><p class="card-desc">Сначала нажмите «Собрать сведения» в разделе «БД КФО».</p></div><span class="badge warning">Нет данных</span></summary></details>';
       }
       const byContractor = new Map();
       (state.kfo.rawContractors || []).forEach(function(entry) {
@@ -3370,7 +3394,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         if (ready) synchronized += 1;
         return '<tr><td><strong>' + escapeHtml(row.contractor) + '</strong></td><td>' + escapeHtml(kfoContracts.join(", ") || "—") + '</td><td>' + escapeHtml(configuredContracts.join(", ") || "—") + '</td><td><span class="badge ' + (ready ? "green" : "warning") + '">' + (ready ? "Синхронизировано" : (kfoContracts.length ? "Нет источника расценок" : "Нет договора в БД")) + '</span></td></tr>';
       }).join("");
-      return '<section class="card"><div class="card-header"><div class="card-title-row"><div><h3 class="card-title">Синхронизация договоров</h3><p class="card-desc">Сопоставление договоров из актуальной БД КФО с договорами в источниках расценок.</p></div><span class="badge ' + (synchronized === rows.length ? "green" : "warning") + '">' + synchronized + ' из ' + rows.length + '</span></div></div><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Договор в БД КФО</th><th>Договор в расценках</th><th>Статус</th></tr></thead><tbody>' + body + '</tbody></table></div></div></section>';
+      return '<details class="card contract-sync"><summary class="card-header"><div><h3 class="card-title">Синхронизация договоров</h3><p class="card-desc">Сопоставление договоров из актуальной БД КФО с договорами в источниках расценок. Нажмите, чтобы раскрыть проверку.</p></div><span class="badge ' + (synchronized === rows.length ? "green" : "warning") + '">' + synchronized + ' из ' + rows.length + '</span></summary><div class="card-body"><div class="table-wrap"><table><thead><tr><th>Подрядчик</th><th>Договор в БД КФО</th><th>Договор в расценках</th><th>Статус</th></tr></thead><tbody>' + body + '</tbody></table></div></div></details>';
     })();
 
     let addFormHTML = '';
@@ -3514,7 +3538,6 @@ for (let idx = 0; idx < sources.length; idx++) {
                             '<span class="rate-price">' + formatNumber(rate.basePrice) + '</span>' +
                             '<span class="rate-total">' + formatNumber(rate.totalPrice) + '</span>' +
                             '<span class="rate-currency">' + escapeHtml(rate.currency || "RUB") + '</span>' +
-                            (isEdit ? '<span class="rate-actions">' + button("✕", "trash", "btn-ghost", 'style="min-height:18px;padding:0 4px;font-size:9px;"') + '</span>' : '') +
                             '</div>';
                     }).join('');
 
@@ -3607,6 +3630,7 @@ for (let idx = 0; idx < sources.length; idx++) {
                       '<th style="text-align:center;min-width:50px;">Ед.</th>';
         selectedContractors.forEach(function(entry) {
             headers += '<th class="contractor-header">' + escapeHtml(entry.name) +
+                '<button type="button" class="comparison-remove" data-remove-contractor="' + escapeHtml(entry.name) + '" data-remove-contract="' + escapeHtml(entry.contract) + '" data-remove-rdc="' + escapeHtml(entry.priceCalculation) + '" title="Удалить подрядчика из сравнения" aria-label="Удалить подрядчика ' + escapeHtml(entry.name) + '">×</button>' +
                 '<span class="sub">' + escapeHtml(entry.contract) + ' · ' + escapeHtml(entry.priceCalculation) + '</span></th>';
         });
         if (selectedContractors.length === 2) {
@@ -3616,7 +3640,7 @@ for (let idx = 0; idx < sources.length; idx++) {
         let rows = selectedRates.map(function(rateCode) {
             const rateName = getRateName(rateCode);
             const unit = getRateUnit(rateCode);
-            let row = '<td class="rate-code-cell">' + escapeHtml(rateCode) + '</td>' +
+            let row = '<td class="rate-code-cell"><button type="button" class="comparison-remove" data-remove-rate="' + escapeHtml(rateCode) + '" title="Удалить расценку из сравнения" aria-label="Удалить расценку ' + escapeHtml(rateCode) + '">×</button>' + escapeHtml(rateCode) + '</td>' +
                       '<td class="rate-name-cell">' + escapeHtml(rateName) + '</td>' +
                       '<td class="rate-unit-cell">' + escapeHtml(unit) + '</td>';
 
@@ -3642,48 +3666,8 @@ for (let idx = 0; idx < sources.length; idx++) {
         comparisonTableHTML = '<div class="empty" style="min-height:120px;"><div class="empty-title" style="font-size:12px;">Выберите подрядчиков и расценки для сравнения</div><div class="empty-note">Используйте поиск слева для добавления элементов</div></div>';
     }
 
-    const selectedContractorsHTML = selectedContractors.map(function(entry) {
-        const contracts = getContractorContracts(entry.name);
-        const rdcs = getContractorRDC(entry.name, entry.contract);
-
-        return '<div class="comparison-item" style="flex-wrap:wrap;padding:4px 0;">' +
-            '<input type="checkbox" checked data-remove-contractor="' + escapeHtml(entry.name) + '" data-remove-contract="' + escapeHtml(entry.contract) + '" data-remove-rdc="' + escapeHtml(entry.priceCalculation) + '" style="align-self:flex-start;margin-top:3px;" />' +
-            '<div style="flex:1;min-width:100px;">' +
-                '<div style="font-weight:600;font-size:12px;">' + escapeHtml(entry.name) + '</div>' +
-                '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;">' +
-                    '<select class="input input-sm" style="min-height:24px;width:90px;font-size:10px;" data-comparison-contract="' + escapeHtml(entry.name) + '">' +
-                        contracts.map(function(c) {
-                            return '<option value="' + escapeHtml(c) + '" ' + (c === entry.contract ? 'selected' : '') + '>' + escapeHtml(c) + '</option>';
-                        }).join('') +
-                    '</select>' +
-                    '<select class="input input-sm" style="min-height:24px;width:90px;font-size:10px;" data-comparison-rdc="' + escapeHtml(entry.name) + '">' +
-                        rdcs.map(function(r) {
-                            return '<option value="' + escapeHtml(r) + '" ' + (r === entry.priceCalculation ? 'selected' : '') + '>' + escapeHtml(r) + '</option>';
-                        }).join('') +
-                    '</select>' +
-                '</div>' +
-            '</div>' +
-        '</div>';
-    }).join('');
-
-    const selectedRatesHTML = selectedRates.map(function(rate) {
-        const name = getRateName(rate);
-        return '<div class="comparison-item">' +
-            '<input type="checkbox" checked data-remove-rate="' + escapeHtml(rate) + '" />' +
-            '<span class="item-code">' + escapeHtml(rate) + '</span>' +
-            '<span class="item-name">' + escapeHtml(name) + '</span>' +
-        '</div>';
-    }).join('');
-
-    const primaryRate = selectedRates[0] || "";
-    const primaryControl = primaryRate
-      ? '<div class="banner"><div><strong>Основная сравниваемая расценка:</strong> ' + escapeHtml(primaryRate) + ' — ' + escapeHtml(getRateName(primaryRate)) + '</div>' + button("Удалить", "trash", "btn-danger", 'data-remove-primary-rate="' + escapeHtml(primaryRate) + '"') + '</div>'
-      : '';
     const comparisonHTML =
-        '<div class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">📈 Сравнительный анализ расценок</h3><span class="badge green">' + selectedContractors.length + ' подрядчиков · ' + selectedRates.length + ' расценок</span></div><p class="card-desc">Состав сравнения формируется флажками в основном дереве расценок. Дополнительные фильтры удалены.</p></div><div class="card-body">' +
-        primaryControl +
-        '<div class="grid-2"><section><h4>Выбранные подрядчики</h4>' + (selectedContractorsHTML || '<p class="result-note">Нет выбранных подрядчиков.</p>') + '</section><section><h4>Выбранные расценки</h4>' + (selectedRatesHTML || '<p class="result-note">Нет выбранных расценок.</p>') + '</section></div>' +
-        '<div style="margin-top:12px">' + comparisonTableHTML + '</div></div></div>';
+        '<div class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">📈 Сравнительный анализ расценок</h3><span class="badge green">' + selectedContractors.length + ' подрядчиков · ' + selectedRates.length + ' расценок</span></div><p class="card-desc">Добавляйте элементы флажками в дереве расценок. Удаляйте подрядчика или расценку компактным крестиком непосредственно в таблице сравнения.</p></div><div class="card-body">' + comparisonTableHTML + '</div></div>';
 
     const pricingBlock =
         '<section class="card"><div class="card-header"><div class="card-title-row"><h3 class="card-title">📊 Расценки</h3><span class="badge green">' + allContractorNames.length + ' подрядчиков · ' + allRates.length + ' расценок</span></div><p class="card-desc">Управление расценками: добавление источников, поиск и просмотр структуры.</p></div><div class="card-body">' +
@@ -3724,6 +3708,7 @@ for (let idx = 0; idx < sources.length; idx++) {
       state.process.visible = false;
       renderContent();
     });
+    document.getElementById("open-pricing-from-report")?.addEventListener("click", function() { navigateTo("pricing"); });
 
     // БД КФО - дата среза
     const asOfDate = document.getElementById("as-of-date");
@@ -4085,19 +4070,9 @@ for (let idx = 0; idx < sources.length; idx++) {
     });
 
     // Управление составом сравнения без дополнительных фильтров
-    contentRoot.addEventListener("click", function(e) {
-      const primaryRemove = e.target.closest("[data-remove-primary-rate]");
-      if (primaryRemove && primaryRemove.closest("#content")) {
-        const rate = primaryRemove.getAttribute("data-remove-primary-rate");
-        state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(item) { return item !== rate; });
-        state.configDirty = true;
-        renderContent();
-        showToast("Основная расценка удалена", "Сравнение автоматически перестроено.");
-        return;
-      }
-
-      const removeBtn = e.target.closest("[data-remove-contractor]");
-      if (removeBtn && removeBtn.closest("#content")) {
+    document.querySelectorAll("[data-remove-contractor]").forEach(function(removeBtn) {
+      removeBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
         const name = removeBtn.getAttribute("data-remove-contractor");
         const contract = removeBtn.getAttribute("data-remove-contract");
         const rdc = removeBtn.getAttribute("data-remove-rdc");
@@ -4106,44 +4081,17 @@ for (let idx = 0; idx < sources.length; idx++) {
         });
         state.configDirty = true;
         renderContent();
-      }
+      });
+    });
 
-      const removeRateBtn = e.target.closest("[data-remove-rate]");
-      if (removeRateBtn && removeRateBtn.closest("#content")) {
+    document.querySelectorAll("[data-remove-rate]").forEach(function(removeRateBtn) {
+      removeRateBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
         const rate = removeRateBtn.getAttribute("data-remove-rate");
         state.pricing.comparison.selectedRates = state.pricing.comparison.selectedRates.filter(function(r) { return r !== rate; });
         state.configDirty = true;
         renderContent();
-      }
-    });
-
-    // Изменение договора/РДЦ в сравнении
-    contentRoot.addEventListener("change", function(e) {
-      const select = e.target.closest("[data-comparison-contract]");
-      if (select && select.closest("#content")) {
-        const name = select.getAttribute("data-comparison-contract");
-        const entry = state.pricing.comparison.selectedContractors.find(function(e) { return e.name === name; });
-        if (entry) {
-          entry.contract = select.value;
-          const rdcs = getContractorRDC(name, entry.contract);
-          if (rdcs.length && !rdcs.includes(entry.priceCalculation)) {
-            entry.priceCalculation = rdcs[0];
-          }
-          state.configDirty = true;
-          renderContent();
-        }
-      }
-
-      const rdcSelect = e.target.closest("[data-comparison-rdc]");
-      if (rdcSelect && rdcSelect.closest("#content")) {
-        const name = rdcSelect.getAttribute("data-comparison-rdc");
-        const entry = state.pricing.comparison.selectedContractors.find(function(e) { return e.name === name; });
-        if (entry) {
-          entry.priceCalculation = rdcSelect.value;
-          state.configDirty = true;
-          renderContent();
-        }
-      }
+      });
     });
 
     // Изменение % косвенных
@@ -4801,6 +4749,9 @@ for (let idx = 0; idx < sources.length; idx++) {
   function setEditMode(enabled, quiet) {
     const shouldDownloadConfig = state.editMode && !enabled && state.configDirty;
     state.editMode = Boolean(enabled);
+    if (state.editMode && state.pricing) {
+      state.pricing.expanded = { contractors: {}, contracts: {}, rdcs: {} };
+    }
     if (!state.editMode && (MENU.find(function(item) { return item.id === state.active; }) || {}).admin) {
       state.active = "data-upload";
     }
